@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import * as maplibregl from "maplibre-gl";
+import { maplibregl } from "@/lib/mapa/maplibre";
 import type { FeatureCollection, LineString, Point } from "geojson";
 import { useRastreamento } from "./useRastreamento";
 import { COR_STATUS, ROTULO_STATUS, type Motoboy } from "./tipos";
