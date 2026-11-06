@@ -1,17 +1,22 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { FeatureCollection, LineString, Point } from "geojson";
-import { AlertTriangle, BatteryMedium, Crosshair, FlaskConical, LocateFixed, Map as IconeMapa, Timer } from "lucide-react";
+import { AlertTriangle, BatteryMedium, Bike, Crosshair, Flame, FlaskConical, LocateFixed, Map as IconeMapa, Search, Signpost, Timer } from "lucide-react";
 import { maplibregl } from "@/lib/mapa/maplibre";
 import { useMapa } from "@/lib/mapa/useMapa";
-import { corOuro, resolverCor } from "@/lib/mapa/cores";
+import { useModoRuas, type ModoRuas } from "@/lib/mapa/estabelecimentos";
+import { criarCamadasPercurso, desenharCalor, desenharPercursos, separarRegistros, type Registro } from "@/lib/mapa/percursos";
+import { corOuro } from "@/lib/mapa/cores";
 import { CabecaPagina } from "@/features/ui/CabecaPagina";
-import { useRastreamento } from "./useRastreamento";
-import { COR_STATUS, ROTULO_STATUS, type Motoboy } from "./tipos";
+import { useModoTeste } from "@/features/teste/modoTeste";
 import { useConta } from "@/features/conta/conta";
+import { useRastreamento } from "./useRastreamento";
+import { carregarCalor, ROTULO_CALOR, type TipoCalor } from "./calor";
+import { COR_STATUS, ROTULO_STATUS, type Motoboy } from "./tipos";
 
 const ORDEM: Record<Motoboy["status"], number> = { em_corrida: 0, disponivel: 1, offline: 2 };
+type Filtro = "todos" | Motoboy["status"];
+const FILTROS: [Filtro, string][] = [["todos", "Todos"], ["em_corrida", "Em corrida"], ["disponivel", "Disponíveis"], ["offline", "Offline"]];
 
 /** Tempo máximo sem posição antes de marcar "sem sinal" (3 ciclos do intervalo). */
 function limiteSemSinalMs(m: Motoboy): number {
@@ -28,17 +33,24 @@ function ha(agora: number, iso: string | null): string {
   if (s < 86400) return `há ${Math.floor(s / 3600)} h`;
   return `há ${Math.floor(s / 86400)} d`;
 }
+const horaCurta = (iso: string) => new Date(iso).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
 
 export function MapaAoVivo() {
   const { motoboys, nomes, fotos, trilhas: todasTrilhas, conectado, erro } = useRastreamento();
   const conta = useConta();
-  const trilhas = conta.modulo("trilhas_mapa") ? todasTrilhas : {};
+  const { teste } = useModoTeste();
+  const trilhas = useMemo(() => (conta.modulo("trilhas_mapa") ? todasTrilhas : {}), [conta, todasTrilhas]);
   const container = useRef<HTMLDivElement>(null);
   const { mapa, pronto } = useMapa(container);
   const marcadores = useRef<Record<string, maplibregl.Marker>>({});
   const enquadrado = useRef(false);
   const [seguindo, setSeguindo] = useState<string | null>(null);
   const [agora, setAgora] = useState(() => Date.now());
+  const [filtro, setFiltro] = useState<Filtro>("todos");
+  const [busca, setBusca] = useState("");
+  const [calor, setCalor] = useState<TipoCalor | "">("");
+  const [destaque, setDestaque] = useState<number | null>(null);
+  const [ruas, setRuas] = useModoRuas();
 
   useEffect(() => {
     const t = setInterval(() => setAgora(Date.now()), 1000);
@@ -51,37 +63,34 @@ export function MapaAoVivo() {
     if (!m || !pronto) return;
     marcadores.current = {};
     enquadrado.current = false;
-    m.addSource("trilhas", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
-    m.addSource("pontos", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
-    m.addLayer({ id: "trilhas-contorno", type: "line", source: "trilhas", layout: { "line-cap": "round", "line-join": "round" },
-      paint: { "line-color": "#0a0a0a", "line-width": 7, "line-opacity": 0.5 } });
-    m.addLayer({ id: "trilhas-linha", type: "line", source: "trilhas", layout: { "line-cap": "round", "line-join": "round" },
-      paint: { "line-color": corOuro(), "line-width": 4 } });
-    m.addLayer({ id: "pontos-circulo", type: "circle", source: "pontos",
-      paint: { "circle-radius": 3.5, "circle-color": ["get", "cor"], "circle-stroke-color": "#0a0a0a", "circle-stroke-width": 1 } });
-  }, [mapa, pronto]);
+    criarCamadasPercurso(m, teste);
+  }, [mapa, pronto, teste]);
 
-  // trilhas
+  // registros: de quem está selecionado, todos do período (com pings); dos outros, só o trecho atual
+  const registros = useMemo(() => {
+    const porMotoboy: Record<string, Registro[]> = {};
+    for (const [id, lista] of Object.entries(trilhas)) porMotoboy[id] = separarRegistros(lista);
+    return porMotoboy;
+  }, [trilhas]);
+  useEffect(() => { setDestaque(null); }, [seguindo]);
   useEffect(() => {
     const m = mapa.current;
     if (!m || !pronto) return;
-    const linhas: FeatureCollection<LineString> = { type: "FeatureCollection", features: [] };
-    const pontos: FeatureCollection<Point> = { type: "FeatureCollection", features: [] };
-    for (const [id, lista] of Object.entries(trilhas)) {
-      const porSessao: Record<string, [number, number][]> = {};
-      for (const p of lista) {
-        pontos.features.push({ type: "Feature", properties: { cor: resolverCor(COR_STATUS[p.status]), motoboy: id }, geometry: { type: "Point", coordinates: [p.lng, p.lat] } });
-        if (p.status === "em_corrida") (porSessao[p.sessao_id ?? "sem"] ??= []).push([p.lng, p.lat]);
-      }
-      for (const coords of Object.values(porSessao)) {
-        if (coords.length >= 2) linhas.features.push({ type: "Feature", properties: { motoboy: id }, geometry: { type: "LineString", coordinates: coords } });
-      }
-    }
-    (m.getSource("trilhas") as maplibregl.GeoJSONSource | undefined)?.setData(linhas);
-    (m.getSource("pontos") as maplibregl.GeoJSONSource | undefined)?.setData(pontos);
-  }, [mapa, trilhas, pronto]);
+    if (seguindo) desenharPercursos(m, registros[seguindo] ?? [], teste, destaque, true);
+    else desenharPercursos(m, Object.entries(registros).filter(([id]) => motoboys[id]?.status !== "offline").map(([, rs]) => rs[rs.length - 1]).filter(Boolean), teste, null, false);
+  }, [mapa, pronto, registros, seguindo, destaque, teste, motoboys]);
 
-  // marcadores
+  // mapa de calor
+  useEffect(() => {
+    const m = mapa.current;
+    if (!m || !pronto) return;
+    if (!calor) { desenharCalor(m, null, corOuro()); return; }
+    let vivo = true;
+    carregarCalor(calor, teste).then((p) => { if (vivo && mapa.current) desenharCalor(mapa.current, p, corOuro()); });
+    return () => { vivo = false; };
+  }, [mapa, pronto, calor, teste]);
+
+  // marcadores: alfinete com a foto (ou inicial) e a moto
   useEffect(() => {
     const m = mapa.current;
     if (!m || !pronto) return;
@@ -95,29 +104,33 @@ export function MapaAoVivo() {
       let marcador = marcadores.current[mb.id];
       if (!marcador) {
         const el = document.createElement("button");
-        el.className = "marcador";
+        el.className = "pino";
+        el.innerHTML = `<span class="pino-foto"></span><span class="pino-moto"><svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="18.5" cy="17.5" r="3.5"/><circle cx="5.5" cy="17.5" r="3.5"/><circle cx="15" cy="5" r="1"/><path d="M12 17.5V14l-3-3 4-3 2 3h2"/></svg></span><span class="pino-nome"></span>`;
         el.addEventListener("click", () => setSeguindo((s) => (s === mb.id ? null : mb.id)));
-        marcador = new maplibregl.Marker({ element: el }).setLngLat([mb.lng, mb.lat]).addTo(m);
+        marcador = new maplibregl.Marker({ element: el, anchor: "bottom" }).setLngLat([mb.lng, mb.lat]).addTo(m);
         marcadores.current[mb.id] = marcador;
       }
       const el = marcador.getElement();
       const foto = fotos[mb.id];
-      el.textContent = foto ? "" : nome.trim().charAt(0).toUpperCase();
-      el.style.backgroundImage = foto ? `url("${foto}")` : "";
-      el.classList.toggle("com-foto", Boolean(foto));
+      const caixa = el.querySelector<HTMLElement>(".pino-foto")!;
+      caixa.textContent = foto ? "" : nome.trim().charAt(0).toUpperCase();
+      caixa.style.backgroundImage = foto ? `url("${foto}")` : "";
+      el.querySelector<HTMLElement>(".pino-nome")!.textContent = nome.split(" ")[0];
       el.title = `${nome} · ${ROTULO_STATUS[mb.status]}`;
       el.style.setProperty("--cor", COR_STATUS[mb.status]);
       el.dataset.status = mb.status;
+      el.classList.toggle("seguindo", seguindo === mb.id);
+      el.classList.toggle("escondido", filtro !== "todos" && mb.status !== filtro);
       marcador.setLngLat([mb.lng, mb.lat]);
     }
     for (const id of Object.keys(marcadores.current)) {
       if (!vistos.has(id)) { marcadores.current[id].remove(); delete marcadores.current[id]; }
     }
     if (!enquadrado.current && !limites.isEmpty()) {
-      m.fitBounds(limites, { padding: { top: 80, bottom: 80, left: 420, right: 80 }, maxZoom: 15, duration: 0 });
+      m.fitBounds(limites, { padding: { top: 80, bottom: 80, left: window.innerWidth > 860 ? 420 : 40, right: 80 }, maxZoom: 15, duration: 0 });
       enquadrado.current = true;
     }
-  }, [mapa, motoboys, nomes, fotos, pronto]);
+  }, [mapa, motoboys, nomes, fotos, pronto, seguindo, filtro]);
 
   // seguir motoboy
   const alvo = seguindo ? motoboys[seguindo] : null;
@@ -126,45 +139,87 @@ export function MapaAoVivo() {
     mapa.current?.easeTo({ center: [alvo.lng, alvo.lat], zoom: Math.max(mapa.current.getZoom(), 15), duration: 800 });
   }, [mapa, alvo?.lat, alvo?.lng, alvo]);
 
-  const lista = useMemo(
+  const todos = useMemo(
     () => Object.values(motoboys).sort((a, b) => ORDEM[a.status] - ORDEM[b.status] || (nomes[a.id] ?? "").localeCompare(nomes[b.id] ?? "")),
     [motoboys, nomes],
   );
-  const ativos = lista.filter((m) => m.status !== "offline").length;
+  const contagem = (s: Filtro) => (s === "todos" ? todos.length : todos.filter((m) => m.status === s).length);
+  const termo = busca.trim().toLowerCase();
+  const lista = todos.filter((m) => (filtro === "todos" || m.status === filtro) && (!termo || (nomes[m.id] ?? "").toLowerCase().includes(termo)));
+  const ativos = todos.filter((m) => m.status !== "offline").length;
+  const regsSeguindo = seguindo ? registros[seguindo] ?? [] : [];
 
   return (
     <>
       <aside className="lateral entrar">
-        <CabecaPagina icone={IconeMapa} titulo="Mapa" subtitulo={`${ativos} em serviço · ${lista.length} motoboy${lista.length === 1 ? "" : "s"}`} />
+        <CabecaPagina icone={IconeMapa} titulo="Mapa" subtitulo={`${ativos} em serviço · ${todos.length} motoboy${todos.length === 1 ? "" : "s"}`} />
         <span className={`conexao ${conectado ? "on" : ""}`}>{conectado ? "Tempo real conectado" : "Conectando…"}</span>
         {erro && <p className="erro">{erro}</p>}
-        {lista.length === 0 && !erro && <p className="vazio">Nenhum motoboy ainda. Abra o app no celular e fique &quot;Disponível&quot;.</p>}
+
+        <div className="camadas-mapa">
+          <label className="camada-sel"><Flame size={14} aria-hidden />
+            <select value={calor} onChange={(e) => setCalor(e.target.value as TipoCalor | "")} aria-label="Mapa de calor">
+              <option value="">Sem mapa de calor</option>
+              {(Object.keys(ROTULO_CALOR) as TipoCalor[]).map((k) => <option key={k} value={k}>Calor: {ROTULO_CALOR[k]}</option>)}
+            </select>
+          </label>
+          <label className="camada-sel"><Signpost size={14} aria-hidden />
+            <select value={ruas} onChange={(e) => setRuas(e.target.value as ModoRuas)} aria-label="Nomes de rua">
+              <option value="rua">Ruas: nome na rua</option>
+              <option value="placa">Ruas: em placas</option>
+              <option value="oculta">Ruas: ocultar nomes</option>
+            </select>
+          </label>
+        </div>
+
+        <div className="filtro filtro-rolavel">
+          {FILTROS.map(([f, r]) => (
+            <button key={f} className={filtro === f ? "ativo" : ""} onClick={() => setFiltro(f)}>{r} <span className="contagem">{contagem(f)}</span></button>
+          ))}
+        </div>
+        {todos.length > 6 && (
+          <label className="busca-mini"><Search size={14} aria-hidden /><input placeholder="Buscar motoboy" value={busca} onChange={(e) => setBusca(e.target.value)} /></label>
+        )}
+        {todos.length === 0 && !erro && <p className="vazio">Nenhum motoboy ainda. Abra o app no celular e fique &quot;Disponível&quot;.</p>}
         {lista.map((mb) => {
           const semSinal = mb.status !== "offline" && (!mb.posicao_em || agora - new Date(mb.posicao_em).getTime() > limiteSemSinalMs(mb));
+          const sel = seguindo === mb.id;
           return (
-            <button key={mb.id} className={`cartao-motoboy ${seguindo === mb.id ? "selecionado" : ""}`} onClick={() => setSeguindo((s) => (s === mb.id ? null : mb.id))}>
-              <div className="linha">
+            <div key={mb.id} className={`linha-motoboy ${sel ? "selecionado" : ""}`}>
+              <button className="linha-motoboy-topo" onClick={() => setSeguindo((s) => (s === mb.id ? null : mb.id))}>
                 {fotos[mb.id]
                   // eslint-disable-next-line @next/next/no-img-element
                   ? <img src={fotos[mb.id]} alt="" className="foto-mini" style={{ borderColor: COR_STATUS[mb.status] }} />
-                  : <span className="ponto" style={{ background: COR_STATUS[mb.status] }} />}
-                <strong>{nomes[mb.id] || "Motoboy"}</strong>
-                {mb.modo_teste && <span className="selo" style={{ color: "#a78bfa" }}><FlaskConical size={11} aria-hidden /> teste</span>}
-                <span className="espaco" />
+                  : <span className="foto-mini inicial" style={{ borderColor: COR_STATUS[mb.status] }}>{(nomes[mb.id] || "M").charAt(0)}</span>}
+                <span className="linha-motoboy-texto">
+                  <strong>{nomes[mb.id] || "Motoboy"}{mb.modo_teste && <FlaskConical size={12} aria-label="teste" style={{ color: "#a78bfa", marginLeft: 5 }} />}</strong>
+                  <span><Timer size={11} aria-hidden /> {ha(agora, mb.posicao_em)}
+                    {mb.precisao_m != null && <> · <Crosshair size={11} aria-hidden /> ±{Math.round(mb.precisao_m)} m</>}
+                    {mb.bateria != null && <> · <BatteryMedium size={11} aria-hidden /> {mb.bateria}%</>}</span>
+                </span>
                 <span className="selo" style={{ color: COR_STATUS[mb.status] }}>{ROTULO_STATUS[mb.status]}</span>
-              </div>
-              <div className="detalhes">
-                <span><Timer size={12} aria-hidden /> {ha(agora, mb.posicao_em)}</span>
-                {mb.precisao_m != null && <span><Crosshair size={12} aria-hidden /> ± {Math.round(mb.precisao_m)} m</span>}
-                {mb.bateria != null && <span><BatteryMedium size={12} aria-hidden /> {mb.bateria}%</span>}
-                {mb.modo_economia && mb.status === "em_corrida" && <span>Economia</span>}
-                <span>{(trilhas[mb.id] ?? []).length} pontos (12 h)</span>
-              </div>
+              </button>
               {semSinal && <div className="alerta"><AlertTriangle size={13} aria-hidden /> Sem sinal recente</div>}
-              {seguindo === mb.id && <div className="seguindo"><LocateFixed size={13} aria-hidden /> Seguindo no mapa · clique para soltar</div>}
-            </button>
+              {sel && (
+                <div className="registros">
+                  <span className="seguindo"><LocateFixed size={13} aria-hidden /> Seguindo no mapa · clique de novo para soltar</span>
+                  {regsSeguindo.length === 0 ? <span className="dica">Sem percursos nas últimas 12 h.</span> : regsSeguindo.map((r, i) => (
+                    <button key={i} className={`registro ${destaque === i ? "ativo" : ""}`} onClick={() => setDestaque((d) => (d === i ? null : i))}>
+                      {r.tipo === "corrida" ? <Bike size={13} aria-hidden /> : <Search size={13} aria-hidden />}
+                      <span>{r.tipo === "corrida" ? "Corrida" : "Procurando corrida"}</span>
+                      <span className="dica">{horaCurta(r.inicio)}–{horaCurta(r.fim)} · {r.pontos.length} pings</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           );
         })}
+        {seguindo && (
+          <div className="legenda-percurso">
+            <span>Início</span><span className={`degrade ${teste ? "teste" : ""}`} /><span>Agora</span>
+          </div>
+        )}
       </aside>
       <div ref={container} className="mapa" />
     </>

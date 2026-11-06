@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AlertTriangle, Building2, CheckCircle2, MapPin, Plus, Save, Search, Star, Trash2, Wallet } from "lucide-react";
+import { AlertTriangle, Building2, CalendarClock, CheckCircle2, CreditCard, KeyRound, MapPin, Plus, Save, Search, Star, Trash2, UserPlus, UserRound, Wallet } from "lucide-react";
+import { toast } from "@/features/ui/toast";
+import { useConfiguracoes } from "@/features/configuracoes/useConfiguracoes";
 import { supabase } from "@/lib/supabase/client";
 import { geo } from "@/features/geo";
 import { useEmpresas, useEquipe } from "@/features/corridas/dados";
@@ -30,6 +32,12 @@ interface Formulario {
   observacoes: string;
   favoritos: string[]; // ordem de prioridade
   dados_receita: unknown | null;
+  tipo: "pj" | "pf";
+  cpf: string;
+  pode_express: boolean;
+  repasse_pct: string;
+  dev_pct: string;
+  metodos: string[];
 }
 
 const vazio: Formulario = {
@@ -37,7 +45,19 @@ const vazio: Formulario = {
   endereco: "", lat: null, lng: null, instrucoes_coleta: "",
   modalidade_preco: "por_km", valor_km: String(VALOR_KM_PADRAO), valor_fixo: "", cliente_ve_ao_vivo: false,
   observacoes: "", favoritos: [], dados_receita: null,
+  tipo: "pj", cpf: "", pode_express: false, repasse_pct: "", dev_pct: "", metodos: ["pix", "cartao"],
 };
+
+function formatarCpf(s: string) {
+  const d = s.replace(/\D/g, "").slice(0, 11);
+  return d.replace(/^(\d{3})(\d)/, "$1.$2").replace(/^(\d{3})\.(\d{3})(\d)/, "$1.$2.$3").replace(/\.(\d{3})(\d)/, ".$1-$2");
+}
+function cpfValido(s: string) {
+  const d = s.replace(/\D/g, "");
+  if (d.length !== 11 || /^(\d)\1+$/.test(d)) return false;
+  const dig = (n: number) => { let t = 0; for (let i = 0; i < n; i++) t += Number(d[i]) * (n + 1 - i); const r = (t * 10) % 11; return r === 10 ? 0 : r; };
+  return dig(9) === Number(d[9]) && dig(10) === Number(d[10]);
+}
 
 const numero = (s: string) => (s.trim() === "" ? null : Number(s.replace(",", ".")));
 const soDigitos = (s: string) => s.replace(/\D/g, "");
@@ -58,7 +78,51 @@ function textoEndereco(e: DadosCnpj["endereco"]) {
   return [rua, local].filter(Boolean).join(", ");
 }
 
+/** Contas de acesso do cliente (entram no painel do cliente com e-mail e senha). */
+function AcessosCliente({ empresaId, nome }: { empresaId: string; nome: string }) {
+  const [contas, setContas] = useState<{ id: string; nome: string }[]>([]);
+  const [email, setEmail] = useState("");
+  const [senha, setSenha] = useState(() => Math.random().toString(36).slice(2, 6) + "-" + Math.random().toString(36).slice(2, 6) + "-" + Math.floor(10 + Math.random() * 89));
+  const [criada, setCriada] = useState<string | null>(null);
+  const [erro, setErro] = useState<string | null>(null);
+  const carregar = async () => {
+    const { data } = await supabase().from("perfis").select("id,nome").eq("empresa_id", empresaId);
+    setContas((data ?? []) as { id: string; nome: string }[]);
+  };
+  useEffect(() => { carregar(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [empresaId]);
+  async function criar() {
+    setErro(null);
+    const sb = supabase();
+    const { data: s } = await sb.auth.getSession();
+    const r = await fetch("/api/equipe/criar", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${s.session?.access_token ?? ""}` },
+      body: JSON.stringify({ nome, email, senha, papeis: ["cliente"], empresa_id: empresaId }) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) return setErro(j.erro === "email_existe" ? "Esse e-mail já tem conta." : j.erro === "senha_curta" ? "Senha com pelo menos 8 caracteres." : j.erro === "email_invalido" ? "E-mail inválido." : `Não deu certo (${j.erro ?? r.status}).`);
+    setCriada(`PW Express · pwexpress.vercel.app/cliente\nE-mail: ${email.trim().toLowerCase()}\nSenha: ${senha}`);
+    toast("O cliente já pode entrar e fazer pedidos.", "ok", { titulo: "Acesso criado" });
+    setEmail("");
+    carregar();
+  }
+  return (
+    <section className="secao">
+      <div className="secao-titulo"><span className="cabeca-icone grad-suave" style={{ width: 34, height: 34, borderRadius: 11 }}><KeyRound size={17} /></span>
+        <div><h3>Acesso do cliente</h3><p className="dica">Com o acesso, o cliente faz pedidos, paga e acompanha pelo site.</p></div></div>
+      {contas.length > 0 && <p className="dica">Contas: {contas.map((c) => c.nome).join(", ")}</p>}
+      <div className="grade-2">
+        <label className="campo"><span>E-mail do cliente</span><input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="cliente@email.com" /></label>
+        <label className="campo"><span>Senha inicial</span><input value={senha} onChange={(e) => setSenha(e.target.value)} /></label>
+      </div>
+      {erro && <p className="erro">{erro}</p>}
+      {criada && <pre className="acesso-criado">{criada}</pre>}
+      <button className="botao-texto" onClick={criar} disabled={!email.trim()}><UserPlus size={15} aria-hidden /> Criar acesso</button>
+    </section>
+  );
+}
+
 export function PainelEmpresas() {
+  const cfgGeral = useConfiguracoes() as unknown as Record<string, unknown>;
+  const cfgRepasse = Number(cfgGeral.repasse_motoboy_pct ?? 67.5);
+  const cfgDev = Number(cfgGeral.dev_pct ?? 5);
   const { empresas, favoritos, recarregar } = useEmpresas();
   const equipe = useEquipe();
   const [selecionada, setSelecionada] = useState<string | "nova" | null>(null);
@@ -82,6 +146,9 @@ export function PainelEmpresas() {
       cliente_ve_ao_vivo: e.cliente_ve_ao_vivo, observacoes: e.observacoes ?? "",
       favoritos: favoritos.filter((f) => f.empresa_id === e.id).sort((a, b) => a.ordem - b.ordem).map((f) => f.motoboy_id),
       dados_receita: null,
+      tipo: e.tipo === "pf" ? "pf" : "pj", cpf: e.cpf ? formatarCpf(e.cpf) : "", pode_express: Boolean(e.pode_express),
+      repasse_pct: e.repasse_pct != null ? String(e.repasse_pct) : "", dev_pct: e.dev_pct != null ? String(e.dev_pct) : "",
+      metodos: e.pagamento_metodos ?? ["pix", "cartao"],
     });
     setMsg(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -138,12 +205,20 @@ export function PainelEmpresas() {
   async function salvar() {
     setMsg(null);
     if (!form.nome.trim()) return setMsg({ tipo: "erro", texto: "Informe o nome." });
-    if (form.cnpj && soDigitos(form.cnpj).length !== 14) return setMsg({ tipo: "erro", texto: "CNPJ deve ter 14 dígitos." });
+    if (form.tipo === "pj" && form.cnpj && soDigitos(form.cnpj).length !== 14) return setMsg({ tipo: "erro", texto: "CNPJ deve ter 14 dígitos." });
+    if (form.tipo === "pf" && form.cpf && !cpfValido(form.cpf)) return setMsg({ tipo: "erro", texto: "CPF inválido." });
+    if (form.metodos.length === 0) return setMsg({ tipo: "erro", texto: "Escolha pelo menos um meio de pagamento." });
     setSalvando(true);
     const sb = supabase();
     const linha: Record<string, unknown> = {
       nome: form.nome.trim(),
-      cnpj: form.cnpj ? soDigitos(form.cnpj) : null,
+      tipo: form.tipo,
+      cnpj: form.tipo === "pj" && form.cnpj ? soDigitos(form.cnpj) : null,
+      cpf: form.tipo === "pf" && form.cpf ? soDigitos(form.cpf) : null,
+      pode_express: form.pode_express,
+      repasse_pct: numero(form.repasse_pct),
+      dev_pct: numero(form.dev_pct),
+      pagamento_metodos: form.metodos,
       razao_social: form.razao_social || null,
       nome_fantasia: form.nome_fantasia || null,
       situacao: form.situacao || null,
@@ -194,8 +269,8 @@ export function PainelEmpresas() {
   return (
     <>
       <aside className="lateral entrar">
-        <CabecaPagina icone={Building2} titulo="Empresas" subtitulo={empresas.length === 1 ? "1 cliente cadastrado" : `${empresas.length} clientes cadastrados`} />
-        <button className="botao-ouro" onClick={() => setSelecionada("nova")}><Plus size={17} aria-hidden /> Nova empresa</button>
+        <CabecaPagina icone={Building2} titulo="Clientes" subtitulo={empresas.length === 1 ? "1 cliente cadastrado" : `${empresas.length} clientes cadastrados`} />
+        <button className="botao-ouro" onClick={() => setSelecionada("nova")}><Plus size={17} aria-hidden /> Novo cliente</button>
         {empresas.map((e) => (
           <button key={e.id} className={`cartao-motoboy ${selecionada === e.id ? "selecionado" : ""}`} onClick={() => setSelecionada(e.id)}>
             <div className="linha">
@@ -204,7 +279,8 @@ export function PainelEmpresas() {
               <span className="selo" style={{ color: "var(--ouro)" }}>{descricaoPreco(e)}</span>
             </div>
             <div className="detalhes">
-              {e.cnpj && <span>{formatarCnpj(e.cnpj)}</span>}
+              <span>{e.tipo === "pf" ? <><UserRound size={12} aria-hidden /> {e.cpf ? formatarCpf(e.cpf) : "Pessoa física"}</> : e.cnpj ? formatarCnpj(e.cnpj) : "Empresa"}</span>
+              {!e.pode_express && <span><CalendarClock size={12} aria-hidden /> só agendado</span>}
               <span><Star size={12} aria-hidden /> {favoritos.filter((f) => f.empresa_id === e.id).length}</span>
               {e.lat != null && <span><MapPin size={12} aria-hidden /> coleta padrão</span>}
               {e.situacao && e.situacao !== "ATIVA" && <span style={{ color: "var(--vermelho)" }}><AlertTriangle size={12} aria-hidden /> {e.situacao}</span>}
@@ -215,14 +291,22 @@ export function PainelEmpresas() {
 
       <main className="conteudo">
         {selecionada === null ? (
-          <div className="formulario vidro entrar"><p className="vazio">Selecione uma empresa ou crie uma nova.</p></div>
+          <div className="formulario vidro entrar"><p className="vazio">Selecione um cliente ou cadastre um novo.</p></div>
         ) : (
           <div className="formulario vidro entrar" key={selecionada}>
-            <h2 className="display">{selecionada === "nova" ? "Nova empresa" : form.nome}</h2>
+            <h2 className="display">{selecionada === "nova" ? "Novo cliente" : form.nome}</h2>
 
             <section className="secao">
               <div className="secao-titulo"><span className="cabeca-icone grad-suave" style={{ width: 34, height: 34, borderRadius: 11 }}><Search size={17} /></span><h3>Identificação</h3></div>
-              <div className="grade-2">
+              <div className="segmentado" style={{ gridTemplateColumns: "1fr 1fr" }}>
+                <button type="button" className={form.tipo === "pj" ? "ativo" : ""} onClick={() => set({ tipo: "pj" })}><Building2 size={15} aria-hidden /> Empresa (CNPJ)</button>
+                <button type="button" className={form.tipo === "pf" ? "ativo" : ""} onClick={() => set({ tipo: "pf" })}><UserRound size={15} aria-hidden /> Pessoa (CPF)</button>
+              </div>
+              {form.tipo === "pf" && (
+                <label className="campo curto"><span>CPF</span>
+                  <input value={form.cpf} placeholder="000.000.000-00" inputMode="numeric" onChange={(e) => set({ cpf: formatarCpf(e.target.value) })} /></label>
+              )}
+              {form.tipo === "pj" && <div className="grade-2">
                 <label className="campo"><span>CNPJ</span>
                   <input value={form.cnpj} placeholder="00.000.000/0000-00" onChange={(e) => set({ cnpj: formatarCnpj(e.target.value) })} /></label>
                 <div className="campo"><span>&nbsp;</span>
@@ -230,7 +314,7 @@ export function PainelEmpresas() {
                     <Search size={15} aria-hidden /> {consultando ? "Consultando…" : "Consultar na Receita"}
                   </button>
                 </div>
-              </div>
+              </div>}
               {form.razao_social && (
                 <div className={`bloco ${inativa ? "alerta-bloco" : ""}`}>
                   <strong>{form.razao_social}</strong>
@@ -294,6 +378,27 @@ export function PainelEmpresas() {
               <label className="opcao"><span>Cliente pode acompanhar o motoboy ao vivo</span>
                 <input type="checkbox" checked={form.cliente_ve_ao_vivo} onChange={(e) => set({ cliente_ve_ao_vivo: e.target.checked })} /></label>
             </section>
+
+            <section className="secao">
+              <div className="secao-titulo"><span className="cabeca-icone grad-suave" style={{ width: 34, height: 34, borderRadius: 11 }}><CreditCard size={17} /></span>
+                <div><h3>Pedidos e pagamento</h3><p className="dica">Pedido do cliente só é despachado depois de pago. Não há pagamento em dinheiro nem na entrega.</p></div></div>
+              <label className="opcao"><span><strong>Pode pedir Express</strong><br /><span className="dica">{form.pode_express ? "Pede para agora ou agenda." : "Só pedidos agendados (padrão para cliente novo)."}</span></span>
+                <input type="checkbox" role="switch" checked={form.pode_express} onChange={(e) => set({ pode_express: e.target.checked })} /></label>
+              <div className="checks">
+                {[["pix", "PIX"], ["cartao", "Cartão"]].map(([k, r]) => (
+                  <label key={k}><input type="checkbox" checked={form.metodos.includes(k)} onChange={(e) => set({ metodos: e.target.checked ? [...form.metodos, k] : form.metodos.filter((x) => x !== k) })} /> {r}</label>
+                ))}
+              </div>
+              <div className="grade-2">
+                <label className="campo curto"><span>Motoboy (%) neste cliente</span>
+                  <input inputMode="decimal" placeholder={`padrão: ${cfgRepasse}%`} value={form.repasse_pct} onChange={(e) => set({ repasse_pct: e.target.value })} /></label>
+                <label className="campo curto"><span>Dev (%) neste cliente</span>
+                  <input inputMode="decimal" placeholder={`padrão: ${cfgDev}%`} value={form.dev_pct} onChange={(e) => set({ dev_pct: e.target.value })} /></label>
+              </div>
+              <p className="dica">A gestão fica com o restante. Vazio = usa o padrão das Configurações.</p>
+            </section>
+
+            {selecionada !== "nova" && <AcessosCliente empresaId={selecionada} nome={form.nome} />}
 
             <section className="secao">
               <div className="secao-titulo"><span className="cabeca-icone grad-suave" style={{ width: 34, height: 34, borderRadius: 11 }}><Star size={17} /></span>

@@ -24,3 +24,24 @@ export function useEstabelecimentos(): [boolean, (v: boolean) => void] {
   const v = useSyncExternalStore(aoMudarEstabelecimentos, estabelecimentosVisiveis, () => true);
   return [v, definirEstabelecimentos];
 }
+
+// ------------------------------------------------------------------ nomes de rua
+/** Como mostrar os nomes das ruas: escritos na própria rua, em placas, ou ocultos. */
+export type ModoRuas = "rua" | "placa" | "oculta";
+const CHAVE_RUAS = "pwex-ruas";
+const ouvintesRuas = new Set<() => void>();
+export function modoRuas(): ModoRuas {
+  try { return (localStorage.getItem(CHAVE_RUAS) as ModoRuas) || "rua"; } catch { return "rua"; }
+}
+export function definirModoRuas(v: ModoRuas) {
+  try { localStorage.setItem(CHAVE_RUAS, v); } catch {}
+  ouvintesRuas.forEach((f) => f());
+}
+export function aoMudarRuas(f: () => void) {
+  ouvintesRuas.add(f);
+  return () => { ouvintesRuas.delete(f); };
+}
+export function useModoRuas(): [ModoRuas, (v: ModoRuas) => void] {
+  const v = useSyncExternalStore(aoMudarRuas, modoRuas, () => "rua" as ModoRuas);
+  return [v, definirModoRuas];
+}

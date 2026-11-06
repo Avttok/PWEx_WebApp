@@ -21,6 +21,8 @@ export interface Referencia {
   lng?: number | null;
   distancia_m?: number | null;
   tipo?: string | null;
+  /** Posição em relação ao destino, só quando há confiança ("Do outro lado da rua de…", "À esquerda de…"). */
+  relacao?: string | null;
 }
 
 export interface ProvedorGeo {

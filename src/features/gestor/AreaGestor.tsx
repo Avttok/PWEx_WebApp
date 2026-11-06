@@ -23,7 +23,7 @@ export const useSessaoGestor = () => useContext(ContextoSessao);
 const ABAS = [
   { href: "/gestor/mapa", rotulo: "Mapa", icone: Map },
   { href: "/gestor/corridas", rotulo: "Corridas", icone: Route },
-  { href: "/gestor/empresas", rotulo: "Empresas", icone: Building2 },
+  { href: "/gestor/clientes", rotulo: "Clientes", icone: Building2 },
   { href: "/gestor/equipe", rotulo: "Equipe", icone: Users },
   { href: "/gestor/carteira", rotulo: "Carteira", icone: Wallet },
   { href: "/gestor/configuracoes", rotulo: "Configurações", icone: Settings2 },
@@ -63,6 +63,8 @@ export function AreaGestor({ children }: { children: ReactNode }) {
       setNome(d?.nome ?? "");
       setFoto(d?.foto_url ?? null);
       if (s.user.email) contas.atualizarPerfil(s.user.email, d?.nome ?? null, d?.foto_url ?? null);
+      // conta só de cliente: vai para a área de pedidos
+      if (data !== true && (d?.papeis ?? []).includes("cliente")) { window.location.replace("/cliente"); return; }
       setAcesso(data === true ? "gestor" : "negado");
     }
     sb.auth.getSession().then(({ data }) => verificar(data.session));

@@ -1,5 +1,6 @@
-import { PainelEmpresas } from "@/features/empresas/PainelEmpresas";
+import { redirect } from "next/navigation";
 
-export default function PaginaEmpresas() {
-  return <PainelEmpresas />;
+/** "Empresas" agora se chama Clientes (pessoa física ou jurídica). */
+export default function Pagina() {
+  redirect("/gestor/clientes");
 }

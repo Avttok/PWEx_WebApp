@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, FlaskConical, Landmark, MapPinned, Route, Trash2, XCircle } from "lucide-react";
+import { ArrowLeft, CheckCircle2, FlaskConical, Landmark, MapPinned, Route, Trash2, XCircle } from "lucide-react";
 import { ExcluirCorridas } from "./ExcluirCorridas";
 import { CabecaPagina } from "@/features/ui/CabecaPagina";
 import { supabase } from "@/lib/supabase/client";
@@ -12,6 +12,7 @@ import { nomeCliente, traduzirErro, useEmpresas, useEquipe } from "./dados";
 import { GestaoPlanejada } from "./GestaoPlanejada";
 import { useConfiguracoes } from "@/features/configuracoes/useConfiguracoes";
 import { useConta } from "@/features/conta/conta";
+import { toast } from "@/features/ui/toast";
 import {
   COR_CORRIDA, ROTULO_CORRIDA, ROTULO_PARADA, formatarDuracao, formatarKm, hora, numeroCorrida,
   type Corrida, type Evento, type Oferta,
@@ -116,6 +117,12 @@ export function DetalheCorrida({ corrida, oferta, onVoltar, onExcluida }: { corr
     [corrida.paradas],
   );
 
+  async function confirmarPagamento() {
+    const { error } = await supabase().rpc("confirmar_pagamento", { p_corrida: corrida.id, p_metodo: corrida.pagamento_metodo ?? null });
+    if (error) return toast(error.message.includes("nao_aguarda") ? "Essa corrida não está aguardando pagamento." : error.message, "erro");
+    toast(corrida.agendada_para ? "Pago. A corrida planejada já aparece para os motoboys." : "Pago. A corrida foi para o despacho.", "ok", { titulo: "Pagamento confirmado" });
+  }
+
   async function cancelar() {
     if (!confirm(`Cancelar a corrida ${numeroCorrida(corrida)}?`)) return;
     const { error } = await supabase().rpc("cancelar_corrida", { p_corrida: corrida.id, p_motivo: "Cancelada pelo gestor" });
@@ -173,6 +180,14 @@ export function DetalheCorrida({ corrida, oferta, onVoltar, onExcluida }: { corr
             <div className="numeros">
               <div><span className="rotulo">Motoboy ({Number(corrida.repasse_pct)}%)</span><strong>{moeda(corrida.valor_motoboy)}</strong></div>
               <div><span className="rotulo">Gestão</span><strong className="texto-grad">{moeda(corrida.valor_gestao)}</strong></div>
+              {Number(corrida.valor_dev) > 0 && <div><span className="rotulo">Dev ({Number(corrida.dev_pct)}%)</span><strong>{moeda(corrida.valor_dev ?? 0)}</strong></div>}
+            </div>
+          )}
+          {corrida.status === "aguardando_pagamento" && (
+            <div className="bloco alerta-bloco">
+              <strong>Aguardando pagamento{corrida.pagamento_metodo ? ` · ${corrida.pagamento_metodo === "pix" ? "PIX" : "cartão"}` : ""}</strong>
+              <span className="dica">Pedido feito pelo cliente. Só vai para os motoboys depois de pago.</span>
+              <button className="botao-ouro" onClick={confirmarPagamento}><CheckCircle2 size={16} aria-hidden /> Confirmar pagamento</button>
             </div>
           )}
           <p className="dica" style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -211,7 +226,7 @@ export function DetalheCorrida({ corrida, oferta, onVoltar, onExcluida }: { corr
                 {p.instrucoes && <span className="dica">{p.instrucoes}</span>}
                 {(p.referencias?.length ?? 0) > 0 && (
                   <span className="referencias-detalhe">
-                    <Landmark size={12} aria-hidden /> {p.referencias!.map((r) => r.nome + (r.distancia_m != null ? ` (${r.distancia_m} m)` : "")).join(" · ")}
+                    <Landmark size={12} aria-hidden /> {p.referencias!.map((r) => r.relacao ?? (r.nome + (r.distancia_m != null ? ` (${r.distancia_m} m)` : ""))).join(" · ")}
                   </span>
                 )}
                 {p.concluida_em && <span className="dica">Concluída às {hora(p.concluida_em)}</span>}

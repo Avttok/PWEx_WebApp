@@ -44,7 +44,7 @@ export function CampoReferencias({ valor, onMudar, lat, lng }: {
           {valor.map((r) => (
             <li key={r.nome}>
               <span className="referencia-nome">{r.nome}</span>
-              {(r.tipo || r.distancia_m != null) && <small>{[r.tipo, distancia(r.distancia_m)].filter(Boolean).join(" · ")}</small>}
+              {(r.tipo || r.distancia_m != null || r.relacao) && <small>{r.relacao ?? [r.tipo, distancia(r.distancia_m)].filter(Boolean).join(" · ")}</small>}
               <button type="button" onClick={() => onMudar(valor.filter((x) => x !== r))} aria-label={`Remover ${r.nome}`}><X size={13} /></button>
             </li>
           ))}
@@ -73,7 +73,7 @@ export function CampoReferencias({ valor, onMudar, lat, lng }: {
             <div className="referencias-sugestoes">
               {sugestoes.filter((s) => !jaTem(s.nome)).map((s) => (
                 <button key={`${s.nome}-${s.lat}`} type="button" className="chip" onClick={() => adicionar(s)}>
-                  <Plus size={12} aria-hidden /> {s.nome} <small>{[s.tipo, distancia(s.distancia_m)].filter(Boolean).join(" · ")}</small>
+                  <Plus size={12} aria-hidden /> {s.nome} <small>{s.relacao ? s.relacao.replace(` de ${s.nome}`, "") : [s.tipo, distancia(s.distancia_m)].filter(Boolean).join(" · ")}</small>
                 </button>
               ))}
             </div>

@@ -7,7 +7,7 @@ import type { Motoboy, Ponto } from "./tipos";
 const HORAS_DE_TRILHA = 12;
 const MAX_PONTOS = 5000;
 const COLUNAS_MOTOBOY = "id,status,modo_economia,lat,lng,precisao_m,bateria,posicao_em,status_em,versao_app,modo_teste";
-const COLUNAS_PONTO = "id,motoboy_id,sessao_id,status,lat,lng,precisao_m,velocidade_ms,bateria,registrado_em";
+const COLUNAS_PONTO = "id,motoboy_id,sessao_id,corrida_id,status,lat,lng,precisao_m,velocidade_ms,bateria,registrado_em";
 
 export interface EstadoRastreamento {
   motoboys: Record<string, Motoboy>;

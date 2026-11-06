@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Bike, FlaskConical, History, Lock, PencilLine, Save, ShieldCheck, UserPlus, Users } from "lucide-react";
+import { Bike, FlaskConical, History, Lock, PencilLine, Route, Save, ShieldCheck, UserPlus, Users } from "lucide-react";
 import { RegistroMembro } from "./RegistroMembro";
+import { PercursosMembro } from "./PercursosMembro";
 import { BloquearConta, ExcluirConta, NovaConta, RedefinirSenha } from "./ContasEquipe";
 import { useSessaoGestor } from "@/features/gestor/AreaGestor";
 import { useConta } from "@/features/conta/conta";
@@ -32,13 +33,14 @@ export function PainelEquipe() {
   const conta = useConta();
   const [repasse, setRepasse] = useState("");
   const [msg, setMsg] = useState<{ ok: boolean; t: string } | null>(null);
-  const [aba, setAba] = useState<"registro" | "editar">("registro");
+  const [aba, setAba] = useState<"registro" | "percursos" | "editar">("registro");
   const [criando, setCriando] = useState(false);
   const detalhe = useRef<HTMLDivElement>(null);
 
   const carregar = useCallback(async () => {
     const { data } = await supabase().rpc("listar_equipe");
-    if (data) setLista(data as Membro[]);
+    // contas de cliente aparecem no cadastro do cliente, não na equipe
+    if (data) setLista((data as Membro[]).filter((m) => !(m.papeis.length === 1 && m.papeis[0] === "cliente")));
   }, []);
   useEffect(() => { carregar(); }, [carregar]);
 
@@ -115,12 +117,13 @@ export function PainelEquipe() {
                 </div>
               </div>
 
-              <div className="segmentado" style={{ gridTemplateColumns: "1fr 1fr" }}>
+              <div className="segmentado" style={{ gridTemplateColumns: m.papeis.includes("motoboy") && conta.modulo("trilhas_mapa") ? "1fr 1fr 1fr" : "1fr 1fr" }}>
                 <button type="button" className={aba === "registro" ? "ativo" : ""} onClick={() => setAba("registro")}><History size={15} aria-hidden /> Registro</button>
+                {m.papeis.includes("motoboy") && conta.modulo("trilhas_mapa") && <button type="button" className={aba === "percursos" ? "ativo" : ""} onClick={() => setAba("percursos")}><Route size={15} aria-hidden /> Percursos</button>}
                 <button type="button" className={aba === "editar" ? "ativo" : ""} onClick={() => setAba("editar")}><PencilLine size={15} aria-hidden /> Editar</button>
               </div>
 
-              {aba === "registro" ? <RegistroMembro key={m.id} id={m.id} /> : (m.papeis.includes("dev") && !conta.dev) ? (
+              {aba === "registro" ? <RegistroMembro key={m.id} id={m.id} /> : aba === "percursos" ? <PercursosMembro key={m.id} id={m.id} teste={Boolean(m.modo_teste)} /> : (m.papeis.includes("dev") && !conta.dev) ? (
                 <p className="dica" style={{ margin: 0 }}><CodeXml size={14} style={{ verticalAlign: -2 }} /> Conta Dev: só o Dev altera esta conta.</p>
               ) : (
                 <>

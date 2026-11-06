@@ -37,7 +37,7 @@ const novaParada = (tipo: TipoParada, base: Partial<ParadaForm> = {}): ParadaFor
 
 // ------------------------------------------------------------------ campo de endereço
 
-function CampoEndereco({ valor, onTexto, onEscolher }: { valor: string; onTexto: (t: string) => void; onEscolher: (e: Endereco) => void }) {
+export function CampoEndereco({ valor, onTexto, onEscolher }: { valor: string; onTexto: (t: string) => void; onEscolher: (e: Endereco) => void }) {
   const [sugestoes, setSugestoes] = useState<Endereco[]>([]);
   const [aberto, setAberto] = useState(false);
   const digitado = useRef(false);
@@ -108,6 +108,8 @@ export function NovaCorrida({ onCriada, onVoltar }: { onCriada: (id: string) => 
   const { teste } = useModoTeste(); // no modo teste, toda corrida criada é de teste
   const [modo, setModo] = useState<"cascata" | "direto">("cascata");
   const [urgente, setUrgente] = useState(false);
+  const [repasseManual, setRepasseManual] = useState("");
+  const [devManual, setDevManual] = useState("");
   const [motoboyId, setMotoboyId] = useState("");
   const [observacoes, setObservacoes] = useState("");
   const [enviando, setEnviando] = useState(false);
@@ -225,6 +227,8 @@ export function NovaCorrida({ onCriada, onVoltar }: { onCriada: (id: string) => 
         empresa_id: empresa?.id ?? null,
         cliente_nome: empresa ? null : nomeAvulso.trim() || null,
         aplicar_acrescimo: acrescimoLigado,
+        repasse_pct: repasseManual.trim() ? Number(repasseManual.replace(",", ".")) : null,
+        dev_pct: devManual.trim() ? Number(devManual.replace(",", ".")) : null,
         teste,
         modo_despacho: modo,
         urgente: modo === "cascata" && !planejada && urgente,
@@ -516,6 +520,14 @@ export function NovaCorrida({ onCriada, onVoltar }: { onCriada: (id: string) => 
               )}
             </>
           )}
+          <details className="avancado">
+            <summary>Divisão desta corrida</summary>
+            <div className="grade-2">
+              <label className="campo curto"><span>Motoboy (%)</span><input inputMode="decimal" placeholder="padrão" value={repasseManual} onChange={(e) => setRepasseManual(e.target.value)} /></label>
+              <label className="campo curto"><span>Dev (%)</span><input inputMode="decimal" placeholder="padrão" value={devManual} onChange={(e) => setDevManual(e.target.value)} /></label>
+            </div>
+            <p className="dica">Vazio = usa o do cliente ou o padrão. A gestão fica com o restante.</p>
+          </details>
           {modo === "cascata" && !planejada && (
             <label className="opcao">
               <span><strong>Urgente</strong><br /><span className="dica">{urgente ? "Vai para o mais próximo mesmo se estiver fora do raio que ele escolheu." : "Respeita o raio de disponibilidade de cada motoboy."}</span></span>

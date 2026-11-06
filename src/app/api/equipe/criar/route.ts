@@ -3,7 +3,7 @@ import { adminConfigurado, ehDev, gestorDaRequisicao, supabaseAdmin } from "@/li
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const PAPEIS = ["gestor", "motoboy", "dev"] as const;
+const PAPEIS = ["gestor", "motoboy", "dev", "cliente"] as const;
 
 /** Cria uma conta (motoboy e/ou gestor) já confirmada. Só gestores podem chamar. */
 export async function POST(req: Request) {
@@ -11,7 +11,7 @@ export async function POST(req: Request) {
   const gestor = await gestorDaRequisicao(req);
   if (!gestor) return Response.json({ erro: "apenas_gestor" }, { status: 403 });
 
-  let c: { email?: string; senha?: string; nome?: string; papeis?: string[]; repasse?: number | null };
+  let c: { email?: string; senha?: string; nome?: string; papeis?: string[]; repasse?: number | null; empresa_id?: string | null };
   try { c = await req.json(); } catch { return Response.json({ erro: "json_invalido" }, { status: 400 }); }
 
   const email = String(c.email ?? "").trim().toLowerCase();
@@ -23,6 +23,9 @@ export async function POST(req: Request) {
   if (senha.length < 8) return Response.json({ erro: "senha_curta" }, { status: 400 });
   if (papeis.length === 0) return Response.json({ erro: "sem_papel" }, { status: 400 });
   if (papeis.includes("dev") && !(await ehDev(req))) return Response.json({ erro: "apenas_dev" }, { status: 403 });
+  // conta de cliente: só esse papel, ligada a um cliente cadastrado
+  const empresaId = papeis.includes("cliente") ? String(c.empresa_id ?? "") : "";
+  if (papeis.includes("cliente") && (papeis.length > 1 || !/^[0-9a-f-]{36}$/i.test(empresaId))) return Response.json({ erro: "cliente_sem_cadastro" }, { status: 400 });
   const repasse = c.repasse == null ? null : Number(c.repasse);
   if (repasse != null && (Number.isNaN(repasse) || repasse < 0 || repasse > 100)) return Response.json({ erro: "percentual_invalido" }, { status: 400 });
 
@@ -35,7 +38,7 @@ export async function POST(req: Request) {
   const id = data.user.id;
 
   // perfil nasce pelo gatilho do banco; aqui só definimos nome e papéis
-  const p = await admin.from("perfis").upsert({ id, nome, papeis });
+  const p = await admin.from("perfis").upsert({ id, nome, papeis, ...(empresaId ? { empresa_id: empresaId } : {}) });
   if (p.error) return Response.json({ erro: "falha_no_perfil", detalhe: p.error.message, id }, { status: 500 });
   if (papeis.includes("motoboy")) {
     const m = await admin.from("motoboys").upsert({ id, repasse_pct: repasse });

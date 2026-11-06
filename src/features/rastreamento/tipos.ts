@@ -18,6 +18,7 @@ export interface Ponto {
   id: number;
   motoboy_id: string;
   sessao_id: string | null;
+  corrida_id?: string | null;
   status: StatusMotoboy;
   lat: number;
   lng: number;

@@ -881,3 +881,87 @@ html, body { overscroll-behavior: none; }
 .dev-tabela td { padding: 8px; border-top: 1px solid var(--borda); white-space: nowrap; }
 .dev-rolagem { overflow-x: auto; }
 a.menu-item { text-decoration: none; }
+
+/* ---------------------------------------------------------------- mapa: alfinete do motoboy (foto + moto) */
+.pino { position: relative; width: 46px; height: 58px; padding: 0; border: 0; background: none; cursor: pointer; display: block; }
+.pino::before { content: ""; position: absolute; left: 50%; bottom: 2px; width: 16px; height: 16px; transform: translateX(-50%) rotate(45deg);
+  background: var(--cor); border-radius: 3px; box-shadow: 0 6px 14px rgb(0 0 0 / 0.45); }
+.pino-foto { position: absolute; left: 1px; top: 0; width: 44px; height: 44px; border-radius: 50%; border: 3px solid var(--cor);
+  background: var(--fundo-2) center / cover no-repeat; display: grid; place-items: center; color: var(--texto); font-weight: 800; font-size: 16px;
+  box-shadow: 0 6px 16px rgb(0 0 0 / 0.45); }
+.pino-moto { position: absolute; right: -4px; top: 26px; width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--cor); color: #0b0b0d; border: 2px solid var(--fundo); }
+.pino-nome { position: absolute; top: 60px; left: 50%; transform: translateX(-50%); white-space: nowrap; font-size: 11.5px; font-weight: 700;
+  color: var(--texto); text-shadow: 0 0 3px var(--fundo), 0 0 6px var(--fundo); }
+.pino[data-status="offline"] { opacity: 0.6; }
+.pino[data-status="em_corrida"] .pino-foto { animation: pulso-ouro 2s infinite; }
+.pino.seguindo .pino-foto { box-shadow: 0 0 0 4px color-mix(in srgb, var(--cor) 35%, transparent), 0 6px 16px rgb(0 0 0 / 0.45); }
+.pino.escondido { display: none; }
+
+.camadas-mapa { display: flex; flex-direction: column; gap: 6px; }
+.camada-sel { display: flex; align-items: center; gap: 8px; padding: 0 10px; border-radius: 12px; background: var(--campo); border: 1px solid var(--borda); color: var(--ouro); }
+.camada-sel select { flex: 1; border: 0; background: none; color: var(--texto); padding: 9px 0; font: inherit; font-size: 13px; }
+.filtro-rolavel { overflow-x: auto; flex-wrap: nowrap; scrollbar-width: none; align-self: stretch; }
+.filtro-rolavel button { white-space: nowrap; }
+.contagem { display: inline-grid; place-items: center; min-width: 18px; height: 18px; padding: 0 5px; margin-left: 4px; border-radius: 99px;
+  font-size: 10.5px; background: var(--vidro-sutil); color: var(--texto-2); }
+.filtro button.ativo .contagem { background: color-mix(in srgb, var(--sobre-ouro) 20%, transparent); color: inherit; }
+.busca-mini { display: flex; align-items: center; gap: 8px; padding: 0 12px; border-radius: 12px; background: var(--campo); border: 1px solid var(--borda); color: var(--texto-3); }
+.busca-mini input { flex: 1; border: 0; background: none; color: var(--texto); padding: 9px 0; font: inherit; }
+.linha-motoboy { border-radius: 14px; border: 1px solid var(--borda); background: var(--vidro-sutil); }
+.linha-motoboy.selecionado { border-color: var(--ouro); background: color-mix(in srgb, var(--ouro) 8%, transparent); }
+.linha-motoboy-topo { width: 100%; display: flex; align-items: center; gap: 10px; padding: 9px 10px; border: 0; background: none; color: inherit; text-align: left; cursor: pointer; }
+.linha-motoboy-texto { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.linha-motoboy-texto strong { font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.linha-motoboy-texto > span { font-size: 11.5px; color: var(--texto-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: inline-flex; align-items: center; gap: 3px; }
+.foto-mini.inicial { display: grid; place-items: center; font-weight: 800; font-size: 12px; background: var(--fundo-2); color: var(--texto); }
+.linha-motoboy .alerta { margin: 0 10px 8px; }
+.registros { display: flex; flex-direction: column; gap: 4px; padding: 0 10px 10px; }
+.registros .seguindo { font-size: 12px; color: var(--ouro); display: flex; align-items: center; gap: 5px; margin-bottom: 2px; }
+.registros .registro { flex-direction: row; display: flex; align-items: center; gap: 8px; padding: 7px 9px; border-radius: 10px; border: 1px solid var(--borda); background: none;
+  color: var(--texto); font: inherit; font-size: 12.5px; cursor: pointer; text-align: left; }
+.registros .registro .dica { margin-left: auto; font-size: 11px; }
+.registros .registro.ativo { border-color: var(--ouro); background: color-mix(in srgb, var(--ouro) 10%, transparent); }
+.legenda-percurso { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--texto-3); }
+.legenda-percurso .degrade { flex: 1; height: 6px; border-radius: 99px; background: linear-gradient(90deg, #ef4444, #facc15, #22c55e, #d4af37); }
+.legenda-percurso .degrade.teste { background: linear-gradient(90deg, #8a8a93, #9333ea, #3b82f6, #a78bfa); }
+.acesso-criado { margin: 0; padding: 12px; border-radius: 12px; background: var(--campo); border: 1px solid var(--borda-forte); font-size: 13px; white-space: pre-wrap; }
+.avancado { border: 1px dashed var(--borda-forte); border-radius: 14px; padding: 8px 12px; }
+.avancado summary { cursor: pointer; font-size: 13px; color: var(--texto-2); font-weight: 600; }
+.avancado[open] { display: flex; flex-direction: column; gap: 8px; }
+.barra-divisao { display: flex; height: 14px; border-radius: 99px; overflow: hidden; gap: 2px; }
+.barra-divisao span { min-width: 2px; }
+
+/* ------------------------------------------------------------- área do cliente */
+.cliente-area { min-height: 100dvh; display: flex; flex-direction: column; }
+.cliente-ola { color: var(--texto-2); font-size: 14px; margin-right: 6px; }
+.cliente-corpo { flex: 1; width: 100%; max-width: 1180px; margin: 0 auto; padding: 18px 16px 40px; }
+.cliente-painel { display: flex; flex-direction: column; gap: 16px; }
+.cliente-cabeca { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; justify-content: space-between; }
+.cliente-cabeca .dica svg { vertical-align: -1px; }
+.cliente-cartao { border-radius: 20px; padding: 18px; display: flex; flex-direction: column; gap: 12px; }
+.cliente-lista { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 10px; }
+.cliente-pedido { text-align: left; border-radius: 16px; padding: 14px; display: flex; flex-direction: column; gap: 4px; cursor: pointer; border: 1px solid var(--borda); color: var(--texto); font: inherit; }
+.cliente-pedido:hover { border-color: var(--ouro); }
+.cliente-pedido .dica { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cliente-pedido-topo { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.cliente-detalhe { display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
+.cliente-detalhe > .cliente-cartao { width: 100%; }
+.cliente-mapa { height: 320px; border-radius: 16px; overflow: hidden; position: relative; }
+.cliente-mapa > * { position: absolute; inset: 0; }
+.cliente-pagar { display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; border-radius: 14px; border: 1px solid #38bdf8; background: color-mix(in srgb, #38bdf8 10%, transparent); color: var(--texto); }
+.cliente-pagar svg { color: #38bdf8; flex: none; margin-top: 2px; }
+.cliente-codigo { margin: 0; font-size: 15px; }
+.cliente-codigo strong { color: var(--ouro); font-size: 20px; letter-spacing: 2px; margin: 0 6px; }
+.cliente-paradas { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.cliente-paradas li { display: flex; gap: 10px; align-items: flex-start; }
+.cliente-paradas li.feita { opacity: 0.6; }
+.cliente-novo { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+.cliente-lado { display: flex; flex-direction: column; gap: 16px; position: sticky; top: 16px; }
+.cliente-novo textarea, .cliente-novo input[type="datetime-local"] { width: 100%; }
+.vazio-cliente { align-items: center; text-align: center; padding: 40px 18px; color: var(--texto-2); }
+@media (max-width: 860px) {
+  .cliente-novo { grid-template-columns: 1fr; }
+  .cliente-lado { position: static; }
+  .cliente-ola { display: none; }
+}
