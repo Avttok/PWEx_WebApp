@@ -7,9 +7,13 @@ import { ProvedorTema, scriptTema } from "@/features/tema/tema";
 export const metadata: Metadata = {
   title: "PW Express",
   description: "Coletas e entregas com rastreamento em tempo real",
+  appleWebApp: { capable: true, title: "PW Express", statusBarStyle: "black-translucent" },
 };
 
 export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
   themeColor: [
     { media: "(prefers-color-scheme: dark)", color: "#08080a" },
     { media: "(prefers-color-scheme: light)", color: "#f6f2e9" },

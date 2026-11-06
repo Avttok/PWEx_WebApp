@@ -419,3 +419,61 @@ input[type="radio"] { width: 18px; height: 18px; padding: 0; margin: 0; accent-c
 .botao-poi { display: grid !important; place-items: center; }
 .botao-poi.desligado svg { opacity: 0.4; }
 .botao-poi { color: var(--texto) !important; } .botao-poi:not(.desligado) { color: var(--ouro) !important; }
+
+/* =====================================================================
+   Celular (navegador e app instalado na tela inicial)
+   ===================================================================== */
+@media (max-width: 860px) {
+  /* iOS não dá zoom em campos com 16px */
+  input, select, textarea { font-size: 16px; }
+  .painel { height: 100dvh; padding-top: env(safe-area-inset-top); }
+
+  /* cabeçalho: logo + ações numa linha, menu rolando na de baixo */
+  .topo { padding: 8px 10px; border-radius: 16px; gap: 8px; }
+  .logo-texto { display: none; }
+  .abas { gap: 2px; padding-bottom: 2px; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+  .abas::-webkit-scrollbar { display: none; }
+  .abas a { padding: 8px 11px; font-size: 13px; white-space: nowrap; flex-shrink: 0; }
+  .botao-icone { width: 36px; height: 36px; }
+  .usuario { padding: 0; }
+
+  /* páginas com mapa: mapa em tela cheia e o painel vira uma "gaveta" embaixo */
+  .corpo { flex-direction: column; justify-content: flex-end; }
+  .lateral, .lateral-larga { width: auto; max-height: 52dvh; margin: 8px; padding: 14px; border-radius: 20px; }
+  .lateral::before { content: ""; display: block; width: 40px; height: 4px; border-radius: 99px; background: var(--borda-forte); margin: -4px auto 4px; flex-shrink: 0; }
+  .cabeca-icone { width: 38px; height: 38px; border-radius: 12px; }
+  .cabeca-texto h1 { font-size: 19px; }
+
+  /* páginas sem mapa (Empresas, Equipe, Configurações, Financeiro): tudo rola junto */
+  .corpo:not(:has(> .mapa)) { display: block; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  .corpo:not(:has(> .mapa)) .lateral { max-height: none; overflow: visible; }
+  .corpo:not(:has(> .mapa)) .lateral::before { display: none; }
+  .corpo:not(:has(> .mapa)) .conteudo { overflow: visible; padding: 0 8px 16px; }
+  .formulario { padding: 18px 16px; border-radius: 20px; }
+  .formulario h2 { font-size: 22px; }
+
+  /* tabelas rolam para o lado em vez de espremer */
+  .tabela { display: block; overflow-x: auto; white-space: nowrap; }
+
+  /* nova corrida e detalhes */
+  .resumo-rota { grid-template-columns: 1fr 1fr; }
+  .resumo-rota > div:nth-child(3) { grid-column: 1 / -1; }
+  .numeros { grid-template-columns: 1fr 1fr; }
+  .comprovante img { width: 96px; height: 70px; }
+  .mapa-mini { height: 220px; }
+
+  /* janelas */
+  .modal-fundo { align-items: end; padding: 0; }
+  .modal { max-width: none; border-radius: 24px 24px 0 0; padding-bottom: calc(22px + env(safe-area-inset-bottom)); }
+
+  /* controles do mapa acima da gaveta */
+  .corpo > .mapa .maplibregl-ctrl-bottom-right { bottom: calc(52dvh + 16px); }
+  .rodape { padding-bottom: calc(6px + env(safe-area-inset-bottom)); font-size: 11px; }
+}
+
+/* toque: alvos maiores e sem atraso */
+@media (pointer: coarse) {
+  button, a, .chip, .cartao-motoboy { touch-action: manipulation; }
+  .icone { width: 34px; height: 34px; }
+  .link { padding: 4px 0; }
+}
