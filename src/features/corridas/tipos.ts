@@ -1,6 +1,6 @@
 import type { Modalidade } from "@/features/precos/estrategias";
 
-export type StatusCorrida = "aguardando_motoboy" | "sem_motoboy" | "aceita" | "em_andamento" | "concluida" | "cancelada";
+export type StatusCorrida = "agendada" | "reservada" | "aguardando_motoboy" | "sem_motoboy" | "aceita" | "em_andamento" | "concluida" | "cancelada";
 export type TipoParada = "coleta" | "entrega";
 export type StatusParada = "pendente" | "a_caminho" | "chegou" | "concluida";
 
@@ -31,6 +31,10 @@ export interface Corrida {
   numero: number;
   empresa_id: string | null;
   status: StatusCorrida;
+  agendada_para?: string | null;
+  reservada_em?: string | null;
+  serie_id?: string | null;
+  atraso_avisado_em?: string | null;
   modo_despacho: "direto" | "cascata";
   teste: boolean;
   exigir_no_local: boolean;
@@ -105,6 +109,8 @@ export interface Empresa {
 }
 
 export const ROTULO_CORRIDA: Record<StatusCorrida, string> = {
+  agendada: "Planejada · livre",
+  reservada: "Planejada · reservada",
   aguardando_motoboy: "Procurando motoboy",
   sem_motoboy: "Sem motoboy",
   aceita: "Aceita",
@@ -114,6 +120,8 @@ export const ROTULO_CORRIDA: Record<StatusCorrida, string> = {
 };
 
 export const COR_CORRIDA: Record<StatusCorrida, string> = {
+  agendada: "#60a5fa",
+  reservada: "#38bdf8",
   aguardando_motoboy: "var(--ouro-claro)",
   sem_motoboy: "#e5484d",
   aceita: "var(--ouro)",
@@ -130,6 +138,8 @@ export const ROTULO_PARADA: Record<StatusParada, string> = {
 };
 
 export const ATIVAS: StatusCorrida[] = ["aguardando_motoboy", "sem_motoboy", "aceita", "em_andamento"];
+/** Corridas com hora marcada que ainda não começaram. */
+export const PLANEJADAS: StatusCorrida[] = ["agendada", "reservada"];
 
 export function formatarKm(m: number | null | undefined) {
   return m == null ? "—" : `${(m / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} km`;

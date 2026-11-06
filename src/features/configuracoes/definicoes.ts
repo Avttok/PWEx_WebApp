@@ -20,10 +20,11 @@ export interface DefParametro {
   opcoes?: { valor: number; rotulo: string }[];
 }
 
-export type GrupoParametro = "despacho" | "local" | "preco" | "distancia" | "comprovantes" | "rastreamento" | "teste";
+export type GrupoParametro = "despacho" | "planejadas" | "local" | "preco" | "distancia" | "comprovantes" | "rastreamento" | "teste";
 
 export const GRUPOS: Record<GrupoParametro, { titulo: string; descricao: string }> = {
   despacho: { titulo: "Despacho", descricao: "Como as corridas são oferecidas aos motoboys." },
+  planejadas: { titulo: "Corridas planejadas", descricao: "Corridas com hora marcada que os motoboys reservam pelo app." },
   local: { titulo: "Etapas por localização", descricao: "Exigir que o motoboy esteja no endereço para avançar." },
   preco: { titulo: "Preço", descricao: "Cálculo do valor da corrida (empresas podem ter regra própria)." },
   distancia: { titulo: "Acréscimo por distância", descricao: "Corridas longas ficam mais caras, por faixas de distância." },
@@ -37,6 +38,16 @@ export const PARAMETROS: DefParametro[] = [
   { chave: "posicao_max_min", grupo: "despacho", rotulo: "Posição recente", descricao: "Só entra na cascata quem enviou posição dentro desse tempo.", tipo: "numero", padrao: 15, unidade: "min", min: 1, max: 120 },
   { chave: "raio_max_despacho_km", grupo: "despacho", rotulo: "Distância máxima até a coleta", descricao: "Motoboys mais longe que isso não recebem a oferta. 0 = sem limite.", tipo: "numero", padrao: 0, unidade: "km", min: 0, max: 200 },
   { chave: "favoritos_primeiro", grupo: "despacho", rotulo: "Favoritos da empresa primeiro", descricao: "Na cascata, oferecer antes aos motoboys favoritos do cliente.", tipo: "booleano", padrao: true },
+
+  { chave: "agendada_antecedencia_min", grupo: "planejadas", rotulo: "Antecedência mínima", descricao: "Só dá para planejar corridas que começam pelo menos isso depois de agora.", tipo: "numero", padrao: 30, unidade: "min", min: 5, max: 1440, passo: 5 },
+  { chave: "agendada_cancelar_ate_min", grupo: "planejadas", rotulo: "Desistência até", descricao: "Quem reservou pode desistir pelo app até esse tempo antes do horário. Depois, só o gestor libera.", tipo: "numero", padrao: 60, unidade: "min", min: 0, max: 2880, passo: 15 },
+  { chave: "agendada_iniciar_antes_min", grupo: "planejadas", rotulo: "Pode iniciar a partir de", descricao: "Quanto tempo antes do horário o motoboy já pode começar a corrida reservada.", tipo: "numero", padrao: 60, unidade: "min", min: 0, max: 600, passo: 15 },
+  { chave: "agendada_lembrete_min", grupo: "planejadas", rotulo: "Lembrete ao motoboy", descricao: "Aviso no celular de quem reservou, esse tempo antes do horário.", tipo: "numero", padrao: 30, unidade: "min", min: 5, max: 600, passo: 5 },
+  { chave: "agendada_despacho_auto", grupo: "planejadas", rotulo: "Despachar se ninguém reservar", descricao: "Ligado: perto do horário, uma planejada sem reserva vai para o despacho normal (mais próximo).", descricaoDesligado: "Desligado: sem reserva, a corrida fica “sem motoboy” no horário para o gestor resolver.", tipo: "booleano", padrao: true },
+  { chave: "agendada_despacho_auto_min", grupo: "planejadas", rotulo: "…quanto tempo antes", descricao: "Quando a planejada sem reserva entra no despacho normal.", tipo: "numero", padrao: 30, unidade: "min", min: 5, max: 600, passo: 5 },
+  { chave: "agendada_atraso_min", grupo: "planejadas", rotulo: "Aviso de atraso", descricao: "Se a reservada não for iniciada até esse tempo depois do horário, o gestor e o motoboy são avisados.", tipo: "numero", padrao: 10, unidade: "min", min: 1, max: 240 },
+  { chave: "agendada_max_por_motoboy", grupo: "planejadas", rotulo: "Reservas por motoboy", descricao: "Quantas corridas planejadas cada motoboy pode ter reservadas ao mesmo tempo.", tipo: "numero", padrao: 3, min: 1, max: 50 },
+  { chave: "agendada_intervalo_min", grupo: "planejadas", rotulo: "Folga entre reservas", descricao: "Tempo mínimo entre duas reservas do mesmo motoboy (além da duração prevista da corrida).", tipo: "numero", padrao: 30, unidade: "min", min: 0, max: 600, passo: 5 },
 
   { chave: "exigir_no_local", grupo: "local", rotulo: "Exigir estar no local", descricao: "Padrão das novas corridas (pode ser mudado em cada corrida).", tipo: "booleano", padrao: true },
   { chave: "raio_chegada_m", grupo: "local", rotulo: "Raio de chegada", descricao: "Distância máxima do endereço para marcar chegada e concluir.", tipo: "numero", padrao: 150, unidade: "m", min: 20, max: 2000, passo: 10 },

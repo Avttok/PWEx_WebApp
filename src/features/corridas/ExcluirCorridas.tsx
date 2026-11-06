@@ -27,7 +27,7 @@ export function ExcluirCorridas({ corridas, onFechar, onExcluidas }: {
   const [erro, setErro] = useState<string | null>(null);
   const campoSenha = useRef<HTMLInputElement>(null);
 
-  const ativas = corridas.filter((c) => c.status === "aceita" || c.status === "em_andamento");
+  const ativas = corridas.filter((c) => c.status === "aceita" || c.status === "em_andamento" || c.status === "reservada");
   const comprovantes = corridas.reduce((n, c) => n + c.paradas.filter((p) => p.foto_path || p.assinatura_path).length, 0);
   const total = corridas.reduce((s, c) => s + (c.teste ? 0 : Number(c.valor ?? 0)), 0);
   const titulo = corridas.length === 1 ? `Apagar a corrida ${numeroCorrida(corridas[0])}?` : `Apagar ${corridas.length} corridas?`;
@@ -94,7 +94,7 @@ export function ExcluirCorridas({ corridas, onFechar, onExcluidas }: {
 
         {ativas.length > 0 ? (
           <p className="erro">
-            {ativas.length === 1 ? `A corrida ${numeroCorrida(ativas[0])} está` : `${ativas.length} corridas estão`} em andamento. Cancele antes de apagar.
+            {ativas.length === 1 ? `A corrida ${numeroCorrida(ativas[0])} está` : `${ativas.length} corridas estão`} em andamento ou reservada. Cancele antes de apagar.
           </p>
         ) : (
           <>

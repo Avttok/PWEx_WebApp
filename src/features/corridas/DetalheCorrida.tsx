@@ -9,6 +9,8 @@ import { decodificarPolyline } from "@/lib/geo/polyline";
 import { moeda } from "@/features/precos/estrategias";
 import { MapaCorridas } from "./MapaCorridas";
 import { nomeCliente, traduzirErro, useEmpresas, useEquipe } from "./dados";
+import { GestaoPlanejada } from "./GestaoPlanejada";
+import { useConfiguracoes } from "@/features/configuracoes/useConfiguracoes";
 import {
   COR_CORRIDA, ROTULO_CORRIDA, ROTULO_PARADA, formatarDuracao, formatarKm, hora, numeroCorrida,
   type Corrida, type Evento, type Oferta,
@@ -26,6 +28,11 @@ const ROTULO_EVENTO: Record<string, string> = {
   parada_concluida: "Parada concluída",
   concluida: "Corrida concluída",
   cancelada: "Cancelada",
+  reservada: "Reservada",
+  reserva_cancelada: "Reserva desfeita",
+  reagendada: "Horário mudado",
+  planejada_despachada: "Planejada foi para o despacho",
+  planejada_atrasada: "Atrasada: não iniciada no horário",
 };
 
 function useEventos(corridaId: string) {
@@ -84,6 +91,7 @@ export function DetalheCorrida({ corrida, oferta, onVoltar, onExcluida }: { corr
   const [excluindo, setExcluindo] = useState(false);
   const equipe = useEquipe();
   const { empresas } = useEmpresas();
+  const cfg = useConfiguracoes();
   const eventos = useEventos(corrida.id);
   const trilha = useTrilha(corrida);
   const [agora, setAgora] = useState(() => Date.now());
@@ -142,7 +150,7 @@ export function DetalheCorrida({ corrida, oferta, onVoltar, onExcluida }: { corr
                 // eslint-disable-next-line @next/next/no-img-element
                 ? <img src={motoboy.foto} alt="" className="foto-mini" style={{ borderColor: "var(--ouro)" }} />
                 : <span className="avatar grad" style={{ width: 26, height: 26, fontSize: 11 }}>{nome(corrida.motoboy_id).charAt(0)}</span>}
-              <span>Motoboy: <strong>{nome(corrida.motoboy_id)}</strong></span>
+              <span>{corrida.status === "reservada" ? "Reservada para" : "Motoboy"}: <strong>{nome(corrida.motoboy_id)}</strong></span>
             </p>
           )}
           <div className="numeros">
@@ -173,6 +181,10 @@ export function DetalheCorrida({ corrida, oferta, onVoltar, onExcluida }: { corr
             <p className="codigo">Código de entrega: <strong className="texto-grad">{corrida.codigo_entrega}</strong> <span className="dica">(passe para quem vai receber)</span></p>
           )}
         </section>
+
+        {(corrida.status === "agendada" || corrida.status === "reservada") && (
+          <GestaoPlanejada corrida={corrida} equipe={equipe} cfg={cfg} agora={agora} />
+        )}
 
         {corrida.status === "sem_motoboy" && (
           <section className="bloco alerta-bloco">

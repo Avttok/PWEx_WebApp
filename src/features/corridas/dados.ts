@@ -108,6 +108,11 @@ export function traduzirErro(msg: string | undefined): string {
     corrida_nao_esta_sem_motoboy: "Essa corrida não está aguardando novo despacho.",
     motoboy_fora_do_modo_teste: "Esse motoboy não está com o modo teste ligado no app.",
     motoboy_em_modo_teste: "Esse motoboy está com o modo teste ligado: só recebe corridas de teste.",
+    horario_muito_proximo: "Esse horário está perto demais. Planeje com mais antecedência (veja Configurações → Corridas planejadas) ou crie uma corrida para agora.",
+    sem_datas: "Escolha pelo menos uma data.",
+    datas_demais: "No máximo 60 corridas por repetição.",
+    corrida_nao_esta_planejada: "Essa corrida não está mais planejada (já começou, foi despachada ou cancelada).",
+    acao_invalida: "Ação inválida.",
   };
   return (msg && mapa[msg]) || msg || "Erro desconhecido.";
 }

@@ -2,7 +2,7 @@
 
 import { useMemo, useRef, useState } from "react";
 import {
-  Check, FlaskConical, MapPinned, Minus, Plus, Radar, Receipt, Ruler, Search, Settings2, ShieldCheck, TriangleAlert, Wallet, X, type LucideIcon,
+  CalendarClock, Check, FlaskConical, MapPinned, Minus, Plus, Radar, Receipt, Ruler, Search, Settings2, ShieldCheck, TriangleAlert, Wallet, X, type LucideIcon,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
 import { CabecaPagina } from "@/features/ui/CabecaPagina";
@@ -10,7 +10,7 @@ import { GRUPOS, PARAMETROS, type DefParametro, type GrupoParametro } from "./de
 import { useConfiguracoes } from "./useConfiguracoes";
 
 const ICONES: Record<GrupoParametro, LucideIcon> = {
-  despacho: Radar, local: MapPinned, preco: Wallet, distancia: Ruler, comprovantes: Receipt, rastreamento: ShieldCheck, teste: FlaskConical,
+  despacho: Radar, planejadas: CalendarClock, local: MapPinned, preco: Wallet, distancia: Ruler, comprovantes: Receipt, rastreamento: ShieldCheck, teste: FlaskConical,
 };
 
 type Estado = "salvando" | "salvo" | "erro" | undefined;

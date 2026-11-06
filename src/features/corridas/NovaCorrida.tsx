@@ -2,11 +2,12 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  ArrowDown, ArrowLeft, ArrowUp, Building2, CheckCircle2, FlaskConical, TrendingUp, UserRound as Pessoa, MapPin, MapPinned, PackagePlus, Plus, Radar, Receipt, Send, StickyNote, UserRound, X,
+  ArrowDown, ArrowLeft, ArrowUp, Building2, CalendarClock, Repeat, Zap, CheckCircle2, FlaskConical, TrendingUp, UserRound as Pessoa, MapPin, MapPinned, PackagePlus, Plus, Radar, Receipt, Send, StickyNote, UserRound, X,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
 import { geo, type Endereco, type Referencia, type Rota } from "@/features/geo";
 import { CampoReferencias } from "./CampoReferencias";
+import { DIAS_SEMANA, formatarQuando, gerarDatas, paraCampo, relativo, sugestaoHorario, type Repeticao } from "./planejadas";
 import { moeda, orcar, ROTULO_MODALIDADE, type Modalidade } from "@/features/precos/estrategias";
 import { useModoTeste } from "@/features/teste/modoTeste";
 import { useConfiguracoes } from "@/features/configuracoes/useConfiguracoes";
@@ -87,6 +88,12 @@ export function NovaCorrida({ onCriada, onVoltar }: { onCriada: (id: string) => 
   const [nomeAvulso, setNomeAvulso] = useState("");
   const [avulsosConhecidos, setAvulsosConhecidos] = useState<string[]>([]);
   const [cobrarAcrescimo, setCobrarAcrescimo] = useState(true);
+  // quando: agora ou planejada (com repetição)
+  const [quando, setQuando] = useState<"agora" | "planejar">("agora");
+  const [horario, setHorario] = useState(() => paraCampo(sugestaoHorario(Number(cfg.agendada_antecedencia_min) || 30)));
+  const [repetir, setRepetir] = useState<Repeticao>("nao");
+  const [diasSemana, setDiasSemana] = useState<number[]>([]);
+  const [vezes, setVezes] = useState("4");
   const [paradas, setParadas] = useState<ParadaForm[]>(() => [novaParada("coleta"), novaParada("entrega")]);
   const [escolhendo, setEscolhendo] = useState<string | null>(null);
   const [aberta, setAberta] = useState<string | null>(null);
@@ -205,10 +212,13 @@ export function NovaCorrida({ onCriada, onVoltar }: { onCriada: (id: string) => 
     if (valorFinal == null || Number.isNaN(valorFinal)) return setErro("Informe o valor da corrida.");
     if (modo === "direto" && !motoboyId) return setErro("Escolha o motoboy.");
     if (tipoCliente === "cliente" && !empresa) return setErro("Escolha o cliente (ou mude para avulso).");
+    if (planejada && (!datas.length || Number.isNaN(datas[0].getTime()))) return setErro("Escolha a data e a hora da corrida.");
+    if (planejada && datas[0].getTime() < Date.now() + antecedenciaMin * 60000) {
+      return setErro(`Planeje com pelo menos ${antecedenciaMin} min de antecedência (ou crie para agora).`);
+    }
 
     setEnviando(true);
-    const { data, error } = await supabase().rpc("criar_corrida", {
-      dados: {
+    const dados = {
         empresa_id: empresa?.id ?? null,
         cliente_nome: empresa ? null : nomeAvulso.trim() || null,
         aplicar_acrescimo: acrescimoLigado,
@@ -229,12 +239,24 @@ export function NovaCorrida({ onCriada, onVoltar }: { onCriada: (id: string) => 
         paradas: paradas.map(({ tipo, endereco, lat, lng, contato_nome, contato_telefone, instrucoes, referencias }) => ({
           tipo, endereco, lat, lng, contato_nome, contato_telefone, instrucoes, referencias,
         })),
-      },
-    });
+    };
+    const sb = supabase();
+    const { data, error } = !planejada
+      ? await sb.rpc("criar_corrida", { dados })
+      : datas.length === 1
+        ? await sb.rpc("criar_corrida", { dados: { ...dados, agendada_para: datas[0].toISOString() } })
+        : await sb.rpc("criar_serie", { dados, p_datas: datas.map((d) => d.toISOString()) });
     setEnviando(false);
     if (error) return setErro(traduzirErro(error.message));
-    onCriada(data as string);
+    onCriada(Array.isArray(data) ? (data[0] as string) : (data as string));
   }
+
+  const planejada = quando === "planejar";
+  const antecedenciaMin = Number(cfg.agendada_antecedencia_min) || 30;
+  const datas = useMemo(
+    () => (planejada ? gerarDatas(new Date(horario), repetir, diasSemana, Math.min(60, Math.max(1, Number(vezes) || 1))) : []),
+    [planejada, horario, repetir, diasSemana, vezes],
+  );
 
   const pinos: PinoParada[] = useMemo(
     () => paradas.flatMap((p, i) => (p.lat == null || p.lng == null ? [] : [{ chave: p.chave, lat: p.lat, lng: p.lng, tipo: p.tipo, rotulo: String(i + 1) }])),
@@ -262,6 +284,55 @@ export function NovaCorrida({ onCriada, onVoltar }: { onCriada: (id: string) => 
             </div>
           </section>
         )}
+
+        <section className={`bloco ${planejada ? "bloco-planejada" : ""}`}>
+          <span className="rotulo">Quando</span>
+          <div className="segmentado" style={{ gridTemplateColumns: "1fr 1fr" }}>
+            <button type="button" className={!planejada ? "ativo" : ""} onClick={() => setQuando("agora")}><Zap size={15} aria-hidden /> Agora</button>
+            <button type="button" className={planejada ? "ativo" : ""} onClick={() => setQuando("planejar")}><CalendarClock size={15} aria-hidden /> Planejar</button>
+          </div>
+          {planejada && (
+            <>
+              <label className="campo">
+                <span>Começa em</span>
+                <input type="datetime-local" value={horario} min={paraCampo(new Date(Date.now() + antecedenciaMin * 60000))} onChange={(e) => setHorario(e.target.value)} />
+              </label>
+              <label className="campo">
+                <span><Repeat size={13} aria-hidden style={{ verticalAlign: -2 }} /> Repetir</span>
+                <select value={repetir} onChange={(e) => setRepetir(e.target.value as Repeticao)}>
+                  <option value="nao">Não repetir</option>
+                  <option value="diario">Todo dia</option>
+                  <option value="semanal">Em dias da semana</option>
+                </select>
+              </label>
+              {repetir === "semanal" && (
+                <div className="dias-semana" role="group" aria-label="Dias da semana">
+                  {DIAS_SEMANA.map((d, i) => (
+                    <button key={i} type="button" className={diasSemana.includes(i) ? "ativo" : ""} aria-pressed={diasSemana.includes(i)}
+                      onClick={() => setDiasSemana((l) => (l.includes(i) ? l.filter((x) => x !== i) : [...l, i]))}>{d}</button>
+                  ))}
+                </div>
+              )}
+              {repetir !== "nao" && (
+                <label className="opcao">
+                  <span>Quantas corridas no total</span>
+                  <input inputMode="numeric" style={{ width: 80, textAlign: "right" }} value={vezes} onChange={(e) => setVezes(e.target.value.replace(/\D/g, "").slice(0, 2))} />
+                </label>
+              )}
+              <div className="datas-previa">
+                {datas.slice(0, 6).map((d) => (
+                  <span key={d.toISOString()} className="chip"><CalendarClock size={12} aria-hidden /> {formatarQuando(d.toISOString())}</span>
+                ))}
+                {datas.length > 6 && <span className="dica">+ {datas.length - 6} datas</span>}
+              </div>
+              <p className="dica" style={{ margin: 0 }}>
+                {datas[0] && !Number.isNaN(datas[0].getTime()) ? `Começa ${relativo(datas[0].toISOString())}. ` : ""}
+                Aparece no app para todos os motoboys{teste ? " em modo teste" : ""}, mesmo offline. Quem reservar pode desistir até {Number(cfg.agendada_cancelar_ate_min)} min antes.
+                {cfg.agendada_despacho_auto ? ` Se ninguém reservar até ${Number(cfg.agendada_despacho_auto_min)} min antes, vai para o despacho normal.` : " Se ninguém reservar, fica “sem motoboy” no horário."}
+              </p>
+            </>
+          )}
+        </section>
 
         <section className="bloco">
           <span className="rotulo">Cliente</span>
@@ -423,8 +494,10 @@ export function NovaCorrida({ onCriada, onVoltar }: { onCriada: (id: string) => 
         <section className="bloco">
           <span className="rotulo"><Radar size={12} aria-hidden style={{ verticalAlign: -1 }} /> Despacho</span>
           <div className="checks">
-            <label><input type="radio" checked={modo === "cascata"} onChange={() => setModo("cascata")} /> Mais próximo da coleta{favoritosDaEmpresa.length && cfg.favoritos_primeiro ? " · favoritos primeiro" : ""}</label>
-            <label><input type="radio" checked={modo === "direto"} onChange={() => setModo("direto")} /> Motoboy específico</label>
+            <label><input type="radio" checked={modo === "cascata"} onChange={() => setModo("cascata")} /> {planejada
+              ? "Aberta: o primeiro motoboy que reservar no app fica com ela"
+              : <>Mais próximo da coleta{favoritosDaEmpresa.length && cfg.favoritos_primeiro ? " · favoritos primeiro" : ""}</>}</label>
+            <label><input type="radio" checked={modo === "direto"} onChange={() => setModo("direto")} /> {planejada ? "Já reservar para um motoboy" : "Motoboy específico"}</label>
           </div>
           {modo === "direto" && (
             <>
@@ -450,7 +523,9 @@ export function NovaCorrida({ onCriada, onVoltar }: { onCriada: (id: string) => 
 
         {erro && <p className="erro">{erro}</p>}
         <button className="botao-ouro" disabled={enviando} onClick={enviar}>
-          <Send size={17} aria-hidden /> {enviando ? "Criando…" : `${teste ? "Criar teste" : "Criar e despachar"} · ${moeda(valorComAcrescimo)}`}
+          <Send size={17} aria-hidden /> {enviando ? "Criando…" : planejada
+            ? `${datas.length > 1 ? `Planejar ${datas.length} corridas` : "Planejar corrida"}${teste ? " de teste" : ""} · ${moeda(valorComAcrescimo)}${datas.length > 1 ? " cada" : ""}`
+            : `${teste ? "Criar teste" : "Criar e despachar"} · ${moeda(valorComAcrescimo)}`}
         </button>
       </aside>
 

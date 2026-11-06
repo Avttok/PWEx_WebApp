@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ArrowDownToLine, ArrowUpFromLine, Bike, Building2, CheckSquare, Clock, FlaskConical, Plus, Route, Ruler, Trash2, X } from "lucide-react";
+import { ArrowDownToLine, ArrowUpFromLine, Bike, Building2, CalendarClock, TriangleAlert, CheckSquare, Clock, FlaskConical, Plus, Route, Ruler, Trash2, X } from "lucide-react";
 import { ExcluirCorridas } from "./ExcluirCorridas";
 import { CabecaPagina } from "@/features/ui/CabecaPagina";
 import { moeda } from "@/features/precos/estrategias";
@@ -10,7 +10,8 @@ import { NovaCorrida } from "./NovaCorrida";
 import { DetalheCorrida } from "./DetalheCorrida";
 import { nomeCliente, useCorridas, useEmpresas, useEquipe } from "./dados";
 import { useModoTeste } from "@/features/teste/modoTeste";
-import { ATIVAS, COR_CORRIDA, ROTULO_CORRIDA, formatarKm, hora, numeroCorrida } from "./tipos";
+import { ATIVAS, COR_CORRIDA, PLANEJADAS, ROTULO_CORRIDA, formatarKm, hora, numeroCorrida } from "./tipos";
+import { formatarQuando, relativo } from "./planejadas";
 
 type Visao = { tipo: "lista" } | { tipo: "nova" } | { tipo: "detalhe"; id: string };
 
@@ -22,14 +23,17 @@ export function PainelCorridas() {
   const equipe = useEquipe();
   const { empresas } = useEmpresas();
   const [visao, setVisao] = useState<Visao>({ tipo: "lista" });
-  const [filtro, setFiltro] = useState<"ativas" | "concluidas" | "canceladas" | "todas">("ativas");
+  const [filtro, setFiltro] = useState<"ativas" | "planejadas" | "concluidas" | "canceladas" | "todas">("ativas");
   const [selecionando, setSelecionando] = useState(false);
   const [marcadas, setMarcadas] = useState<string[]>([]);
   const [excluindo, setExcluindo] = useState(false);
   const alternar = (id: string) => setMarcadas((m) => (m.includes(id) ? m.filter((x) => x !== id) : [...m, id]));
   const sairSelecao = () => { setSelecionando(false); setMarcadas([]); };
 
+  const planejadas = corridas.filter((c) => PLANEJADAS.includes(c.status))
+    .sort((a, b) => new Date(a.agendada_para ?? 0).getTime() - new Date(b.agendada_para ?? 0).getTime());
   const lista = filtro === "ativas" ? corridas.filter((c) => ATIVAS.includes(c.status))
+    : filtro === "planejadas" ? planejadas
     : filtro === "concluidas" ? corridas.filter((c) => c.status === "concluida")
     : filtro === "canceladas" ? corridas.filter((c) => c.status === "cancelada")
     : corridas;
@@ -68,8 +72,10 @@ export function PainelCorridas() {
         <div className="lateral-cabecalho">
           <span className="rotulo">Mostrar</span>
           <div className="filtro">
-            {([["ativas", "Ativas"], ["concluidas", "Concluídas"], ["canceladas", "Canceladas"], ["todas", "Todas"]] as const).map(([v, r]) => (
-              <button key={v} className={filtro === v ? "ativo" : ""} onClick={() => setFiltro(v)}>{r}</button>
+            {([["ativas", "Ativas"], ["planejadas", "Planejadas"], ["concluidas", "Concluídas"], ["canceladas", "Canceladas"], ["todas", "Todas"]] as const).map(([v, r]) => (
+              <button key={v} className={filtro === v ? "ativo" : ""} onClick={() => setFiltro(v)}>
+                {r}{v === "planejadas" && planejadas.length > 0 && <span className="contador">{planejadas.length}</span>}
+              </button>
             ))}
           </div>
         </div>
@@ -80,7 +86,9 @@ export function PainelCorridas() {
           </button>
         </div>
         {erro && <p className="erro">{erro}</p>}
-        {lista.length === 0 && <p className="vazio">Nenhuma corrida {filtro === "ativas" ? "ativa" : filtro === "concluidas" ? "concluída" : filtro === "canceladas" ? "cancelada" : ""} nos últimos 30 dias.</p>}
+        {lista.length === 0 && (filtro === "planejadas"
+          ? <p className="vazio">Nenhuma corrida planejada. Em “Nova corrida”, escolha “Planejar” para marcar data e hora.</p>
+          : <p className="vazio">Nenhuma corrida {filtro === "ativas" ? "ativa" : filtro === "concluidas" ? "concluída" : filtro === "canceladas" ? "cancelada" : ""} nos últimos 30 dias.</p>)}
         {lista.map((c) => {
           const oferta = ofertas.find((o) => o.corrida_id === c.id);
           const coleta = c.paradas[0];
@@ -96,6 +104,15 @@ export function PainelCorridas() {
                 <span className="espaco" />
                 <span className="valor-lista">{moeda(c.valor)}</span>
               </div>
+              {c.agendada_para && PLANEJADAS.includes(c.status) && (
+                <div className={`quando-lista ${c.atraso_avisado_em ? "atrasada" : ""}`}>
+                  {c.atraso_avisado_em ? <TriangleAlert size={13} aria-hidden /> : <CalendarClock size={13} aria-hidden />}
+                  <strong>{formatarQuando(c.agendada_para)}</strong>
+                  <span>{c.atraso_avisado_em ? "atrasada" : relativo(c.agendada_para)}</span>
+                  <span className="espaco" />
+                  <span className={c.motoboy_id ? "reservada-por" : "livre"}>{c.motoboy_id ? `Reservada · ${nome(c.motoboy_id) ?? "—"}` : "Livre para reservar"}</span>
+                </div>
+              )}
               <div className="trajeto-lista">
                 <span><ArrowUpFromLine size={13} aria-hidden style={{ color: "var(--ouro)" }} /> {coleta?.endereco}</span>
                 <span><ArrowDownToLine size={13} aria-hidden /> {entregas[entregas.length - 1]?.endereco}{entregas.length > 1 ? ` (+${entregas.length - 1})` : ""}</span>
@@ -104,7 +121,7 @@ export function PainelCorridas() {
                 <span><Building2 size={12} aria-hidden /> {nomeCliente(c, empresas)}</span>
                 <span><Clock size={12} aria-hidden /> {hora(c.criada_em)}</span>
                 <span><Ruler size={12} aria-hidden /> {formatarKm(c.distancia_planejada_m)}</span>
-                {c.motoboy_id && <span><Bike size={12} aria-hidden /> {nome(c.motoboy_id)}</span>}
+                {c.motoboy_id && !PLANEJADAS.includes(c.status) && <span><Bike size={12} aria-hidden /> {nome(c.motoboy_id)}</span>}
                 {!c.motoboy_id && c.motoboy_nome_arquivado && <span><Bike size={12} aria-hidden /> {c.motoboy_nome_arquivado} (conta excluída)</span>}
                 {oferta && <span>Oferecida a {nome(oferta.motoboy_id)}</span>}
               </div>
@@ -114,7 +131,7 @@ export function PainelCorridas() {
         {selecionando && (
           <div className="barra-selecao vidro">
             <span style={{ flex: 1, fontSize: 13 }}>{marcadas.length} selecionada{marcadas.length === 1 ? "" : "s"}</span>
-            <button className="botao-texto" onClick={() => setMarcadas(lista.filter((c) => c.status !== "aceita" && c.status !== "em_andamento").map((c) => c.id))}>Todas</button>
+            <button className="botao-texto" onClick={() => setMarcadas(lista.filter((c) => !["aceita", "em_andamento", "reservada"].includes(c.status)).map((c) => c.id))}>Todas</button>
             <button className="botao-excluir" disabled={marcadas.length === 0} onClick={() => setExcluindo(true)}><Trash2 size={15} aria-hidden /> Apagar</button>
           </div>
         )}

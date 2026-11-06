@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
-  Ban, BellRing, CheckCircle2, CircleX, Clock, FlaskConical, Hand, MapPin, PackageCheck, PackagePlus, Repeat, Route, Trash2, Wallet, type LucideIcon,
+  Ban, BellRing, CalendarCheck, CalendarClock, CalendarX, TriangleAlert, CheckCircle2, CircleX, Clock, FlaskConical, Hand, MapPin, PackageCheck, PackagePlus, Repeat, Route, Trash2, Wallet, type LucideIcon,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
 import { moeda } from "@/features/precos/estrategias";
@@ -34,6 +34,7 @@ const FILTROS: [Filtro, string][] = [
 const GRUPO: Record<string, Filtro> = {
   criada: "criadas", concluida: "concluidas", parada_concluida: "concluidas", chegou: "concluidas", cancelada: "canceladas",
   oferta_enviada: "ofertas", oferta_recusada: "ofertas", oferta_expirada: "ofertas", aceita: "ofertas", redespachada: "ofertas", excluida: "apagadas",
+  reservada: "ofertas", reserva_cancelada: "ofertas", reagendada: "criadas", planejada_atrasada: "ofertas",
 };
 
 /** Como cada evento aparece na linha do tempo. */
@@ -57,6 +58,14 @@ function descrever(i: Item): { icone: LucideIcon; cor: string; texto: string; ex
     case "chegou": return { icone: MapPin, cor: "var(--texto-2)", texto: `Chegou no local (corrida ${n})` };
     case "parada_concluida": return { icone: PackageCheck, cor: "var(--texto-2)", texto: `Concluiu uma parada (corrida ${n})` };
     case "concluida": return { icone: CheckCircle2, cor: "var(--verde)", texto: i.fez ? `Concluiu a corrida ${n}` : `Corrida ${n} concluída`, extra: i.ganho != null ? `Ganhou ${moeda(i.ganho)}` : undefined };
+    case "reservada": return i.fez
+      ? { icone: CalendarCheck, cor: "#60a5fa", texto: i.dados?.pelo_gestor ? `Reservou a corrida planejada ${n} para um motoboy` : `Reservou a corrida planejada ${n}` }
+      : { icone: CalendarCheck, cor: "#60a5fa", texto: `Recebeu a reserva da corrida planejada ${n} (pelo gestor)` };
+    case "reserva_cancelada": return i.fez && !i.dados?.pelo_gestor
+      ? { icone: CalendarX, cor: "var(--texto-2)", texto: `Desistiu da corrida planejada ${n}`, extra: typeof i.dados?.motivo === "string" ? `Motivo: ${i.dados.motivo}` : undefined }
+      : { icone: CalendarX, cor: "var(--texto-2)", texto: i.fez ? `Liberou a reserva da corrida ${n}` : `A reserva da corrida ${n} foi liberada pelo gestor` };
+    case "reagendada": return { icone: CalendarClock, cor: "var(--texto-2)", texto: `Mudou o horário da corrida ${n}` };
+    case "planejada_atrasada": return { icone: TriangleAlert, cor: "var(--vermelho)", texto: `Não iniciou a corrida planejada ${n} no horário` };
     case "excluida": return { icone: Trash2, cor: "var(--vermelho)", texto: `Apagou a corrida ${n}`, extra: motivo };
     default: return { icone: Route, cor: "var(--texto-3)", texto: `${i.tipo.replaceAll("_", " ")} ${n}` };
   }
