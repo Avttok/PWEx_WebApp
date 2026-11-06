@@ -5,7 +5,6 @@ import { maplibregl } from "@/lib/mapa/maplibre";
 import type { FeatureCollection, LineString, Point } from "geojson";
 import { useRastreamento } from "./useRastreamento";
 import { COR_STATUS, ROTULO_STATUS, type Motoboy } from "./tipos";
-import { Logo } from "@/features/marca/Logo";
 
 const ESTILO_MAPA = "https://tiles.openfreemap.org/styles/positron";
 const ORDEM: Record<Motoboy["status"], number> = { em_corrida: 0, disponivel: 1, offline: 2 };
@@ -26,7 +25,7 @@ function ha(agora: number, iso: string | null): string {
   return `há ${Math.floor(s / 86400)} d`;
 }
 
-export function MapaAoVivo({ email, onSair }: { email: string; onSair: () => void }) {
+export function MapaAoVivo() {
   const { motoboys, nomes, trilhas, conectado, erro } = useRastreamento();
   const container = useRef<HTMLDivElement>(null);
   const mapa = useRef<maplibregl.Map | null>(null);
@@ -172,22 +171,13 @@ export function MapaAoVivo({ email, onSair }: { email: string; onSair: () => voi
   const ativos = lista.filter((m) => m.status !== "offline").length;
 
   return (
-    <div className="painel">
-      <header className="topo">
-        <Logo />
-        <span className="topo-titulo">Mapa ao vivo</span>
-        <span className={`conexao ${conectado ? "on" : ""}`}>{conectado ? "Tempo real conectado" : "Conectando…"}</span>
-        <span className="espaco" />
-        <span className="topo-email">{email}</span>
-        <button className="botao-texto" onClick={onSair}>Sair</button>
-      </header>
-
-      <div className="corpo">
+    <>
         <aside className="lateral">
           <div className="lateral-cabecalho">
             <span className="rotulo">Motoboys</span>
             <span className="contador">{ativos} em serviço</span>
           </div>
+          <span className={`conexao ${conectado ? "on" : ""}`}>{conectado ? "Tempo real conectado" : "Conectando…"}</span>
           {erro && <p className="erro">{erro}</p>}
           {lista.length === 0 && !erro && (
             <p className="vazio">Nenhum motoboy ainda. Abra o app no celular e fique &quot;Disponível&quot;.</p>
@@ -223,7 +213,6 @@ export function MapaAoVivo({ email, onSair }: { email: string; onSair: () => voi
           })}
         </aside>
         <div ref={container} className="mapa" />
-      </div>
-    </div>
+    </>
   );
 }
