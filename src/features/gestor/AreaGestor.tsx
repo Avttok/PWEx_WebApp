@@ -4,8 +4,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import type { Session } from "@supabase/supabase-js";
-import { Building2, ChevronDown, ChevronUp, Heart, List, LogOut, Map, Route, Settings2, Users, Wallet } from "lucide-react";
-import { supabase } from "@/lib/supabase/client";
+import { Building2, ChevronDown, Heart, List, LogOut, Map, Route, Settings2, Users, Wallet } from "lucide-react";
+import { sair as sairDaConta, supabase } from "@/lib/supabase/client";
+import { contas } from "@/lib/supabase/contas";
 import { LoginForm } from "@/features/auth/LoginForm";
 import { Logo } from "@/features/marca/Logo";
 import { BotaoTema } from "@/features/tema/BotaoTema";
@@ -31,8 +32,8 @@ export function AreaGestor({ children }: { children: ReactNode }) {
   const [foto, setFoto] = useState<string | null>(null);
   const [acesso, setAcesso] = useState<Acesso>("carregando");
   const caminho = usePathname();
-  // celular: gaveta sobre o mapa (compacta → expandida → oculta)
-  const [gaveta, setGaveta] = useState<"compacta" | "expandida" | "oculta">("compacta");
+  // celular: lista sobre o mapa, mostrando ou escondida
+  const [gaveta, setGaveta] = useState<"mostrando" | "oculta">("mostrando");
   const telaDeMapa = caminho?.startsWith("/gestor/mapa") || caminho?.startsWith("/gestor/corridas");
 
   useEffect(() => {
@@ -47,6 +48,7 @@ export function AreaGestor({ children }: { children: ReactNode }) {
       const d = perfil.data as { nome?: string; foto_url?: string | null } | null;
       setNome(d?.nome ?? "");
       setFoto(d?.foto_url ?? null);
+      if (s.user.email) contas.atualizarPerfil(s.user.email, d?.nome ?? null, d?.foto_url ?? null);
       setAcesso(data === true ? "gestor" : "negado");
     }
     sb.auth.getSession().then(({ data }) => verificar(data.session));
@@ -71,10 +73,10 @@ export function AreaGestor({ children }: { children: ReactNode }) {
     return () => { sb.removeChannel(canal); };
   }, [sessao?.user.id]);
 
-  const sair = () => supabase().auth.signOut();
+  const sair = () => sairDaConta();
 
   if (acesso === "carregando") return <main className="tela-login"><p className="subtitulo">Carregando…</p></main>;
-  if (acesso === "anonimo") return <LoginForm titulo="Painel do gestor" />;
+  if (acesso === "anonimo") return <LoginForm />;
   if (acesso === "negado")
     return (
       <main className="tela-login">
@@ -113,8 +115,8 @@ export function AreaGestor({ children }: { children: ReactNode }) {
         <div className="corpo" data-gaveta={telaDeMapa ? gaveta : undefined}>
           {children}
           {telaDeMapa && (
-            <button className="botao-gaveta vidro" onClick={() => setGaveta((g) => (g === "compacta" ? "expandida" : g === "expandida" ? "oculta" : "compacta"))}>
-              {gaveta === "compacta" ? <><ChevronUp size={16} /> Expandir</> : gaveta === "expandida" ? <><ChevronDown size={16} /> Ver mapa</> : <><List size={16} /> Mostrar painel</>}
+            <button className="botao-gaveta vidro" onClick={() => setGaveta((g) => (g === "mostrando" ? "oculta" : "mostrando"))}>
+              {gaveta === "mostrando" ? <><ChevronDown size={16} aria-hidden /> Esconder lista</> : <><List size={16} aria-hidden /> Mostrar lista</>}
             </button>
           )}
         </div>
