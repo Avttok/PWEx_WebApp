@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, FlaskConical, MapPinned, Route, Trash2, XCircle } from "lucide-react";
+import { ArrowLeft, FlaskConical, Landmark, MapPinned, Route, Trash2, XCircle } from "lucide-react";
 import { ExcluirCorridas } from "./ExcluirCorridas";
 import { CabecaPagina } from "@/features/ui/CabecaPagina";
 import { supabase } from "@/lib/supabase/client";
@@ -146,6 +146,15 @@ export function DetalheCorrida({ corrida, oferta, onVoltar, onExcluida }: { corr
             <div><span className="rotulo">Planejado</span><strong>{formatarKm(corrida.distancia_planejada_m)}</strong><small>{formatarDuracao(corrida.duracao_planejada_s)}</small></div>
             <div><span className="rotulo">Real</span><strong>{formatarKm(corrida.distancia_real_m)}</strong></div>
           </div>
+          {(Number(corrida.fator_entrega) > 0 || Number(corrida.fator_coleta) > 0) && (
+            <p className="acrescimo" style={{ margin: 0 }}>
+              <span>
+                Base {moeda(corrida.valor_base)}
+                {Number(corrida.fator_entrega) > 0 && <> · percurso <strong>+{Number(corrida.fator_entrega).toLocaleString("pt-BR")}×</strong></>}
+                {Number(corrida.fator_coleta) > 0 && <> · motoboy longe da coleta <strong>+{Number(corrida.fator_coleta).toLocaleString("pt-BR")}×</strong></>}
+              </span>
+            </p>
+          )}
           {corrida.valor_motoboy != null && (
             <div className="numeros">
               <div><span className="rotulo">Motoboy ({Number(corrida.repasse_pct)}%)</span><strong>{moeda(corrida.valor_motoboy)}</strong></div>
@@ -181,6 +190,12 @@ export function DetalheCorrida({ corrida, oferta, onVoltar, onExcluida }: { corr
                 <strong>{p.tipo === "coleta" ? "Coleta" : "Entrega"} · {ROTULO_PARADA[p.status]}</strong>
                 <span>{p.endereco}</span>
                 {(p.contato_nome || p.contato_telefone) && <span className="dica">{p.contato_nome} {p.contato_telefone}</span>}
+                {p.instrucoes && <span className="dica">{p.instrucoes}</span>}
+                {(p.referencias?.length ?? 0) > 0 && (
+                  <span className="referencias-detalhe">
+                    <Landmark size={12} aria-hidden /> {p.referencias!.map((r) => r.nome + (r.distancia_m != null ? ` (${r.distancia_m} m)` : "")).join(" · ")}
+                  </span>
+                )}
                 {p.concluida_em && <span className="dica">Concluída às {hora(p.concluida_em)}</span>}
                 {p.distancia_chegada_m != null && (
                   <span className="dica">Marcado a {p.distancia_chegada_m} m do endereço{p.local_ignorado ? " · localização ignorada (teste)" : ""}</span>

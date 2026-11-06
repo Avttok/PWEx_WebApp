@@ -36,5 +36,5 @@ export const ROTULO_STATUS: Record<StatusMotoboy, string> = {
 export const COR_STATUS: Record<StatusMotoboy, string> = {
   offline: "#8a8a8a",
   disponivel: "#2ecc71",
-  em_corrida: "#d4af37",
+  em_corrida: "var(--ouro)",
 };

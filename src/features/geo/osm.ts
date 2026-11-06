@@ -1,7 +1,21 @@
-import type { Endereco, ProvedorGeo, Rota } from "./provedor";
+import type { Endereco, ProvedorGeo, Referencia, Rota } from "./provedor";
 
 const NOMINATIM = "https://nominatim.openstreetmap.org";
 const OSRM = "https://router.project-osrm.org";
+const OVERPASS = "https://overpass-api.de/api/interpreter";
+
+const TIPOS: Record<string, string> = {
+  fuel: "Posto", pharmacy: "Farmácia", supermarket: "Mercado", bank: "Banco", restaurant: "Restaurante", school: "Escola",
+  hospital: "Hospital", church: "Igreja", place_of_worship: "Igreja", bakery: "Padaria", cafe: "Café", fast_food: "Lanchonete",
+  convenience: "Conveniência", park: "Praça/parque", bus_station: "Rodoviária", police: "Polícia", post_office: "Correios",
+};
+
+function metros(a: { lat: number; lng: number }, b: { lat: number; lng: number }) {
+  const r = 6371000, rad = Math.PI / 180;
+  const dLat = (b.lat - a.lat) * rad, dLng = (b.lng - a.lng) * rad;
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * rad) * Math.cos(b.lat * rad) * Math.sin(dLng / 2) ** 2;
+  return 2 * r * Math.asin(Math.sqrt(h));
+}
 
 interface ResultadoNominatim {
   display_name: string;
@@ -15,6 +29,28 @@ function encurtar(nome: string): string {
 }
 
 export const provedorOsm: ProvedorGeo = {
+  async pontosProximos(lat, lng, raioM = 250) {
+    const q = `[out:json][timeout:10];(nwr(around:${raioM},${lat},${lng})[name][~"^(amenity|shop|leisure|tourism)$"~"."];);out center 40;`;
+    try {
+      const r = await fetch(OVERPASS, { method: "POST", body: new URLSearchParams({ data: q }) });
+      if (!r.ok) return [];
+      const j = (await r.json()) as { elements: { lat?: number; lon?: number; center?: { lat: number; lon: number }; tags: Record<string, string> }[] };
+      const vistos = new Set<string>();
+      return j.elements
+        .map<Referencia | null>((e) => {
+          const p = e.center ?? (e.lat != null && e.lon != null ? { lat: e.lat, lon: e.lon } : null);
+          if (!p || !e.tags.name) return null;
+          const t = e.tags.amenity ?? e.tags.shop ?? e.tags.leisure ?? e.tags.tourism ?? "";
+          return { nome: e.tags.name, lat: p.lat, lng: p.lon, tipo: TIPOS[t] ?? null, distancia_m: Math.round(metros({ lat, lng }, { lat: p.lat, lng: p.lon })) };
+        })
+        .filter((x): x is Referencia => x != null && !vistos.has(x.nome.toLowerCase()) && Boolean(vistos.add(x.nome.toLowerCase())))
+        .sort((a, b) => (a.distancia_m ?? 0) - (b.distancia_m ?? 0))
+        .slice(0, 8);
+    } catch {
+      return [];
+    }
+  },
+
   async buscarEnderecos(texto) {
     if (texto.trim().length < 4) return [];
     const url = `${NOMINATIM}/search?format=jsonv2&countrycodes=br&limit=6&accept-language=pt-BR&q=${encodeURIComponent(texto)}`;

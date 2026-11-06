@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { maplibregl } from "@/lib/mapa/maplibre";
 import { useMapa } from "@/lib/mapa/useMapa";
+import { corOuro } from "@/lib/mapa/cores";
 import { decodificarPolyline } from "@/lib/geo/polyline";
 import { COR_STATUS, type StatusMotoboy } from "@/features/rastreamento/tipos";
 
@@ -72,7 +73,7 @@ export function MapaCorridas({ paradas = [], rotaPlanejada, trilha = [], motoboy
     m.addLayer({
       id: "trilha", type: "line", source: "trilha",
       layout: { "line-cap": "round", "line-join": "round" },
-      paint: { "line-color": "#d4af37", "line-width": 4 },
+      paint: { "line-color": corOuro(), "line-width": 4 },
     });
     const onClick = (e: maplibregl.MapMouseEvent) => cliqueRef.current?.(e.lngLat.lat, e.lngLat.lng);
     m.on("click", onClick);

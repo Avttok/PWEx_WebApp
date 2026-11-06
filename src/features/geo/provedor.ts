@@ -14,7 +14,18 @@ export interface Rota {
   polyline: string; // precisão 5
 }
 
+/** Ponto de referência perto de uma parada (loja, posto, praça…). */
+export interface Referencia {
+  nome: string;
+  lat?: number | null;
+  lng?: number | null;
+  distancia_m?: number | null;
+  tipo?: string | null;
+}
+
 export interface ProvedorGeo {
+  /** Estabelecimentos com nome perto do ponto, do mais perto ao mais longe. */
+  pontosProximos(lat: number, lng: number, raioM?: number): Promise<Referencia[]>;
   buscarEnderecos(texto: string): Promise<Endereco[]>;
   enderecoDoPonto(lat: number, lng: number): Promise<string>;
   calcularRota(pontos: { lat: number; lng: number }[]): Promise<Rota | null>;

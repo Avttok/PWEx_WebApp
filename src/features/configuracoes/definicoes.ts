@@ -18,12 +18,13 @@ export interface DefParametro {
   opcoes?: { valor: number; rotulo: string }[];
 }
 
-export type GrupoParametro = "despacho" | "local" | "preco" | "comprovantes" | "rastreamento" | "teste";
+export type GrupoParametro = "despacho" | "local" | "preco" | "distancia" | "comprovantes" | "rastreamento" | "teste";
 
 export const GRUPOS: Record<GrupoParametro, { titulo: string; descricao: string }> = {
   despacho: { titulo: "Despacho", descricao: "Como as corridas são oferecidas aos motoboys." },
   local: { titulo: "Etapas por localização", descricao: "Exigir que o motoboy esteja no endereço para avançar." },
   preco: { titulo: "Preço", descricao: "Cálculo do valor da corrida (empresas podem ter regra própria)." },
+  distancia: { titulo: "Acréscimo por distância", descricao: "Corridas longas ficam mais caras, por faixas de distância." },
   comprovantes: { titulo: "Comprovantes padrão", descricao: "O que já vem marcado ao lançar uma corrida." },
   rastreamento: { titulo: "Rastreamento no app", descricao: "Ritmo do GPS. O app aplica ao sincronizar." },
   teste: { titulo: "Modo teste", descricao: "Ferramentas para contas gestor + motoboy em corridas de teste." },
@@ -44,6 +45,12 @@ export const PARAMETROS: DefParametro[] = [
   { chave: "valor_km_padrao", grupo: "preco", rotulo: "Valor do km (avulso)", descricao: "Usado para clientes avulsos e empresas sem valor próprio.", tipo: "numero", padrao: 2, unidade: "R$", min: 0, max: 100, passo: 0.1 },
   { chave: "valor_minimo", grupo: "preco", rotulo: "Valor mínimo", descricao: "Nenhuma corrida calculada fica abaixo disso. 0 = sem mínimo.", tipo: "numero", padrao: 0, unidade: "R$", min: 0, max: 1000, passo: 0.5 },
   { chave: "arredondamento", grupo: "preco", rotulo: "Arredondamento", descricao: "Arredonda o valor calculado para cima.", tipo: "opcoes", padrao: 0, opcoes: [{ valor: 0, rotulo: "Centavos" }, { valor: 0.5, rotulo: "R$ 0,50" }, { valor: 1, rotulo: "R$ 1,00" }, { valor: 5, rotulo: "R$ 5,00" }] },
+
+  { chave: "acrescimo_distancia", grupo: "distancia", rotulo: "Cobrar acréscimo por distância", descricao: "Desligado, o valor da corrida não muda com a distância.", tipo: "booleano", padrao: true },
+  { chave: "acrescimo_coleta_cada_km", grupo: "distancia", rotulo: "Coleta longe do motoboy: a cada", descricao: "Distância do motoboy até a coleta. Cada motoboy vê o valor com a distância dele. 0 = não cobra.", tipo: "numero", padrao: 100, unidade: "km", min: 0, max: 5000, passo: 10 },
+  { chave: "acrescimo_coleta_fator", grupo: "distancia", rotulo: "…acrescenta", descricao: "Quanto do valor é somado a cada faixa (0,5 = metade do valor).", tipo: "numero", padrao: 0.5, unidade: "×", min: 0, max: 10, passo: 0.05 },
+  { chave: "acrescimo_entrega_cada_km", grupo: "distancia", rotulo: "Entrega longe da coleta: a cada", descricao: "Percurso da coleta até a entrega. 0 = não cobra.", tipo: "numero", padrao: 200, unidade: "km", min: 0, max: 5000, passo: 10 },
+  { chave: "acrescimo_entrega_fator", grupo: "distancia", rotulo: "…acrescenta", descricao: "Quanto do valor é somado a cada faixa (0,25 = um quarto do valor).", tipo: "numero", padrao: 0.25, unidade: "×", min: 0, max: 10, passo: 0.05 },
 
   { chave: "padrao_exige_nome", grupo: "comprovantes", rotulo: "Nome de quem recebeu", descricao: "", tipo: "booleano", padrao: true },
   { chave: "padrao_exige_foto", grupo: "comprovantes", rotulo: "Foto", descricao: "", tipo: "booleano", padrao: false },

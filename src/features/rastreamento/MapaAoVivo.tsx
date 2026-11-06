@@ -5,6 +5,7 @@ import type { FeatureCollection, LineString, Point } from "geojson";
 import { AlertTriangle, BatteryMedium, Crosshair, FlaskConical, LocateFixed, Map as IconeMapa, Timer } from "lucide-react";
 import { maplibregl } from "@/lib/mapa/maplibre";
 import { useMapa } from "@/lib/mapa/useMapa";
+import { corOuro, resolverCor } from "@/lib/mapa/cores";
 import { CabecaPagina } from "@/features/ui/CabecaPagina";
 import { useRastreamento } from "./useRastreamento";
 import { COR_STATUS, ROTULO_STATUS, type Motoboy } from "./tipos";
@@ -52,7 +53,7 @@ export function MapaAoVivo() {
     m.addLayer({ id: "trilhas-contorno", type: "line", source: "trilhas", layout: { "line-cap": "round", "line-join": "round" },
       paint: { "line-color": "#0a0a0a", "line-width": 7, "line-opacity": 0.5 } });
     m.addLayer({ id: "trilhas-linha", type: "line", source: "trilhas", layout: { "line-cap": "round", "line-join": "round" },
-      paint: { "line-color": "#d4af37", "line-width": 4 } });
+      paint: { "line-color": corOuro(), "line-width": 4 } });
     m.addLayer({ id: "pontos-circulo", type: "circle", source: "pontos",
       paint: { "circle-radius": 3.5, "circle-color": ["get", "cor"], "circle-stroke-color": "#0a0a0a", "circle-stroke-width": 1 } });
   }, [mapa, pronto]);
@@ -66,7 +67,7 @@ export function MapaAoVivo() {
     for (const [id, lista] of Object.entries(trilhas)) {
       const porSessao: Record<string, [number, number][]> = {};
       for (const p of lista) {
-        pontos.features.push({ type: "Feature", properties: { cor: COR_STATUS[p.status], motoboy: id }, geometry: { type: "Point", coordinates: [p.lng, p.lat] } });
+        pontos.features.push({ type: "Feature", properties: { cor: resolverCor(COR_STATUS[p.status]), motoboy: id }, geometry: { type: "Point", coordinates: [p.lng, p.lat] } });
         if (p.status === "em_corrida") (porSessao[p.sessao_id ?? "sem"] ??= []).push([p.lng, p.lat]);
       }
       for (const coords of Object.values(porSessao)) {

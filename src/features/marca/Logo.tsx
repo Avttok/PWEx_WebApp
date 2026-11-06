@@ -14,7 +14,7 @@ export function Logo({ grande = false }: { grande?: boolean }) {
       <img src="/marca/logo-192.png" alt="" className="logo-imagem" width={40} height={40} />
       <span className="logo-texto">
         <span className="logo-pw texto-grad">PW</span>
-        <span className="logo-express">EXPRESS</span>
+        <span className="logo-express">Express</span>
       </span>
     </span>
   );

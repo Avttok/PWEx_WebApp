@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabase/client";
 import { CabecaPagina } from "@/features/ui/CabecaPagina";
 import { moeda } from "@/features/precos/estrategias";
 import { useEmpresas, useEquipe } from "@/features/corridas/dados";
+import { useModoTeste } from "@/features/teste/modoTeste";
 
 type Periodo = "hoje" | "7d" | "mes" | "30d";
 const ROTULO: Record<Periodo, string> = { hoje: "Hoje", "7d": "7 dias", mes: "Este mês", "30d": "30 dias" };
@@ -25,12 +26,13 @@ export function PainelFinanceiro() {
   const [linhas, setLinhas] = useState<Linha[]>([]);
   const equipe = useEquipe();
   const { empresas } = useEmpresas();
+  const { teste } = useModoTeste();
 
   useEffect(() => {
     supabase().from("corridas").select("id,numero,valor,valor_motoboy,valor_gestao,motoboy_id,empresa_id,concluida_em,distancia_real_m")
-      .eq("status", "concluida").eq("teste", false).gte("concluida_em", inicio(periodo)).order("concluida_em", { ascending: false })
+      .eq("status", "concluida").eq("teste", teste).gte("concluida_em", inicio(periodo)).order("concluida_em", { ascending: false })
       .then(({ data }) => setLinhas((data ?? []) as Linha[]));
-  }, [periodo]);
+  }, [periodo, teste]);
 
   const soma = (f: (l: Linha) => number | null) => linhas.reduce((s, l) => s + Number(f(l) ?? 0), 0);
   const total = soma((l) => l.valor), motoboys = soma((l) => l.valor_motoboy), gestao = soma((l) => l.valor_gestao);
@@ -53,7 +55,7 @@ export function PainelFinanceiro() {
   return (
     <>
       <aside className="lateral entrar">
-        <CabecaPagina icone={Wallet} titulo="Financeiro" subtitulo="Corridas concluídas (sem testes)" />
+        <CabecaPagina icone={Wallet} titulo="Financeiro" subtitulo={teste ? "Ganhos das corridas de teste" : "Corridas concluídas (sem testes)"} />
         <div className="filtro" style={{ alignSelf: "flex-start" }}>
           {(Object.keys(ROTULO) as Periodo[]).map((p) => (
             <button key={p} className={periodo === p ? "ativo" : ""} onClick={() => setPeriodo(p)}>{ROTULO[p]}</button>

@@ -9,12 +9,16 @@ import { MapaCorridas } from "./MapaCorridas";
 import { NovaCorrida } from "./NovaCorrida";
 import { DetalheCorrida } from "./DetalheCorrida";
 import { useCorridas, useEquipe } from "./dados";
+import { useModoTeste } from "@/features/teste/modoTeste";
 import { ATIVAS, COR_CORRIDA, ROTULO_CORRIDA, formatarKm, hora } from "./tipos";
 
 type Visao = { tipo: "lista" } | { tipo: "nova" } | { tipo: "detalhe"; id: string };
 
 export function PainelCorridas() {
-  const { corridas, ofertas, erro } = useCorridas();
+  const { corridas: todasCorridas, ofertas, erro } = useCorridas();
+  // modo teste: só corridas de teste; fora dele, só as reais
+  const { teste } = useModoTeste();
+  const corridas = useMemo(() => todasCorridas.filter((c) => c.teste === teste), [todasCorridas, teste]);
   const equipe = useEquipe();
   const [visao, setVisao] = useState<Visao>({ tipo: "lista" });
   const [filtro, setFiltro] = useState<"ativas" | "concluidas" | "canceladas" | "todas">("ativas");
@@ -42,7 +46,7 @@ export function PainelCorridas() {
     return <NovaCorrida onVoltar={() => setVisao({ tipo: "lista" })} onCriada={(id) => setVisao({ tipo: "detalhe", id })} />;
   }
   if (visao.tipo === "detalhe") {
-    const corrida = corridas.find((c) => c.id === visao.id);
+    const corrida = todasCorridas.find((c) => c.id === visao.id);
     if (corrida) {
       return (
         <DetalheCorrida
@@ -59,7 +63,7 @@ export function PainelCorridas() {
   return (
     <>
       <aside className="lateral lateral-larga entrar">
-        <CabecaPagina icone={Route} titulo="Corridas" subtitulo={`${corridas.filter((c) => ATIVAS.includes(c.status)).length} ativas agora`} />
+        <CabecaPagina icone={Route} titulo="Corridas" subtitulo={`${corridas.filter((c) => ATIVAS.includes(c.status)).length} ativas agora${teste ? " · modo teste" : ""}`} />
         <div className="lateral-cabecalho">
           <span className="rotulo">Mostrar</span>
           <div className="filtro">
@@ -87,7 +91,7 @@ export function PainelCorridas() {
                 {selecionando && <input type="checkbox" readOnly checked={marcadas.includes(c.id)} tabIndex={-1} style={{ pointerEvents: "none" }} />}
                 <strong className="figura">#{c.numero}</strong>
                 <span className="selo" style={{ color: COR_CORRIDA[c.status] }}>{ROTULO_CORRIDA[c.status]}</span>
-                {c.teste && <span className="selo" style={{ color: "#a78bfa" }}><FlaskConical size={11} aria-hidden /> teste</span>}
+                {c.teste && <span className="selo" style={{ color: "var(--ouro)" }}><FlaskConical size={11} aria-hidden /> teste</span>}
                 <span className="espaco" />
                 <span className="valor-lista">{moeda(c.valor)}</span>
               </div>
@@ -121,7 +125,7 @@ export function PainelCorridas() {
       </aside>
       <MapaCorridas
         paradas={pinosAtivos}
-        motoboys={equipe.filter((m) => m.status !== "offline" && m.lat != null && m.lng != null)
+        motoboys={equipe.filter((m) => m.status !== "offline" && m.lat != null && m.lng != null && m.modo_teste === teste)
           .map((m) => ({ id: m.id, nome: m.nome, lat: m.lat!, lng: m.lng!, status: m.status, foto: m.foto }))}
         enquadrar={String(pinosAtivos.length)}
       />

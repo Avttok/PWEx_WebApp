@@ -15,6 +15,7 @@ export interface Parada {
   contato_nome: string | null;
   contato_telefone: string | null;
   instrucoes: string | null;
+  referencias?: { nome: string; tipo?: string | null; distancia_m?: number | null }[];
   status: StatusParada;
   chegou_em: string | null;
   concluida_em: string | null;
@@ -45,6 +46,9 @@ export interface Corrida {
   duracao_planejada_s: number | null;
   rota_planejada: string | null;
   valor: number | null;
+  valor_base?: number | null;
+  fator_entrega?: number | null;
+  fator_coleta?: number | null;
   repasse_pct: number | null;
   valor_motoboy: number | null;
   valor_gestao: number | null;
@@ -107,10 +111,10 @@ export const ROTULO_CORRIDA: Record<StatusCorrida, string> = {
 };
 
 export const COR_CORRIDA: Record<StatusCorrida, string> = {
-  aguardando_motoboy: "#e9c766",
+  aguardando_motoboy: "var(--ouro-claro)",
   sem_motoboy: "#e5484d",
-  aceita: "#d4af37",
-  em_andamento: "#d4af37",
+  aceita: "var(--ouro)",
+  em_andamento: "var(--ouro)",
   concluida: "#2ecc71",
   cancelada: "#8a8a8a",
 };

@@ -2,11 +2,13 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  ArrowDown, ArrowLeft, ArrowUp, CheckCircle2, FlaskConical, MapPin, MapPinned, PackagePlus, Plus, Radar, Receipt, Send, StickyNote, UserRound, X,
+  ArrowDown, ArrowLeft, ArrowUp, Building2, CheckCircle2, FlaskConical, TrendingUp, UserRound as Pessoa, MapPin, MapPinned, PackagePlus, Plus, Radar, Receipt, Send, StickyNote, UserRound, X,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
-import { geo, type Endereco, type Rota } from "@/features/geo";
-import { moeda, orcar, ROTULO_MODALIDADE } from "@/features/precos/estrategias";
+import { geo, type Endereco, type Referencia, type Rota } from "@/features/geo";
+import { CampoReferencias } from "./CampoReferencias";
+import { moeda, orcar, ROTULO_MODALIDADE, type Modalidade } from "@/features/precos/estrategias";
+import { useModoTeste } from "@/features/teste/modoTeste";
 import { useConfiguracoes } from "@/features/configuracoes/useConfiguracoes";
 import { CabecaPagina } from "@/features/ui/CabecaPagina";
 import { ROTULO_STATUS } from "@/features/rastreamento/tipos";
@@ -23,11 +25,12 @@ interface ParadaForm {
   contato_nome: string;
   contato_telefone: string;
   instrucoes: string;
+  referencias: Referencia[];
 }
 
 let seq = 0;
 const novaParada = (tipo: TipoParada, base: Partial<ParadaForm> = {}): ParadaForm => ({
-  chave: `p${++seq}`, tipo, endereco: "", lat: null, lng: null, contato_nome: "", contato_telefone: "", instrucoes: "", ...base,
+  chave: `p${++seq}`, tipo, endereco: "", lat: null, lng: null, contato_nome: "", contato_telefone: "", instrucoes: "", referencias: [], ...base,
 });
 
 // ------------------------------------------------------------------ campo de endereço
@@ -75,7 +78,12 @@ export function NovaCorrida({ onCriada, onVoltar }: { onCriada: (id: string) => 
   const equipe = useEquipe();
   const cfg = useConfiguracoes();
 
+  const [tipoCliente, setTipoCliente] = useState<"avulso" | "cliente">("avulso");
   const [empresaId, setEmpresaId] = useState("");
+  // avulso: modalidade e preço só desta corrida
+  const [modAvulso, setModAvulso] = useState<Modalidade>("por_km");
+  const [kmAvulso, setKmAvulso] = useState<string | null>(null);
+  const [fixoAvulso, setFixoAvulso] = useState("");
   const [paradas, setParadas] = useState<ParadaForm[]>(() => [novaParada("coleta"), novaParada("entrega")]);
   const [escolhendo, setEscolhendo] = useState<string | null>(null);
   const [aberta, setAberta] = useState<string | null>(null);
@@ -85,7 +93,7 @@ export function NovaCorrida({ onCriada, onVoltar }: { onCriada: (id: string) => 
   const [exige, setExige] = useState<{ foto: boolean; assinatura: boolean; nome: boolean; codigo: boolean } | null>(null);
   const [noLocal, setNoLocal] = useState<boolean | null>(null);
   const [raio, setRaio] = useState<string | null>(null);
-  const [teste, setTeste] = useState(false);
+  const { teste } = useModoTeste(); // no modo teste, toda corrida criada é de teste
   const [modo, setModo] = useState<"cascata" | "direto">("cascata");
   const [motoboyId, setMotoboyId] = useState("");
   const [observacoes, setObservacoes] = useState("");
@@ -100,11 +108,17 @@ export function NovaCorrida({ onCriada, onVoltar }: { onCriada: (id: string) => 
   const noLocalAtual = noLocal ?? Boolean(cfg.exigir_no_local);
   const raioAtual = raio ?? String(cfg.raio_chegada_m);
 
-  const empresa = empresas.find((e) => e.id === empresaId) ?? null;
+  const empresa = tipoCliente === "cliente" ? empresas.find((e) => e.id === empresaId) ?? null : null;
   const favoritosDaEmpresa = favoritos.filter((f) => f.empresa_id === empresaId).map((f) => f.motoboy_id);
 
   const atualizar = (chave: string, mudanca: Partial<ParadaForm>) =>
     setParadas((lista) => lista.map((p) => (p.chave === chave ? { ...p, ...mudanca } : p)));
+
+  function escolherTipo(t: "avulso" | "cliente") {
+    setTipoCliente(t);
+    setValorManual(null);
+    if (t === "avulso") setEmpresaId("");
+  }
 
   function escolherEmpresa(id: string) {
     setEmpresaId(id);
@@ -133,12 +147,27 @@ export function NovaCorrida({ onCriada, onVoltar }: { onCriada: (id: string) => 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chaveCoords]);
 
+  const numero = (t: string | null) => (t == null || t.trim() === "" ? null : Number(t.replace(",", ".")));
+  const kmAvulsoAtual = kmAvulso ?? String(cfg.valor_km_padrao).replace(".", ",");
+  const regra = empresa
+    ? { modalidade: empresa.modalidade_preco, valor_km: empresa.valor_km, valor_fixo: empresa.valor_fixo }
+    : { modalidade: modAvulso, valor_km: numero(kmAvulsoAtual), valor_fixo: numero(fixoAvulso) };
   const orcamento = orcar(
-    empresa ? { modalidade: empresa.modalidade_preco, valor_km: empresa.valor_km, valor_fixo: empresa.valor_fixo } : null,
+    regra,
     rota?.distanciaM ?? null,
     { valorKmPadrao: Number(cfg.valor_km_padrao), valorMinimo: Number(cfg.valor_minimo), arredondamento: Number(cfg.arredondamento) },
   );
   const valorFinal = valorManual !== null ? Number(valorManual.replace(",", ".")) : orcamento.valor;
+
+  // acréscimo do percurso (coleta → entrega), igual ao do servidor; o da coleta depende do motoboy
+  const faixas = (m: number | null | undefined, cada: number, fator: number) => (m != null && cada > 0 ? Math.floor(m / 1000 / cada) * fator : 0);
+  const acrescimoLigado = Boolean(cfg.acrescimo_distancia);
+  const fatorEntrega = acrescimoLigado ? faixas(rota?.distanciaM, Number(cfg.acrescimo_entrega_cada_km), Number(cfg.acrescimo_entrega_fator)) : 0;
+  const arredondar = (v: number) => {
+    const a = Number(cfg.arredondamento);
+    return a > 0 ? Math.ceil(v / a - 1e-9) * a : Math.round(v * 100) / 100;
+  };
+  const valorComAcrescimo = valorFinal != null && !Number.isNaN(valorFinal) ? arredondar(valorFinal * (1 + fatorEntrega)) : null;
 
   async function aoClicarMapa(lat: number, lng: number) {
     if (!escolhendo) return;
@@ -165,11 +194,12 @@ export function NovaCorrida({ onCriada, onVoltar }: { onCriada: (id: string) => 
     if (!paradas.some((p) => p.tipo === "entrega")) return setErro("Inclua pelo menos uma entrega.");
     if (valorFinal == null || Number.isNaN(valorFinal)) return setErro("Informe o valor da corrida.");
     if (modo === "direto" && !motoboyId) return setErro("Escolha o motoboy.");
+    if (tipoCliente === "cliente" && !empresa) return setErro("Escolha o cliente (ou mude para avulso).");
 
     setEnviando(true);
     const { data, error } = await supabase().rpc("criar_corrida", {
       dados: {
-        empresa_id: empresaId || null,
+        empresa_id: empresa?.id ?? null,
         teste,
         modo_despacho: modo,
         motoboy_id: modo === "direto" ? motoboyId : null,
@@ -184,8 +214,8 @@ export function NovaCorrida({ onCriada, onVoltar }: { onCriada: (id: string) => 
         rota_planejada: rota?.polyline ?? null,
         valor: valorFinal,
         observacoes,
-        paradas: paradas.map(({ tipo, endereco, lat, lng, contato_nome, contato_telefone, instrucoes }) => ({
-          tipo, endereco, lat, lng, contato_nome, contato_telefone, instrucoes,
+        paradas: paradas.map(({ tipo, endereco, lat, lng, contato_nome, contato_telefone, instrucoes, referencias }) => ({
+          tipo, endereco, lat, lng, contato_nome, contato_telefone, instrucoes, referencias,
         })),
       },
     });
@@ -212,23 +242,58 @@ export function NovaCorrida({ onCriada, onVoltar }: { onCriada: (id: string) => 
         </div>
         <CabecaPagina icone={PackagePlus} titulo="Nova corrida" subtitulo="Defina as paradas, o preço e o despacho" />
 
-        <section className={`bloco ${teste ? "bloco-teste" : ""}`}>
-          <label className="opcao">
-            <FlaskConical size={17} aria-hidden style={{ color: "#a78bfa" }} />
-            <span><strong>Corrida de teste</strong><br /><span className="dica">Só vai para motoboys com o modo teste ligado no app.</span></span>
-            <input type="checkbox" checked={teste} onChange={(e) => { setTeste(e.target.checked); setMotoboyId(""); }} />
-          </label>
-        </section>
+        {teste && (
+          <section className="bloco bloco-teste">
+            <div className="opcao">
+              <FlaskConical size={17} aria-hidden style={{ color: "var(--ouro)" }} />
+              <span><strong>Modo teste ligado</strong><br /><span className="dica">Esta corrida será de teste: só vai para motoboys com o modo teste ligado e não entra no financeiro real.</span></span>
+            </div>
+          </section>
+        )}
 
         <section className="bloco">
-          <label className="campo">
-            <span>Cliente</span>
-            <select value={empresaId} onChange={(e) => escolherEmpresa(e.target.value)}>
-              <option value="">Avulso ({moeda(Number(cfg.valor_km_padrao))}/km)</option>
-              {empresas.map((e) => <option key={e.id} value={e.id}>{e.nome}{e.situacao && e.situacao !== "ATIVA" ? ` (${e.situacao})` : ""}</option>)}
-            </select>
-          </label>
-          {empresa?.situacao && empresa.situacao !== "ATIVA" && <p className="erro">Atenção: situação cadastral {empresa.situacao} na Receita.</p>}
+          <span className="rotulo">Cliente</span>
+          <div className="segmentado" style={{ gridTemplateColumns: "1fr 1fr" }}>
+            <button type="button" className={tipoCliente === "avulso" ? "ativo" : ""} onClick={() => escolherTipo("avulso")}><Pessoa size={15} aria-hidden /> Avulso</button>
+            <button type="button" className={tipoCliente === "cliente" ? "ativo" : ""} onClick={() => escolherTipo("cliente")}><Building2 size={15} aria-hidden /> Cliente cadastrado</button>
+          </div>
+
+          {tipoCliente === "cliente" ? (
+            <>
+              <select value={empresaId} onChange={(e) => escolherEmpresa(e.target.value)} aria-label="Cliente">
+                <option value="">Escolha o cliente…</option>
+                {empresas.map((e) => <option key={e.id} value={e.id}>{e.nome}{e.situacao && e.situacao !== "ATIVA" ? ` (${e.situacao})` : ""}</option>)}
+              </select>
+              {empresa && <p className="dica" style={{ margin: 0 }}>Preço do cliente: {ROTULO_MODALIDADE[empresa.modalidade_preco]}{empresa.modalidade_preco === "por_km" ? ` · ${moeda(empresa.valor_km)}/km` : empresa.modalidade_preco === "fixo" ? ` · ${moeda(empresa.valor_fixo)}` : ""}</p>}
+              {empresa?.situacao && empresa.situacao !== "ATIVA" && <p className="erro">Atenção: situação cadastral {empresa.situacao} na Receita.</p>}
+            </>
+          ) : (
+            <>
+              <label className="campo">
+                <span>Modalidade desta corrida</span>
+                <select value={modAvulso} onChange={(e) => { setModAvulso(e.target.value as Modalidade); setValorManual(null); }}>
+                  {(Object.keys(ROTULO_MODALIDADE) as Modalidade[]).map((m) => <option key={m} value={m}>{ROTULO_MODALIDADE[m]}</option>)}
+                </select>
+              </label>
+              {modAvulso === "por_km" && (
+                <label className="opcao">
+                  <span>Valor do km</span>
+                  <span className="unidade">R$</span>
+                  <input inputMode="decimal" style={{ width: 100, textAlign: "right" }} value={kmAvulsoAtual}
+                    onChange={(e) => { setKmAvulso(e.target.value); setValorManual(null); }} />
+                </label>
+              )}
+              {modAvulso === "fixo" && (
+                <label className="opcao">
+                  <span>Preço fixo</span>
+                  <span className="unidade">R$</span>
+                  <input inputMode="decimal" placeholder="0,00" style={{ width: 110, textAlign: "right" }} value={fixoAvulso}
+                    onChange={(e) => { setFixoAvulso(e.target.value); setValorManual(null); }} />
+                </label>
+              )}
+              {modAvulso === "por_zona" && <p className="dica" style={{ margin: 0 }}>Informe o valor da corrida no resumo abaixo.</p>}
+            </>
+          )}
         </section>
 
         <section className="bloco">
@@ -259,14 +324,15 @@ export function NovaCorrida({ onCriada, onVoltar }: { onCriada: (id: string) => 
                 </button>
                 {p.lat != null ? <span className="ok"><CheckCircle2 size={13} aria-hidden /> Localizado</span> : <span className="pendente">Sem localização</span>}
                 <button type="button" className="link" onClick={() => setAberta(aberta === p.chave ? null : p.chave)}>
-                  <UserRound size={13} aria-hidden /> {aberta === p.chave ? "Menos" : "Contato e instruções"}
+                  <UserRound size={13} aria-hidden /> {aberta === p.chave ? "Menos" : `Contato e referências${p.referencias.length ? ` (${p.referencias.length})` : ""}`}
                 </button>
               </div>
               {aberta === p.chave && (
                 <div className="parada-extra">
                   <input placeholder="Nome do contato" value={p.contato_nome} onChange={(e) => atualizar(p.chave, { contato_nome: e.target.value })} />
                   <input placeholder="Telefone" value={p.contato_telefone} onChange={(e) => atualizar(p.chave, { contato_telefone: e.target.value })} />
-                  <input placeholder="Instruções (portaria, bloco, referência…)" value={p.instrucoes} onChange={(e) => atualizar(p.chave, { instrucoes: e.target.value })} />
+                  <input placeholder="Instruções (portaria, bloco…)" value={p.instrucoes} onChange={(e) => atualizar(p.chave, { instrucoes: e.target.value })} />
+                  <CampoReferencias valor={p.referencias} lat={p.lat} lng={p.lng} onMudar={(r) => atualizar(p.chave, { referencias: r })} />
                 </div>
               )}
             </div>
@@ -287,9 +353,20 @@ export function NovaCorrida({ onCriada, onVoltar }: { onCriada: (id: string) => 
               placeholder="0,00" onChange={(e) => setValorManual(e.target.value)} />
           </div>
           <p className="dica">
-            {empresa ? `${ROTULO_MODALIDADE[empresa.modalidade_preco]} · ` : ""}{orcamento.explicacao}
+            {ROTULO_MODALIDADE[regra.modalidade]} · {orcamento.explicacao}
             {valorManual !== null && <> · <button type="button" className="link" onClick={() => setValorManual(null)}>voltar ao calculado ({moeda(orcamento.valor)})</button></>}
           </p>
+          {acrescimoLigado && (
+            <div className="acrescimo">
+              <TrendingUp size={14} aria-hidden />
+              <span>
+                {fatorEntrega > 0
+                  ? <>Percurso longo: <strong>+{fatorEntrega.toLocaleString("pt-BR")}×</strong> → <strong>{moeda(valorComAcrescimo)}</strong>. </>
+                  : <>Sem acréscimo de percurso. </>}
+                Se o motoboy estiver a mais de {Number(cfg.acrescimo_coleta_cada_km)} km da coleta, soma +{Number(cfg.acrescimo_coleta_fator).toLocaleString("pt-BR")}× a cada {Number(cfg.acrescimo_coleta_cada_km)} km na oferta dele.
+              </span>
+            </div>
+          )}
         </section>
 
         <section className="bloco">
@@ -347,7 +424,7 @@ export function NovaCorrida({ onCriada, onVoltar }: { onCriada: (id: string) => 
 
         {erro && <p className="erro">{erro}</p>}
         <button className="botao-ouro" disabled={enviando} onClick={enviar}>
-          <Send size={17} aria-hidden /> {enviando ? "Criando…" : `${teste ? "Criar teste" : "Criar e despachar"} · ${moeda(valorFinal)}`}
+          <Send size={17} aria-hidden /> {enviando ? "Criando…" : `${teste ? "Criar teste" : "Criar e despachar"} · ${moeda(valorComAcrescimo)}`}
         </button>
       </aside>
 

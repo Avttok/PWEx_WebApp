@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { Bike, FlaskConical, Info, Save, ShieldCheck, Users } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Bike, FlaskConical, History, Info, PencilLine, Save, ShieldCheck, Users } from "lucide-react";
+import { RegistroMembro } from "./RegistroMembro";
 import { supabase } from "@/lib/supabase/client";
 import { CabecaPagina } from "@/features/ui/CabecaPagina";
 import { useConfiguracoes } from "@/features/configuracoes/useConfiguracoes";
@@ -21,6 +22,8 @@ export function PainelEquipe() {
   const [motoboy, setMotoboy] = useState(false);
   const [repasse, setRepasse] = useState("");
   const [msg, setMsg] = useState<{ ok: boolean; t: string } | null>(null);
+  const [aba, setAba] = useState<"registro" | "editar">("registro");
+  const detalhe = useRef<HTMLDivElement>(null);
 
   const carregar = useCallback(async () => {
     const { data } = await supabase().rpc("listar_equipe");
@@ -52,7 +55,11 @@ export function PainelEquipe() {
       <aside className="lateral entrar">
         <CabecaPagina icone={Users} titulo="Equipe" subtitulo={`${lista.length} pessoas`} />
         {lista.map((x) => (
-          <button key={x.id} className={`cartao-motoboy ${sel === x.id ? "selecionado" : ""}`} onClick={() => setSel(x.id)}>
+          <button key={x.id} className={`cartao-motoboy ${sel === x.id ? "selecionado" : ""}`} onClick={() => {
+            setSel(x.id);
+            // no celular o detalhe fica embaixo da lista: leva até ele
+            if (window.matchMedia("(max-width: 860px)").matches) setTimeout(() => detalhe.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
+          }}>
             <div className="linha">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               {x.foto_url ? <img src={x.foto_url} alt="" className="foto-mini" style={{ borderColor: "var(--ouro)" }} />
@@ -74,24 +81,47 @@ export function PainelEquipe() {
         <p className="dica" style={{ display: "flex", gap: 6 }}><Info size={14} style={{ flexShrink: 0 }} /> Para criar uma conta: Supabase → Authentication → Users → Add user (Auto Confirm). Ela aparece aqui para você definir os papéis.</p>
       </aside>
       <main className="conteudo">
-        <div className="formulario vidro entrar">
-          {!m ? <p className="vazio">Selecione uma pessoa.</p> : (
+        <div className="formulario vidro entrar" ref={detalhe} style={{ maxWidth: 860 }}>
+          {!m ? <p className="vazio">Selecione uma pessoa para ver o registro e editar.</p> : (
             <>
-              <h2 className="display">{m.nome || m.email}</h2>
-              <p className="dica">{m.email}</p>
-              <label className="campo"><span>Nome de exibição</span><input value={nome} onChange={(e) => setNome(e.target.value)} /></label>
-              <span className="rotulo">Papéis</span>
-              <label className="opcao"><span><ShieldCheck size={14} style={{ verticalAlign: -2 }} /> Gestor (acessa este painel)</span><input type="checkbox" checked={gestor} onChange={(e) => setGestor(e.target.checked)} /></label>
-              <label className="opcao"><span><Bike size={14} style={{ verticalAlign: -2 }} /> Motoboy (usa o app e recebe corridas)</span><input type="checkbox" checked={motoboy} onChange={(e) => setMotoboy(e.target.checked)} /></label>
-              {gestor && motoboy && <p className="dica">Gestor + motoboy tem as ferramentas de administrador e o modo teste no app.</p>}
-              {motoboy && (
-                <label className="campo curto"><span>Repasse individual (%)</span>
-                  <input inputMode="decimal" placeholder={`padrão: ${cfg.repasse_motoboy_pct}%`} value={repasse} onChange={(e) => setRepasse(e.target.value)} />
-                  <span className="dica">Vazio = usa o padrão das Configurações. Vale para corridas aceitas daqui em diante.</span>
-                </label>
+              <div className="membro-cabeca">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                {m.foto_url ? <img src={m.foto_url} alt="" className="avatar avatar-foto membro-avatar" />
+                  : <span className="avatar grad membro-avatar">{(m.nome || m.email).charAt(0).toUpperCase()}</span>}
+                <div style={{ minWidth: 0 }}>
+                  <h2 className="display">{m.nome || m.email}</h2>
+                  <p className="dica" style={{ margin: "2px 0 6px" }}>{m.email}</p>
+                  <div className="selos">
+                    {m.papeis.includes("gestor") && <span className="selo" style={{ color: "var(--ouro)" }}><ShieldCheck size={11} /> Gestor</span>}
+                    {m.papeis.includes("motoboy") && <span className="selo" style={{ color: "var(--texto-2)" }}><Bike size={11} /> Motoboy</span>}
+                    {m.modo_teste && <span className="selo" style={{ color: "#a78bfa" }}><FlaskConical size={11} /> Teste</span>}
+                    {m.status && <span className="selo" style={{ color: COR_STATUS[m.status] }}>{ROTULO_STATUS[m.status]}</span>}
+                  </div>
+                </div>
+              </div>
+
+              <div className="segmentado" style={{ gridTemplateColumns: "1fr 1fr" }}>
+                <button type="button" className={aba === "registro" ? "ativo" : ""} onClick={() => setAba("registro")}><History size={15} aria-hidden /> Registro</button>
+                <button type="button" className={aba === "editar" ? "ativo" : ""} onClick={() => setAba("editar")}><PencilLine size={15} aria-hidden /> Editar</button>
+              </div>
+
+              {aba === "registro" ? <RegistroMembro key={m.id} id={m.id} /> : (
+                <>
+                  <label className="campo"><span>Nome de exibição</span><input value={nome} onChange={(e) => setNome(e.target.value)} /></label>
+                  <span className="rotulo">Papéis</span>
+                  <label className="opcao"><span><ShieldCheck size={14} style={{ verticalAlign: -2 }} /> Gestor (acessa este painel)</span><input type="checkbox" checked={gestor} onChange={(e) => setGestor(e.target.checked)} /></label>
+                  <label className="opcao"><span><Bike size={14} style={{ verticalAlign: -2 }} /> Motoboy (usa o app e recebe corridas)</span><input type="checkbox" checked={motoboy} onChange={(e) => setMotoboy(e.target.checked)} /></label>
+                  {gestor && motoboy && <p className="dica">Gestor + motoboy tem as ferramentas de administrador e o modo teste no app.</p>}
+                  {motoboy && (
+                    <label className="campo curto"><span>Repasse individual (%)</span>
+                      <input inputMode="decimal" placeholder={`padrão: ${cfg.repasse_motoboy_pct}%`} value={repasse} onChange={(e) => setRepasse(e.target.value)} />
+                      <span className="dica">Vazio = usa o padrão das Configurações. Vale para corridas aceitas daqui em diante.</span>
+                    </label>
+                  )}
+                  {msg && <p className={msg.ok ? "sucesso" : "erro"}>{msg.t}</p>}
+                  <div className="linha-botoes"><button className="botao-ouro" onClick={salvar}><Save size={16} /> Salvar</button></div>
+                </>
               )}
-              {msg && <p className={msg.ok ? "sucesso" : "erro"}>{msg.t}</p>}
-              <div className="linha-botoes"><button className="botao-ouro" onClick={salvar}><Save size={16} /> Salvar</button></div>
             </>
           )}
         </div>
