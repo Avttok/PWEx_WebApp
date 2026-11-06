@@ -477,3 +477,33 @@ input[type="radio"] { width: 18px; height: 18px; padding: 0; margin: 0; accent-c
   .icone { width: 34px; height: 34px; }
   .link { padding: 4px 0; }
 }
+
+/* ---------------------------------------------------------------- sem "puxar para atualizar" */
+html, body { overscroll-behavior: none; }
+.lateral, .conteudo, .corpo, .sugestoes, .modal, .abas { overscroll-behavior: contain; }
+
+/* ---------------------------------------------------------------- alinhamentos no celular */
+@media (max-width: 860px) {
+  .topo { display: grid; grid-template-columns: auto 1fr auto auto auto; align-items: center; }
+  .topo > a:first-child { grid-column: 1; }
+  .topo .espaco { display: none; }
+  .topo .abas { grid-column: 1 / -1; grid-row: 2; width: auto; }
+  .topo .botao-icone, .topo .usuario { justify-self: end; }
+  .topo > :nth-child(4) { grid-column: 3; }
+
+  .lateral-cabecalho { flex-wrap: wrap; row-gap: 8px; }
+  .filtro { width: 100%; overflow-x: auto; scrollbar-width: none; }
+  .filtro::-webkit-scrollbar { display: none; }
+  .filtro button { flex: 1 0 auto; white-space: nowrap; }
+
+  .cartao-motoboy .linha { flex-wrap: wrap; row-gap: 6px; }
+  .cartao-motoboy .linha .espaco { display: none; }
+  .cartao-motoboy .valor-lista { margin-left: auto; }
+  .cabeca { align-items: flex-start; }
+  .opcao { align-items: flex-start; }
+  .opcao input[type="checkbox"] { margin-top: 2px; }
+  .parametro .controle { justify-content: flex-start; flex-wrap: wrap; }
+  .linha-botoes > * { flex: 1 1 auto; justify-content: center; }
+  .parada-topo { flex-wrap: wrap; }
+  .resumo-rota strong, .resumo-rota .valor { font-size: 18px; }
+}
