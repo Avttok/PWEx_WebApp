@@ -8,17 +8,19 @@ import { moeda } from "@/features/precos/estrategias";
 import { useEmpresas, useEquipe } from "@/features/corridas/dados";
 import { useModoTeste } from "@/features/teste/modoTeste";
 import { toast } from "@/features/ui/toast";
+import { useConta } from "@/features/conta/conta";
+import { ChavesEquipe, MinhasChavesPix, useChavesPix } from "./ChavesPix";
+import { formatarPix } from "@/lib/pix/identificar";
 
 type Periodo = "hoje" | "7d" | "mes" | "30d" | "90d";
 const ROTULO: Record<Periodo, string> = { hoje: "Hoje", "7d": "7 dias", mes: "Este mês", "30d": "30 dias", "90d": "90 dias" };
-type Aba = "resumo" | "motoboys" | "clientes" | "extrato";
+type Aba = "resumo" | "motoboys" | "clientes" | "extrato" | "pix";
 
 interface Linha {
   id: string; numero: number; teste: boolean; valor: number | null; valor_motoboy: number | null; valor_gestao: number | null; valor_dev: number | null;
   repasse_pct: number | null; dev_pct: number | null; motoboy_id: string | null; empresa_id: string | null; cliente_nome: string | null;
   concluida_em: string; distancia_real_m: number | null; distancia_planejada_m: number | null; pagamento_status: string | null; pagamento_metodo: string | null;
 }
-interface Chave { usuario_id: string; tipo_chave: string; chave: string; titular: string }
 
 function inicio(p: Periodo) {
   const d = new Date();
@@ -33,7 +35,8 @@ export function PainelFinanceiro() {
   const [periodo, setPeriodo] = useState<Periodo>("mes");
   const [aba, setAba] = useState<Aba>("resumo");
   const [linhas, setLinhas] = useState<Linha[]>([]);
-  const [chaves, setChaves] = useState<Chave[]>([]);
+  const { chaves, recarregar: recarregarChaves } = useChavesPix();
+  const conta = useConta();
   const [busca, setBusca] = useState("");
   const equipe = useEquipe();
   const { empresas } = useEmpresas();
@@ -44,7 +47,6 @@ export function PainelFinanceiro() {
       .eq("status", "concluida").eq("teste", teste).gte("concluida_em", inicio(periodo)).order("concluida_em", { ascending: false }).limit(3000)
       .then(({ data }) => setLinhas((data ?? []) as Linha[]));
   }, [periodo, teste]);
-  useEffect(() => { supabase().from("dados_recebimento").select("*").then(({ data }) => setChaves((data ?? []) as Chave[])); }, []);
 
   const soma = (f: (l: Linha) => number | null, ls = linhas) => ls.reduce((s, l) => s + Number(f(l) ?? 0), 0);
   const total = soma((l) => l.valor), motoboys = soma((l) => l.valor_motoboy), gestao = soma((l) => l.valor_gestao), dev = soma((l) => l.valor_dev);
@@ -103,8 +105,8 @@ export function PainelFinanceiro() {
       </aside>
       <main className="conteudo">
         <div className="formulario vidro entrar">
-          <div className="segmentado" style={{ gridTemplateColumns: "repeat(4, 1fr)" }}>
-            {([["resumo", "Resumo"], ["motoboys", "Motoboys"], ["clientes", "Clientes"], ["extrato", "Extrato"]] as [Aba, string][]).map(([k, r]) => (
+          <div className="segmentado" style={{ gridTemplateColumns: "repeat(5, 1fr)" }}>
+            {([["resumo", "Resumo"], ["motoboys", "Motoboys"], ["clientes", "Clientes"], ["extrato", "Extrato"], ["pix", "PIX"]] as [Aba, string][]).map(([k, r]) => (
               <button key={k} type="button" className={aba === k ? "ativo" : ""} onClick={() => setAba(k)}>{r}</button>
             ))}
           </div>
@@ -128,10 +130,10 @@ export function PainelFinanceiro() {
           {aba === "motoboys" && (
             <table className="tabela"><thead><tr><th>Motoboy</th><th>Corridas</th><th>A receber</th><th>Chave PIX</th></tr></thead>
               <tbody>{porMotoboy.map(([id, a]) => {
-                const ch = chaves.find((c) => c.usuario_id === id);
+                const ch = chaves.find((c) => c.usuario_id === id && c.principal);
                 return (
                   <tr key={id}><td>{nomeM(id)}</td><td>{a.n}</td><td>{moeda(a.motoboy)}</td>
-                    <td>{ch ? <button className="botao-texto" onClick={() => copiar(ch.chave)} title={`${ch.titular} · ${ch.tipo_chave}`}><Copy size={13} aria-hidden /> {ch.chave}</button> : <span className="dica">não cadastrada</span>}</td></tr>
+                    <td>{ch ? <button className="botao-texto" onClick={() => copiar(ch.chave)} title={`${ch.titular} · ${ch.tipo_chave}`}><Copy size={13} aria-hidden /> {formatarPix(ch.chave, ch.tipo_chave)}</button> : <span className="dica">não cadastrada</span>}</td></tr>
                 );
               })}</tbody></table>
           )}
@@ -157,7 +159,15 @@ export function PainelFinanceiro() {
               </div>
             </>
           )}
-          {linhas.length === 0 && <p className="vazio">Nenhuma corrida concluída neste período.</p>}
+          {aba === "pix" && (
+            <>
+              <MinhasChavesPix chaves={chaves} onMudou={recarregarChaves} meuNome={equipe.find((m) => m.id === conta.id)?.nome} />
+              <h3 className="display" style={{ margin: "6px 0 0" }}>Chaves da equipe</h3>
+              <p className="dica" style={{ margin: 0 }}>A estrela marca a principal: é para ela que vai o repasse. Toque para copiar.</p>
+              <ChavesEquipe chaves={chaves} nome={nomeM} />
+            </>
+          )}
+          {aba !== "pix" && linhas.length === 0 && <p className="vazio">Nenhuma corrida concluída neste período.</p>}
         </div>
       </main>
     </>

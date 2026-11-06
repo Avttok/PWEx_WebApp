@@ -32,11 +32,11 @@ function cores(escuro: boolean) {
 }
 
 async function carregarIcones(m: Mapa) {
-  await Promise.all([...ICONES.map((n) => `poi_${n}`), "placa_rua"].map(async (id) => {
+  await Promise.all(ICONES.map((n) => `poi_${n}`).map(async (id) => {
     if (m.hasImage(id)) return;
     try {
       const img = await m.loadImage(`/mapa/${id}.png`);
-      if (!m.hasImage(id)) m.addImage(id, img.data, { sdf: id !== "placa_rua", pixelRatio: 2 });
+      if (!m.hasImage(id)) m.addImage(id, img.data, { sdf: true, pixelRatio: 2 });
     } catch { /* sem ícone, fica só o texto */ }
   }));
 }
@@ -85,20 +85,18 @@ function aplicarRotulos(m: Mapa, escuro: boolean) {
   aplicarModoRuas(m, modoRuas());
 }
 
-/** Na rua (como sempre), em placas azuis, ou ocultos. */
+/** Camadas de nome de rua do estilo base (só elas: lugares e estabelecimentos ficam de fora). */
+function camadasDeRua(m: Mapa): string[] {
+  return (m.getStyle().layers ?? [])
+    .filter((c) => c.type === "symbol" && (c as { "source-layer"?: string })["source-layer"] === "transportation_name")
+    .map((c) => c.id);
+}
+
+/** Nomes de rua escritos na rua (como o estilo desenha) ou ocultos. Só mexe na visibilidade. */
 export function aplicarModoRuas(m: Mapa, modo: ModoRuas) {
-  for (const camada of m.getStyle().layers ?? []) {
-    if (camada.type !== "symbol" || (camada as { "source-layer"?: string })["source-layer"] !== "transportation_name") continue;
-    m.setLayoutProperty(camada.id, "visibility", modo === "oculta" ? "none" : "visible");
-    if (modo === "oculta") continue;
-    const placa = modo === "placa";
-    m.setLayoutProperty(camada.id, "symbol-placement", placa ? "point" : "line");
-    m.setLayoutProperty(camada.id, "icon-image", placa ? "placa_rua" : "");
-    m.setLayoutProperty(camada.id, "icon-text-fit", placa ? "both" : "none");
-    m.setLayoutProperty(camada.id, "icon-text-fit-padding", [3, 6, 3, 6]);
-    m.setLayoutProperty(camada.id, "symbol-spacing", placa ? 400 : 250);
-    m.setPaintProperty(camada.id, "text-color", placa ? "#ffffff" : cores(document.documentElement.dataset.tema !== "claro").rua);
-    m.setPaintProperty(camada.id, "text-halo-width", placa ? 0 : 1.2);
+  const v = modo === "oculta" ? "none" : "visible";
+  for (const id of camadasDeRua(m)) {
+    try { m.setLayoutProperty(id, "visibility", v); } catch { /* camada sumiu com troca de estilo */ }
   }
 }
 

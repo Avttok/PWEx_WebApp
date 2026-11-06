@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
+import { useModoTeste } from "@/features/teste/modoTeste";
 import type { Motoboy, Ponto } from "./tipos";
 
 const HORAS_DE_TRILHA = 12;
@@ -18,8 +19,12 @@ export interface EstadoRastreamento {
   erro: string | null;
 }
 
-/** Carrega o estado atual e escuta o Supabase Realtime (motoboys + novos pontos). */
+/**
+ * Carrega o estado atual e escuta o Supabase Realtime (motoboys + novos pontos).
+ * Os percursos (trilhas) são só do modo atual: teste e real ficam separados.
+ */
 export function useRastreamento(): EstadoRastreamento {
+  const { teste } = useModoTeste();
   const [motoboys, setMotoboys] = useState<Record<string, Motoboy>>({});
   const [nomes, setNomes] = useState<Record<string, string>>({});
   const [fotos, setFotos] = useState<Record<string, string>>({});
@@ -33,16 +38,17 @@ export function useRastreamento(): EstadoRastreamento {
 
     async function carregar() {
       const desde = new Date(Date.now() - HORAS_DE_TRILHA * 3600_000).toISOString();
-      const [m, p, l] = await Promise.all([
+      const pontos = (porModo: boolean) => {
+        const q = sb.from("localizacoes").select(COLUNAS_PONTO);
+        return (porModo ? q.eq("teste", teste) : q).gte("registrado_em", desde).order("registrado_em", { ascending: true }).limit(MAX_PONTOS);
+      };
+      const [m, p, l1] = await Promise.all([
         sb.from("motoboys").select(COLUNAS_MOTOBOY),
         sb.from("perfis").select("id,nome,foto_url"),
-        sb
-          .from("localizacoes")
-          .select(COLUNAS_PONTO)
-          .gte("registrado_em", desde)
-          .order("registrado_em", { ascending: true })
-          .limit(MAX_PONTOS),
+        pontos(true),
       ]);
+      // banco ainda sem a coluna "teste" (migração não rodada): mostra os pings sem separar, em vez de quebrar o mapa
+      const l = l1.error && /teste/.test(l1.error.message) ? await pontos(false) : l1;
       if (!ativo) return;
       const falha = m.error ?? p.error ?? l.error;
       if (falha) {
@@ -66,7 +72,8 @@ export function useRastreamento(): EstadoRastreamento {
         setMotoboys((atual) => ({ ...atual, [novo.id]: { ...atual[novo.id], ...novo } }));
       })
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "localizacoes" }, (payload) => {
-        const ponto = payload.new as Ponto;
+        const ponto = payload.new as Ponto & { teste?: boolean };
+        if (Boolean(ponto.teste) !== teste) return;
         setTrilhas((atual) => {
           const lista = [...(atual[ponto.motoboy_id] ?? []), ponto];
           lista.sort((a, b) => a.registrado_em.localeCompare(b.registrado_em));
@@ -81,7 +88,7 @@ export function useRastreamento(): EstadoRastreamento {
       ativo = false;
       sb.removeChannel(canal);
     };
-  }, []);
+  }, [teste]);
 
   return { motoboys, nomes, fotos, trilhas, conectado, erro };
 }

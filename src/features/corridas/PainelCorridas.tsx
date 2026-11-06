@@ -1,8 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ArrowDownToLine, ArrowUpFromLine, Bike, Building2, CalendarClock, TriangleAlert, CheckSquare, Clock, FlaskConical, Plus, Route, Ruler, Trash2, X, Zap } from "lucide-react";
+import { ArrowDownToLine, ArrowUpFromLine, Bike, Building2, CalendarClock, TriangleAlert, CheckSquare, Clock, FlaskConical, History, Plus, Route, Ruler, Trash2, X, Zap } from "lucide-react";
 import { ExcluirCorridas } from "./ExcluirCorridas";
+import { ApagarHistorico } from "./ApagarHistorico";
 import { CabecaPagina } from "@/features/ui/CabecaPagina";
 import { moeda } from "@/features/precos/estrategias";
 import { MapaCorridas } from "./MapaCorridas";
@@ -28,6 +29,7 @@ export function PainelCorridas() {
   const conta = useConta();
   const [selecionando, setSelecionando] = useState(false);
   const [marcadas, setMarcadas] = useState<string[]>([]);
+  const [limpando, setLimpando] = useState(false);
   const [excluindo, setExcluindo] = useState(false);
   const alternar = (id: string) => setMarcadas((m) => (m.includes(id) ? m.filter((x) => x !== id) : [...m, id]));
   const sairSelecao = () => { setSelecionando(false); setMarcadas([]); };
@@ -86,6 +88,9 @@ export function PainelCorridas() {
           {conta.modulo("excluir_corridas") && <button className="botao-texto" onClick={() => (selecionando ? sairSelecao() : setSelecionando(true))} title="Selecionar para apagar">
             {selecionando ? <X size={16} aria-hidden /> : <CheckSquare size={16} aria-hidden />} {selecionando ? "Cancelar" : "Selecionar"}
           </button>}
+          {conta.modulo("excluir_corridas") && !selecionando && <button className="botao-texto" onClick={() => setLimpando(true)} title="Apagar o histórico de todos">
+            <History size={16} aria-hidden /> Histórico
+          </button>}
         </div>
         {erro && <p className="erro">{erro}</p>}
         {lista.length === 0 && (filtro === "planejadas"
@@ -138,6 +143,7 @@ export function PainelCorridas() {
             <button className="botao-excluir" disabled={marcadas.length === 0} onClick={() => setExcluindo(true)}><Trash2 size={15} aria-hidden /> Apagar</button>
           </div>
         )}
+        {limpando && <ApagarHistorico teste={teste} equipe={equipe} onFechar={() => setLimpando(false)} />}
         {excluindo && (
           <ExcluirCorridas
             corridas={corridas.filter((c) => marcadas.includes(c.id))}

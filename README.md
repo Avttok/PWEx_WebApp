@@ -22,6 +22,8 @@ supabase/seed/           → dados de teste
 3. Fase de corridas: rode `supabase/migrations/20261106000001_corridas.sql`.
 4. Configurações, modo teste, geolocalização, repasse e perfil: rode `supabase/migrations/20261106000002_configuracoes_teste_geo.sql`.
 
+5. Rode, em ordem, todas as migrações de `supabase/migrations/` que ainda não rodou (o nome começa pela data). A mais nova é `20261108000006_pix_percursos_historico.sql`: chaves PIX múltiplas, percursos teste/real separados e "Apagar histórico". Todas podem rodar de novo sem estragar nada.
+
 Regras de segurança: ninguém grava direto nas tabelas. O app usa as funções `atualizar_status` e `registrar_localizacoes`; leitura é liberada para o próprio motoboy e para gestores.
 
 ## Push das ofertas (Firebase)

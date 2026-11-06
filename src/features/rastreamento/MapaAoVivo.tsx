@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, BatteryMedium, Bike, Crosshair, Flame, FlaskConical, LocateFixed, Map as IconeMapa, Search, Signpost, Timer } from "lucide-react";
 import { maplibregl } from "@/lib/mapa/maplibre";
 import { useMapa } from "@/lib/mapa/useMapa";
-import { useModoRuas, type ModoRuas } from "@/lib/mapa/estabelecimentos";
+import { useModoRuas, useRotulos, type ModoRuas, type Rotulos } from "@/lib/mapa/estabelecimentos";
 import { criarCamadasPercurso, desenharCalor, desenharPercursos, separarRegistros, type Registro } from "@/lib/mapa/percursos";
 import { corOuro } from "@/lib/mapa/cores";
 import { CabecaPagina } from "@/features/ui/CabecaPagina";
@@ -51,6 +51,8 @@ export function MapaAoVivo() {
   const [calor, setCalor] = useState<TipoCalor | "">("");
   const [destaque, setDestaque] = useState<number | null>(null);
   const [ruas, setRuas] = useModoRuas();
+  const [rotulos, setRotulos] = useRotulos();
+  const comIcones = conta.modulo("estabelecimentos");
 
   useEffect(() => {
     const t = setInterval(() => setAgora(Date.now()), 1000);
@@ -164,11 +166,19 @@ export function MapaAoVivo() {
             </select>
           </label>
           <label className="camada-sel"><Signpost size={14} aria-hidden />
-            <select value={ruas} onChange={(e) => setRuas(e.target.value as ModoRuas)} aria-label="Nomes de rua">
-              <option value="rua">Ruas: nome na rua</option>
-              <option value="placa">Ruas: em placas</option>
-              <option value="oculta">Ruas: ocultar nomes</option>
-            </select>
+            {comIcones ? (
+              <select value={rotulos} onChange={(e) => setRotulos(e.target.value as Rotulos)} aria-label="Nomes no mapa">
+                <option value="tudo">Ruas e ícones</option>
+                <option value="ruas">Só ruas</option>
+                <option value="icones">Só ícones</option>
+                <option value="nada">Sem nomes</option>
+              </select>
+            ) : (
+              <select value={ruas} onChange={(e) => setRuas(e.target.value as ModoRuas)} aria-label="Nomes de rua">
+                <option value="rua">Ruas: nome na rua</option>
+                <option value="oculta">Ruas: ocultar nomes</option>
+              </select>
+            )}
           </label>
         </div>
 

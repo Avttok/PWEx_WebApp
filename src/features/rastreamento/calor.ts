@@ -16,10 +16,8 @@ export async function carregarCalor(tipo: TipoCalor, teste: boolean): Promise<[n
     return (data ?? []).map((p) => [p.lat as number, p.lng as number]);
   }
   if (tipo === "pings") {
-    const { data: ms } = await sb.from("motoboys").select("id").eq("modo_teste", teste);
-    const ids = (ms ?? []).map((m) => m.id as string);
-    if (!ids.length) return [];
-    const { data } = await sb.from("localizacoes").select("lat,lng").in("motoboy_id", ids).gte("registrado_em", desde).limit(15000);
+    // cada ping já nasce marcado como teste ou real
+    const { data } = await sb.from("localizacoes").select("lat,lng").eq("teste", teste).gte("registrado_em", desde).limit(15000);
     return (data ?? []).map((p) => [p.lat as number, p.lng as number]);
   }
   const { data } = await sb.from("corridas").select("rota_planejada").eq("teste", teste).gte("criada_em", desde).not("rota_planejada", "is", null).limit(600);

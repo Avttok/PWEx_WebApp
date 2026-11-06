@@ -6,6 +6,7 @@ import type { LngLatBoundsLike } from "maplibre-gl";
 import { supabase } from "@/lib/supabase/client";
 import { useMapa } from "@/lib/mapa/useMapa";
 import { criarCamadasPercurso, desenharPercursos, separarRegistros, type Ping, type Registro } from "@/lib/mapa/percursos";
+import { formatarPix } from "@/lib/pix/identificar";
 import { toast } from "@/features/ui/toast";
 
 const DIAS = ["Hoje", "Ontem", "Anteontem"];
@@ -35,11 +36,12 @@ export function PercursosMembro({ id, teste }: { id: string; teste: boolean }) {
     setPings(null); setDestaque(null);
     const ini = new Date(); ini.setHours(0, 0, 0, 0); ini.setDate(ini.getDate() - dia);
     const fim = new Date(ini); fim.setDate(fim.getDate() + 1);
-    supabase().from("localizacoes").select("lat,lng,status,corrida_id,registrado_em").eq("motoboy_id", id)
+    // percursos de teste e reais ficam separados: só os do modo atual
+    supabase().from("localizacoes").select("lat,lng,status,corrida_id,registrado_em").eq("motoboy_id", id).eq("teste", teste)
       .gte("registrado_em", ini.toISOString()).lt("registrado_em", fim.toISOString()).order("registrado_em").limit(10000)
       .then(({ data }) => setPings((data ?? []) as Ping[]));
-  }, [id, dia]);
-  useEffect(() => { supabase().from("dados_recebimento").select("tipo_chave,chave,titular").eq("usuario_id", id).maybeSingle().then(({ data }) => setPix(data ?? null)); }, [id]);
+  }, [id, dia, teste]);
+  useEffect(() => { supabase().from("chaves_pix").select("tipo_chave,chave,titular").eq("usuario_id", id).eq("principal", true).maybeSingle().then(({ data }) => setPix(data ?? null)); }, [id]);
 
   const registros = useMemo(() => separarRegistros(pings ?? []), [pings]);
   useEffect(() => {
@@ -78,10 +80,10 @@ export function PercursosMembro({ id, teste }: { id: string; teste: boolean }) {
           <p className="dica" style={{ margin: 0 }}>Total: {registros.reduce((s, r) => s + km(r), 0).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} km · {registros.filter((r) => r.tipo === "corrida").length} em corrida</p>
         </div>
       )}
-      <span className="rotulo">Chave PIX</span>
+      <span className="rotulo">Chave PIX principal</span>
       {pix === undefined ? <p className="dica">…</p> : pix ? (
         <button className="botao-texto" onClick={() => { navigator.clipboard?.writeText(pix.chave); toast("Chave PIX copiada.", "ok"); }}>
-          <Copy size={14} aria-hidden /> {pix.chave} · {pix.titular}
+          <Copy size={14} aria-hidden /> {formatarPix(pix.chave, pix.tipo_chave)} · {pix.titular}
         </button>
       ) : <p className="dica" style={{ margin: 0 }}>Ainda não cadastrou a chave PIX no MotoApp.</p>}
     </>
