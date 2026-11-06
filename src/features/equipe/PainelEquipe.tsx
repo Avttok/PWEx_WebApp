@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Bike, FlaskConical, History, Info, PencilLine, Save, ShieldCheck, Users } from "lucide-react";
+import { Bike, FlaskConical, History, PencilLine, Save, ShieldCheck, UserPlus, Users } from "lucide-react";
 import { RegistroMembro } from "./RegistroMembro";
+import { NovaConta, RedefinirSenha } from "./ContasEquipe";
 import { supabase } from "@/lib/supabase/client";
 import { CabecaPagina } from "@/features/ui/CabecaPagina";
 import { useConfiguracoes } from "@/features/configuracoes/useConfiguracoes";
@@ -23,6 +24,7 @@ export function PainelEquipe() {
   const [repasse, setRepasse] = useState("");
   const [msg, setMsg] = useState<{ ok: boolean; t: string } | null>(null);
   const [aba, setAba] = useState<"registro" | "editar">("registro");
+  const [criando, setCriando] = useState(false);
   const detalhe = useRef<HTMLDivElement>(null);
 
   const carregar = useCallback(async () => {
@@ -53,7 +55,12 @@ export function PainelEquipe() {
   return (
     <>
       <aside className="lateral entrar">
-        <CabecaPagina icone={Users} titulo="Equipe" subtitulo={`${lista.length} pessoas`} />
+        <CabecaPagina icone={Users} titulo="Equipe" subtitulo={lista.length === 1 ? "1 pessoa" : `${lista.length} pessoas`} />
+        <button className="botao-ouro" onClick={() => setCriando(true)}><UserPlus size={17} aria-hidden /> Nova conta</button>
+        {criando && (
+          <NovaConta padraoRepasse={Number(cfg.repasse_motoboy_pct)} onFechar={() => setCriando(false)}
+            onCriada={async (id) => { setCriando(false); await carregar(); setSel(id); setAba("editar"); }} />
+        )}
         {lista.map((x) => (
           <button key={x.id} className={`cartao-motoboy ${sel === x.id ? "selecionado" : ""}`} onClick={() => {
             setSel(x.id);
@@ -78,7 +85,6 @@ export function PainelEquipe() {
             </div>
           </button>
         ))}
-        <p className="dica" style={{ display: "flex", gap: 6 }}><Info size={14} style={{ flexShrink: 0 }} /> Para criar uma conta: Supabase → Authentication → Users → Add user (Auto Confirm). Ela aparece aqui para você definir os papéis.</p>
       </aside>
       <main className="conteudo">
         <div className="formulario vidro entrar" ref={detalhe} style={{ maxWidth: 860 }}>
@@ -119,7 +125,10 @@ export function PainelEquipe() {
                     </label>
                   )}
                   {msg && <p className={msg.ok ? "sucesso" : "erro"}>{msg.t}</p>}
-                  <div className="linha-botoes"><button className="botao-ouro" onClick={salvar}><Save size={16} /> Salvar</button></div>
+                  <div className="linha-botoes">
+                    <RedefinirSenha id={m.id} nome={m.nome || m.email} email={m.email} />
+                    <button className="botao-ouro" onClick={salvar}><Save size={16} /> Salvar</button>
+                  </div>
                 </>
               )}
             </>

@@ -55,7 +55,7 @@ export function MenuPerfil({ id, email, nome, foto, onSair, onPerfilSalvo }: Pro
 
   return (
     <div className="menu-perfil" ref={caixa}>
-      <button type="button" className="botao-avatar" onClick={() => setAberto((a) => !a)} aria-haspopup="menu" aria-expanded={aberto} title="Meu perfil">
+      <button type="button" className="botao-avatar" onClick={() => setAberto((a) => !a)} aria-haspopup="menu" aria-expanded={aberto} title={teste ? "Meu perfil · modo teste ligado" : "Meu perfil"}>
         <Avatar nome={nome} foto={foto} />
         {teste && <span className="selo-teste-avatar" aria-label="modo teste"><FlaskConical size={10} aria-hidden /></span>}
       </button>

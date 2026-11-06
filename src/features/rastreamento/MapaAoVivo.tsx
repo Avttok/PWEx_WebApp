@@ -132,7 +132,7 @@ export function MapaAoVivo() {
   return (
     <>
       <aside className="lateral entrar">
-        <CabecaPagina icone={IconeMapa} titulo="Mapa" subtitulo={`${ativos} em serviço · ${lista.length} motoboys`} />
+        <CabecaPagina icone={IconeMapa} titulo="Mapa" subtitulo={`${ativos} em serviço · ${lista.length} motoboy${lista.length === 1 ? "" : "s"}`} />
         <span className={`conexao ${conectado ? "on" : ""}`}>{conectado ? "Tempo real conectado" : "Conectando…"}</span>
         {erro && <p className="erro">{erro}</p>}
         {lista.length === 0 && !erro && <p className="vazio">Nenhum motoboy ainda. Abra o app no celular e fique &quot;Disponível&quot;.</p>}

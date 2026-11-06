@@ -38,7 +38,7 @@ const GRUPO: Record<string, Filtro> = {
 
 /** Como cada evento aparece na linha do tempo. */
 function descrever(i: Item): { icone: LucideIcon; cor: string; texto: string; extra?: string } {
-  const n = i.numero != null ? `#${i.numero}` : "";
+  const n = i.numero != null ? (i.teste ? `T${i.numero}` : `#${i.numero}`) : "";
   const motivo = typeof i.dados?.motivo === "string" && i.dados.motivo ? `Motivo: ${i.dados.motivo}` : undefined;
   const km = typeof i.dados?.distancia_m === "number" ? `${(Number(i.dados.distancia_m) / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} km até a coleta` : undefined;
   switch (i.tipo) {
@@ -113,6 +113,7 @@ export function RegistroMembro({ id }: { id: string }) {
     { rotulo: "Expiradas", valor: String(r.expiradas), icone: Clock },
     { rotulo: "Canceladas", valor: String(r.cancelou + r.canceladas_com_ele), icone: Ban },
     { rotulo: "Apagadas", valor: String(r.excluiu), icone: Trash2 },
+    { rotulo: "Km rodados", valor: Number(r.km_rodados).toLocaleString("pt-BR", { maximumFractionDigits: 1 }), icone: Route },
   ];
 
   return (
@@ -125,7 +126,6 @@ export function RegistroMembro({ id }: { id: string }) {
           </div>
         ))}
       </div>
-      {!teste && r.km_rodados > 0 && <p className="dica" style={{ margin: 0 }}>{Number(r.km_rodados).toLocaleString("pt-BR")} km rodados em corridas concluídas.</p>}
 
       <div className="registro-filtros">
         <div className="filtro">

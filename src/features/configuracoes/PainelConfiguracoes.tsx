@@ -131,7 +131,7 @@ function Parametro({ p, valor, estado, mostrarGrupo, onSalvar }: {
         <span className="config-item-texto">
           {mostrarGrupo && <span className="rotulo">{GRUPOS[p.grupo].titulo}</span>}
           <strong>{p.rotulo}</strong>
-          {p.descricao && <span className="dica">{p.descricao}</span>}
+          {(valor ? p.descricao : p.descricaoDesligado ?? p.descricao) && <span className="dica">{valor ? p.descricao : p.descricaoDesligado ?? p.descricao}</span>}
         </span>
         {status}
         <input type="checkbox" role="switch" checked={Boolean(valor)} onChange={(e) => onSalvar(e.target.checked)} aria-label={p.rotulo} />

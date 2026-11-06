@@ -121,7 +121,6 @@ export function AreaGestor({ children }: { children: ReactNode }) {
             ))}
           </nav>
           <span className="espaco" />
-          {teste && <span className="selo selo-modo-teste">modo teste</span>}
           <MenuPerfil
             id={sessao!.user.id}
             email={sessao?.user.email ?? ""}

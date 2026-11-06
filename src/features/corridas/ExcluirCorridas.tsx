@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import { Lock, Trash2, TriangleAlert, X } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
 import { moeda } from "@/features/precos/estrategias";
-import { ROTULO_CORRIDA, type Corrida } from "./tipos";
+import { ROTULO_CORRIDA, numeroCorrida, type Corrida } from "./tipos";
 
 const ERROS: Record<string, string> = {
   senha_incorreta: "Senha incorreta.",
@@ -30,7 +30,7 @@ export function ExcluirCorridas({ corridas, onFechar, onExcluidas }: {
   const ativas = corridas.filter((c) => c.status === "aceita" || c.status === "em_andamento");
   const comprovantes = corridas.reduce((n, c) => n + c.paradas.filter((p) => p.foto_path || p.assinatura_path).length, 0);
   const total = corridas.reduce((s, c) => s + (c.teste ? 0 : Number(c.valor ?? 0)), 0);
-  const titulo = corridas.length === 1 ? `Apagar a corrida #${corridas[0].numero}?` : `Apagar ${corridas.length} corridas?`;
+  const titulo = corridas.length === 1 ? `Apagar a corrida ${numeroCorrida(corridas[0])}?` : `Apagar ${corridas.length} corridas?`;
 
   useEffect(() => {
     const esc = (e: KeyboardEvent) => e.key === "Escape" && !enviando && onFechar();
@@ -86,7 +86,7 @@ export function ExcluirCorridas({ corridas, onFechar, onExcluidas }: {
         {corridas.length > 1 && (
           <div className="perigo-resumo">
             {corridas.slice(0, 8).map((c) => (
-              <span key={c.id} className="selo">#{c.numero} · {ROTULO_CORRIDA[c.status]}{c.teste ? " · teste" : ""}</span>
+              <span key={c.id} className="selo">{numeroCorrida(c)} · {ROTULO_CORRIDA[c.status]}</span>
             ))}
             {corridas.length > 8 && <span className="selo">+{corridas.length - 8}</span>}
           </div>
@@ -94,7 +94,7 @@ export function ExcluirCorridas({ corridas, onFechar, onExcluidas }: {
 
         {ativas.length > 0 ? (
           <p className="erro">
-            {ativas.length === 1 ? `A corrida #${ativas[0].numero} está` : `${ativas.length} corridas estão`} em andamento. Cancele antes de apagar.
+            {ativas.length === 1 ? `A corrida ${numeroCorrida(ativas[0])} está` : `${ativas.length} corridas estão`} em andamento. Cancele antes de apagar.
           </p>
         ) : (
           <>

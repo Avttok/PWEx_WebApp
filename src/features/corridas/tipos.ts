@@ -45,6 +45,8 @@ export interface Corrida {
   distancia_planejada_m: number | null;
   duracao_planejada_s: number | null;
   rota_planejada: string | null;
+  cliente_nome?: string | null;
+  aplicar_acrescimo?: boolean;
   valor: number | null;
   valor_base?: number | null;
   fator_entrega?: number | null;
@@ -141,3 +143,7 @@ export function formatarDuracao(s: number | null | undefined) {
 export function hora(iso: string | null | undefined) {
   return iso ? new Date(iso).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : "—";
 }
+
+/** Número de exibição: corridas reais "#12", de teste "T12" (sequências separadas). */
+export const numeroCorrida = (c: { numero: number | null; teste?: boolean | null }) =>
+  c.numero == null ? "" : c.teste ? `T${c.numero}` : `#${c.numero}`;

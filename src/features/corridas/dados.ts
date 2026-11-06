@@ -111,3 +111,9 @@ export function traduzirErro(msg: string | undefined): string {
   };
   return (msg && mapa[msg]) || msg || "Erro desconhecido.";
 }
+
+/** Nome do cliente da corrida: empresa cadastrada, nome do avulso ou "Avulso". */
+export function nomeCliente(c: { empresa_id: string | null; cliente_nome?: string | null }, empresas: { id: string; nome: string }[]): string {
+  if (c.empresa_id) return empresas.find((e) => e.id === c.empresa_id)?.nome ?? "Cliente";
+  return c.cliente_nome ? `${c.cliente_nome} (avulso)` : "Avulso";
+}

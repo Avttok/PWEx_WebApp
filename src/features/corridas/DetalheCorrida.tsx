@@ -8,9 +8,9 @@ import { supabase } from "@/lib/supabase/client";
 import { decodificarPolyline } from "@/lib/geo/polyline";
 import { moeda } from "@/features/precos/estrategias";
 import { MapaCorridas } from "./MapaCorridas";
-import { traduzirErro, useEquipe } from "./dados";
+import { nomeCliente, traduzirErro, useEmpresas, useEquipe } from "./dados";
 import {
-  COR_CORRIDA, ROTULO_CORRIDA, ROTULO_PARADA, formatarDuracao, formatarKm, hora,
+  COR_CORRIDA, ROTULO_CORRIDA, ROTULO_PARADA, formatarDuracao, formatarKm, hora, numeroCorrida,
   type Corrida, type Evento, type Oferta,
 } from "./tipos";
 
@@ -83,6 +83,7 @@ function Comprovante({ caminho, rotulo }: { caminho: string; rotulo: string }) {
 export function DetalheCorrida({ corrida, oferta, onVoltar, onExcluida }: { corrida: Corrida; oferta?: Oferta; onVoltar: () => void; onExcluida?: () => void }) {
   const [excluindo, setExcluindo] = useState(false);
   const equipe = useEquipe();
+  const { empresas } = useEmpresas();
   const eventos = useEventos(corrida.id);
   const trilha = useTrilha(corrida);
   const [agora, setAgora] = useState(() => Date.now());
@@ -106,7 +107,7 @@ export function DetalheCorrida({ corrida, oferta, onVoltar, onExcluida }: { corr
   );
 
   async function cancelar() {
-    if (!confirm(`Cancelar a corrida #${corrida.numero}?`)) return;
+    if (!confirm(`Cancelar a corrida ${numeroCorrida(corrida)}?`)) return;
     const { error } = await supabase().rpc("cancelar_corrida", { p_corrida: corrida.id, p_motivo: "Cancelada pelo gestor" });
     if (error) setErro(traduzirErro(error.message));
   }
@@ -125,7 +126,7 @@ export function DetalheCorrida({ corrida, oferta, onVoltar, onExcluida }: { corr
           <button className="botao-texto" onClick={onVoltar}><ArrowLeft size={15} aria-hidden /> Corridas</button>
           {corrida.teste && <span className="selo" style={{ color: "#a78bfa" }}><FlaskConical size={11} aria-hidden /> TESTE</span>}
         </div>
-        <CabecaPagina icone={Route} titulo={`Corrida #${corrida.numero}`} subtitulo={`Criada às ${hora(corrida.criada_em)}`} />
+        <CabecaPagina icone={Route} titulo={`Corrida ${numeroCorrida(corrida)}`} subtitulo={`${nomeCliente(corrida, empresas)} · criada às ${hora(corrida.criada_em)}`} />
 
         <section className="bloco">
           <div className="status-grande display" style={{ color: COR_CORRIDA[corrida.status] }}>{ROTULO_CORRIDA[corrida.status]}</div>

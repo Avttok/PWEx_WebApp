@@ -9,6 +9,8 @@ export interface DefParametro {
   grupo: GrupoParametro;
   rotulo: string;
   descricao: string;
+  /** Para interruptores: texto quando desligado (o `descricao` vale para ligado). */
+  descricaoDesligado?: string;
   tipo: TipoParametro;
   padrao: number | boolean;
   unidade?: string;
@@ -46,7 +48,7 @@ export const PARAMETROS: DefParametro[] = [
   { chave: "valor_minimo", grupo: "preco", rotulo: "Valor mínimo", descricao: "Nenhuma corrida calculada fica abaixo disso. 0 = sem mínimo.", tipo: "numero", padrao: 0, unidade: "R$", min: 0, max: 1000, passo: 0.5 },
   { chave: "arredondamento", grupo: "preco", rotulo: "Arredondamento", descricao: "Arredonda o valor calculado para cima.", tipo: "opcoes", padrao: 0, opcoes: [{ valor: 0, rotulo: "Centavos" }, { valor: 0.5, rotulo: "R$ 0,50" }, { valor: 1, rotulo: "R$ 1,00" }, { valor: 5, rotulo: "R$ 5,00" }] },
 
-  { chave: "acrescimo_distancia", grupo: "distancia", rotulo: "Cobrar acréscimo por distância", descricao: "Desligado, o valor da corrida não muda com a distância.", tipo: "booleano", padrao: true },
+  { chave: "acrescimo_distancia", grupo: "distancia", rotulo: "Cobrar acréscimo por distância", descricao: "Ligado: corridas longas ficam mais caras, pelas faixas abaixo. Cada corrida ainda pode desligar na criação.", descricaoDesligado: "Desligado: o valor da corrida não muda com a distância.", tipo: "booleano", padrao: true },
   { chave: "acrescimo_coleta_cada_km", grupo: "distancia", rotulo: "Coleta longe do motoboy: a cada", descricao: "Distância do motoboy até a coleta. Cada motoboy vê o valor com a distância dele. 0 = não cobra.", tipo: "numero", padrao: 100, unidade: "km", min: 0, max: 5000, passo: 10 },
   { chave: "acrescimo_coleta_fator", grupo: "distancia", rotulo: "…acrescenta", descricao: "Quanto do valor é somado a cada faixa (0,5 = metade do valor).", tipo: "numero", padrao: 0.5, unidade: "×", min: 0, max: 10, passo: 0.05 },
   { chave: "acrescimo_entrega_cada_km", grupo: "distancia", rotulo: "Entrega longe da coleta: a cada", descricao: "Percurso da coleta até a entrega. 0 = não cobra.", tipo: "numero", padrao: 200, unidade: "km", min: 0, max: 5000, passo: 10 },

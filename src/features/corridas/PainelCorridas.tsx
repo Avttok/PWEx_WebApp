@@ -1,16 +1,16 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ArrowDownToLine, ArrowUpFromLine, Bike, CheckSquare, Clock, FlaskConical, Plus, Route, Ruler, Trash2, X } from "lucide-react";
+import { ArrowDownToLine, ArrowUpFromLine, Bike, Building2, CheckSquare, Clock, FlaskConical, Plus, Route, Ruler, Trash2, X } from "lucide-react";
 import { ExcluirCorridas } from "./ExcluirCorridas";
 import { CabecaPagina } from "@/features/ui/CabecaPagina";
 import { moeda } from "@/features/precos/estrategias";
 import { MapaCorridas } from "./MapaCorridas";
 import { NovaCorrida } from "./NovaCorrida";
 import { DetalheCorrida } from "./DetalheCorrida";
-import { useCorridas, useEquipe } from "./dados";
+import { nomeCliente, useCorridas, useEmpresas, useEquipe } from "./dados";
 import { useModoTeste } from "@/features/teste/modoTeste";
-import { ATIVAS, COR_CORRIDA, ROTULO_CORRIDA, formatarKm, hora } from "./tipos";
+import { ATIVAS, COR_CORRIDA, ROTULO_CORRIDA, formatarKm, hora, numeroCorrida } from "./tipos";
 
 type Visao = { tipo: "lista" } | { tipo: "nova" } | { tipo: "detalhe"; id: string };
 
@@ -20,6 +20,7 @@ export function PainelCorridas() {
   const { teste } = useModoTeste();
   const corridas = useMemo(() => todasCorridas.filter((c) => c.teste === teste), [todasCorridas, teste]);
   const equipe = useEquipe();
+  const { empresas } = useEmpresas();
   const [visao, setVisao] = useState<Visao>({ tipo: "lista" });
   const [filtro, setFiltro] = useState<"ativas" | "concluidas" | "canceladas" | "todas">("ativas");
   const [selecionando, setSelecionando] = useState(false);
@@ -37,7 +38,7 @@ export function PainelCorridas() {
   const pinosAtivos = useMemo(
     () => corridas.filter((c) => ATIVAS.includes(c.status)).flatMap((c) =>
       c.paradas.filter((p) => p.status !== "concluida").map((p) => ({
-        chave: p.id, lat: p.lat, lng: p.lng, tipo: p.tipo, rotulo: `#${c.numero}`,
+        chave: p.id, lat: p.lat, lng: p.lng, tipo: p.tipo, rotulo: numeroCorrida(c),
       }))),
     [corridas],
   );
@@ -63,7 +64,7 @@ export function PainelCorridas() {
   return (
     <>
       <aside className="lateral lateral-larga entrar">
-        <CabecaPagina icone={Route} titulo="Corridas" subtitulo={`${corridas.filter((c) => ATIVAS.includes(c.status)).length} ativas agora${teste ? " · modo teste" : ""}`} />
+        <CabecaPagina icone={Route} titulo="Corridas" subtitulo={(() => { const n = corridas.filter((c) => ATIVAS.includes(c.status)).length; return `${n === 0 ? "Nenhuma ativa" : n === 1 ? "1 ativa" : `${n} ativas`} agora${teste ? " · modo teste" : ""}`; })()} />
         <div className="lateral-cabecalho">
           <span className="rotulo">Mostrar</span>
           <div className="filtro">
@@ -89,7 +90,7 @@ export function PainelCorridas() {
               onClick={() => (selecionando ? alternar(c.id) : setVisao({ tipo: "detalhe", id: c.id }))}>
               <div className="linha">
                 {selecionando && <input type="checkbox" readOnly checked={marcadas.includes(c.id)} tabIndex={-1} style={{ pointerEvents: "none" }} />}
-                <strong className="figura">#{c.numero}</strong>
+                <strong className="figura">{numeroCorrida(c)}</strong>
                 <span className="selo" style={{ color: COR_CORRIDA[c.status] }}>{ROTULO_CORRIDA[c.status]}</span>
                 {c.teste && <span className="selo" style={{ color: "var(--ouro)" }}><FlaskConical size={11} aria-hidden /> teste</span>}
                 <span className="espaco" />
@@ -100,6 +101,7 @@ export function PainelCorridas() {
                 <span><ArrowDownToLine size={13} aria-hidden /> {entregas[entregas.length - 1]?.endereco}{entregas.length > 1 ? ` (+${entregas.length - 1})` : ""}</span>
               </div>
               <div className="detalhes">
+                <span><Building2 size={12} aria-hidden /> {nomeCliente(c, empresas)}</span>
                 <span><Clock size={12} aria-hidden /> {hora(c.criada_em)}</span>
                 <span><Ruler size={12} aria-hidden /> {formatarKm(c.distancia_planejada_m)}</span>
                 {c.motoboy_id && <span><Bike size={12} aria-hidden /> {nome(c.motoboy_id)}</span>}

@@ -84,6 +84,9 @@ export function NovaCorrida({ onCriada, onVoltar }: { onCriada: (id: string) => 
   const [modAvulso, setModAvulso] = useState<Modalidade>("por_km");
   const [kmAvulso, setKmAvulso] = useState<string | null>(null);
   const [fixoAvulso, setFixoAvulso] = useState("");
+  const [nomeAvulso, setNomeAvulso] = useState("");
+  const [avulsosConhecidos, setAvulsosConhecidos] = useState<string[]>([]);
+  const [cobrarAcrescimo, setCobrarAcrescimo] = useState(true);
   const [paradas, setParadas] = useState<ParadaForm[]>(() => [novaParada("coleta"), novaParada("entrega")]);
   const [escolhendo, setEscolhendo] = useState<string | null>(null);
   const [aberta, setAberta] = useState<string | null>(null);
@@ -132,6 +135,13 @@ export function NovaCorrida({ onCriada, onVoltar }: { onCriada: (id: string) => 
     }
   }
 
+  // nomes de avulsos já usados (sugestões ao digitar)
+  useEffect(() => {
+    supabase().rpc("clientes_avulsos").then(({ data }) => {
+      if (Array.isArray(data)) setAvulsosConhecidos((data as { nome: string }[]).map((x) => x.nome));
+    });
+  }, []);
+
   // rota: recalcula quando as coordenadas mudam
   const chaveCoords = paradas.map((p) => `${p.lat},${p.lng}`).join("|");
   useEffect(() => {
@@ -161,7 +171,7 @@ export function NovaCorrida({ onCriada, onVoltar }: { onCriada: (id: string) => 
 
   // acréscimo do percurso (coleta → entrega), igual ao do servidor; o da coleta depende do motoboy
   const faixas = (m: number | null | undefined, cada: number, fator: number) => (m != null && cada > 0 ? Math.floor(m / 1000 / cada) * fator : 0);
-  const acrescimoLigado = Boolean(cfg.acrescimo_distancia);
+  const acrescimoLigado = Boolean(cfg.acrescimo_distancia) && cobrarAcrescimo;
   const fatorEntrega = acrescimoLigado ? faixas(rota?.distanciaM, Number(cfg.acrescimo_entrega_cada_km), Number(cfg.acrescimo_entrega_fator)) : 0;
   const arredondar = (v: number) => {
     const a = Number(cfg.arredondamento);
@@ -200,6 +210,8 @@ export function NovaCorrida({ onCriada, onVoltar }: { onCriada: (id: string) => 
     const { data, error } = await supabase().rpc("criar_corrida", {
       dados: {
         empresa_id: empresa?.id ?? null,
+        cliente_nome: empresa ? null : nomeAvulso.trim() || null,
+        aplicar_acrescimo: acrescimoLigado,
         teste,
         modo_despacho: modo,
         motoboy_id: modo === "direto" ? motoboyId : null,
@@ -269,6 +281,13 @@ export function NovaCorrida({ onCriada, onVoltar }: { onCriada: (id: string) => 
             </>
           ) : (
             <>
+              <label className="campo">
+                <span>Nome do cliente</span>
+                <input value={nomeAvulso} maxLength={80} placeholder="Ex.: Dona Maria · Padaria do Centro" list="avulsos-conhecidos"
+                  onChange={(e) => setNomeAvulso(e.target.value)} />
+                <datalist id="avulsos-conhecidos">{avulsosConhecidos.map((n) => <option key={n} value={n} />)}</datalist>
+                <span className="dica">Opcional, mas ajuda a separar nos registros e no financeiro.</span>
+              </label>
               <label className="campo">
                 <span>Modalidade desta corrida</span>
                 <select value={modAvulso} onChange={(e) => { setModAvulso(e.target.value as Modalidade); setValorManual(null); }}>
@@ -356,6 +375,13 @@ export function NovaCorrida({ onCriada, onVoltar }: { onCriada: (id: string) => 
             {ROTULO_MODALIDADE[regra.modalidade]} · {orcamento.explicacao}
             {valorManual !== null && <> · <button type="button" className="link" onClick={() => setValorManual(null)}>voltar ao calculado ({moeda(orcamento.valor)})</button></>}
           </p>
+          {Boolean(cfg.acrescimo_distancia) && (
+            <label className="opcao">
+              <TrendingUp size={15} aria-hidden style={{ color: "var(--ouro)" }} />
+              <span><strong>Acréscimo por distância</strong><br /><span className="dica">{cobrarAcrescimo ? "Cobra a mais em percursos longos e para motoboys longe da coleta." : "Esta corrida fica com o valor acima, sem acréscimo."}</span></span>
+              <input type="checkbox" role="switch" checked={cobrarAcrescimo} onChange={(e) => setCobrarAcrescimo(e.target.checked)} />
+            </label>
+          )}
           {acrescimoLigado && (
             <div className="acrescimo">
               <TrendingUp size={14} aria-hidden />

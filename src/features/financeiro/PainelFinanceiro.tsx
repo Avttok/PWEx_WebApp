@@ -11,7 +11,7 @@ import { useModoTeste } from "@/features/teste/modoTeste";
 type Periodo = "hoje" | "7d" | "mes" | "30d";
 const ROTULO: Record<Periodo, string> = { hoje: "Hoje", "7d": "7 dias", mes: "Este mês", "30d": "30 dias" };
 
-interface Linha { id: string; numero: number; valor: number | null; valor_motoboy: number | null; valor_gestao: number | null; motoboy_id: string | null; empresa_id: string | null; concluida_em: string; distancia_real_m: number | null }
+interface Linha { id: string; numero: number; valor: number | null; valor_motoboy: number | null; valor_gestao: number | null; motoboy_id: string | null; empresa_id: string | null; cliente_nome: string | null; concluida_em: string; distancia_real_m: number | null }
 
 function inicio(p: Periodo) {
   const d = new Date();
@@ -29,7 +29,7 @@ export function PainelFinanceiro() {
   const { teste } = useModoTeste();
 
   useEffect(() => {
-    supabase().from("corridas").select("id,numero,valor,valor_motoboy,valor_gestao,motoboy_id,empresa_id,concluida_em,distancia_real_m")
+    supabase().from("corridas").select("*")
       .eq("status", "concluida").eq("teste", teste).gte("concluida_em", inicio(periodo)).order("concluida_em", { ascending: false })
       .then(({ data }) => setLinhas((data ?? []) as Linha[]));
   }, [periodo, teste]);
@@ -48,9 +48,10 @@ export function PainelFinanceiro() {
     return [...m.entries()].sort((a, b) => b[1].valor - a[1].valor);
   };
   const porMotoboy = useMemo(() => agrupar((l) => l.motoboy_id), [linhas]); // eslint-disable-line react-hooks/exhaustive-deps
-  const porEmpresa = useMemo(() => agrupar((l) => l.empresa_id), [linhas]); // eslint-disable-line react-hooks/exhaustive-deps
+  // avulsos com nome ficam separados ("avulso:Dona Maria")
+  const porEmpresa = useMemo(() => agrupar((l) => l.empresa_id ?? (l.cliente_nome ? `avulso:${l.cliente_nome}` : null)), [linhas]); // eslint-disable-line react-hooks/exhaustive-deps
   const nomeM = (id: string) => equipe.find((m) => m.id === id)?.nome ?? "—";
-  const nomeE = (id: string) => (id === "—" ? "Avulso" : empresas.find((e) => e.id === id)?.nome ?? "—");
+  const nomeE = (id: string) => (id === "—" ? "Avulso (sem nome)" : id.startsWith("avulso:") ? `${id.slice(7)} (avulso)` : empresas.find((e) => e.id === id)?.nome ?? "—");
 
   return (
     <>
@@ -61,7 +62,7 @@ export function PainelFinanceiro() {
             <button key={p} className={periodo === p ? "ativo" : ""} onClick={() => setPeriodo(p)}>{ROTULO[p]}</button>
           ))}
         </div>
-        <div className="bloco"><span className="rotulo"><TrendingUp size={12} /> Faturado</span><strong className="figura texto-grad" style={{ fontSize: 30 }}>{moeda(total)}</strong><span className="dica">{linhas.length} corridas</span></div>
+        <div className="bloco"><span className="rotulo"><TrendingUp size={12} /> Faturado</span><strong className="figura texto-grad" style={{ fontSize: 30 }}>{moeda(total)}</strong><span className="dica">{linhas.length} corrida{linhas.length === 1 ? "" : "s"}</span></div>
         <div className="bloco"><span className="rotulo"><Landmark size={12} /> Gestão</span><strong className="figura" style={{ fontSize: 22 }}>{moeda(gestao)}</strong></div>
         <div className="bloco"><span className="rotulo"><Bike size={12} /> Motoboys</span><strong className="figura" style={{ fontSize: 22 }}>{moeda(motoboys)}</strong></div>
       </aside>

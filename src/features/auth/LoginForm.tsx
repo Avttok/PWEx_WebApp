@@ -62,8 +62,9 @@ export function LoginForm() {
                       : <span className="avatar grad">{nome.trim().charAt(0).toUpperCase()}</span>}
                     <span className="conta-texto">
                       <strong>{nome}</strong>
-                      <span>{c.token ? `${c.email} · um toque` : c.email}</span>
+                      <span>{c.email}</span>
                     </span>
+                    {c.token && <span className="conta-toque">1 toque</span>}
                   </button>
                   <button type="button" className="conta-remover" onClick={() => contas.remover(c.email)} title="Remover conta" aria-label={`Remover ${c.email}`}>
                     <X size={14} aria-hidden />

@@ -194,7 +194,7 @@ export function PainelEmpresas() {
   return (
     <>
       <aside className="lateral entrar">
-        <CabecaPagina icone={Building2} titulo="Empresas" subtitulo={`${empresas.length} clientes cadastrados`} />
+        <CabecaPagina icone={Building2} titulo="Empresas" subtitulo={empresas.length === 1 ? "1 cliente cadastrado" : `${empresas.length} clientes cadastrados`} />
         <button className="botao-ouro" onClick={() => setSelecionada("nova")}><Plus size={17} aria-hidden /> Nova empresa</button>
         {empresas.map((e) => (
           <button key={e.id} className={`cartao-motoboy ${selecionada === e.id ? "selecionado" : ""}`} onClick={() => setSelecionada(e.id)}>
