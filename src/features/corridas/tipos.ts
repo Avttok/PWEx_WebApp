@@ -29,6 +29,7 @@ export interface Parada {
 export interface Corrida {
   id: string;
   numero: number;
+  urgente?: boolean;
   empresa_id: string | null;
   status: StatusCorrida;
   agendada_para?: string | null;

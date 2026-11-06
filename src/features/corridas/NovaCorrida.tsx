@@ -107,6 +107,7 @@ export function NovaCorrida({ onCriada, onVoltar }: { onCriada: (id: string) => 
   const [raio, setRaio] = useState<string | null>(null);
   const { teste } = useModoTeste(); // no modo teste, toda corrida criada é de teste
   const [modo, setModo] = useState<"cascata" | "direto">("cascata");
+  const [urgente, setUrgente] = useState(false);
   const [motoboyId, setMotoboyId] = useState("");
   const [observacoes, setObservacoes] = useState("");
   const [enviando, setEnviando] = useState(false);
@@ -226,6 +227,7 @@ export function NovaCorrida({ onCriada, onVoltar }: { onCriada: (id: string) => 
         aplicar_acrescimo: acrescimoLigado,
         teste,
         modo_despacho: modo,
+        urgente: modo === "cascata" && !planejada && urgente,
         motoboy_id: modo === "direto" ? motoboyId : null,
         exige_foto: exigeAtual.foto,
         exige_assinatura: exigeAtual.assinatura,
@@ -513,6 +515,12 @@ export function NovaCorrida({ onCriada, onVoltar }: { onCriada: (id: string) => 
                 <p className="dica">{teste ? "Nenhum motoboy com o modo teste ligado." : "Nenhum motoboy fora do modo teste."}</p>
               )}
             </>
+          )}
+          {modo === "cascata" && !planejada && (
+            <label className="opcao">
+              <span><strong>Urgente</strong><br /><span className="dica">{urgente ? "Vai para o mais próximo mesmo se estiver fora do raio que ele escolheu." : "Respeita o raio de disponibilidade de cada motoboy."}</span></span>
+              <input type="checkbox" role="switch" checked={urgente} onChange={(e) => setUrgente(e.target.checked)} />
+            </label>
           )}
         </section>
 

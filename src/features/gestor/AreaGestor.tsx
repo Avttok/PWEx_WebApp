@@ -105,6 +105,36 @@ export function AreaGestor({ children }: { children: ReactNode }) {
     return null;
   }, []);
   const dev = papeis.includes("dev");
+
+  // corrida em andamento cujo motoboy não manda posição há 30 min: avisa o gestor (uma vez por corrida)
+  useEffect(() => {
+    if (acesso !== "gestor") return;
+    const avisadas = new Set<string>();
+    async function conferir() {
+      const sb = supabase();
+      const { data: cs } = await sb.from("corridas").select("id,numero,teste,motoboy_id").in("status", ["aceita", "em_andamento"]).not("motoboy_id", "is", null);
+      if (!cs?.length) return;
+      const ids = [...new Set(cs.map((c) => c.motoboy_id as string))];
+      const [{ data: ms }, { data: ps }] = await Promise.all([
+        sb.from("motoboys").select("id,posicao_em").in("id", ids),
+        sb.from("perfis").select("id,nome").in("id", ids),
+      ]);
+      const limite = Date.now() - 30 * 60_000;
+      for (const c of cs) {
+        const m = ms?.find((x) => x.id === c.motoboy_id);
+        const t = m?.posicao_em ? new Date(m.posicao_em).getTime() : 0;
+        if (t < limite && !avisadas.has(c.id)) {
+          avisadas.add(c.id);
+          const nome = ps?.find((x) => x.id === c.motoboy_id)?.nome ?? "O motoboy";
+          const min = t ? Math.round((Date.now() - t) / 60_000) : null;
+          toast(`${nome} está na corrida ${c.teste ? "T" : "#"}${c.numero} e mandou a localização pela última vez ${min ? `há ${min} min` : "há muito tempo"}.`, "aviso", { titulo: "Motoboy sem sinal" });
+        } else if (t >= limite) avisadas.delete(c.id);
+      }
+    }
+    conferir();
+    const t = setInterval(conferir, 60_000);
+    return () => clearInterval(t);
+  }, [acesso]);
   // estabelecimentos desligados pelo Dev: some de todos os mapas
   useEffect(() => { if (!dev && modulos.estabelecimentos === false) setEstabelecimentos(false); }, [dev, modulos.estabelecimentos, setEstabelecimentos]);
   const contextoConta = useMemo<ContextoConta>(() => ({

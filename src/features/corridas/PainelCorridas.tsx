@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ArrowDownToLine, ArrowUpFromLine, Bike, Building2, CalendarClock, TriangleAlert, CheckSquare, Clock, FlaskConical, Plus, Route, Ruler, Trash2, X } from "lucide-react";
+import { ArrowDownToLine, ArrowUpFromLine, Bike, Building2, CalendarClock, TriangleAlert, CheckSquare, Clock, FlaskConical, Plus, Route, Ruler, Trash2, X, Zap } from "lucide-react";
 import { ExcluirCorridas } from "./ExcluirCorridas";
 import { CabecaPagina } from "@/features/ui/CabecaPagina";
 import { moeda } from "@/features/precos/estrategias";
@@ -103,6 +103,7 @@ export function PainelCorridas() {
                 <strong className="figura">{numeroCorrida(c)}</strong>
                 <span className="selo" style={{ color: COR_CORRIDA[c.status] }}>{ROTULO_CORRIDA[c.status]}</span>
                 {c.teste && <span className="selo" style={{ color: "var(--ouro)" }}><FlaskConical size={11} aria-hidden /> teste</span>}
+                {c.urgente && <span className="selo" style={{ color: "var(--vermelho)" }}><Zap size={11} aria-hidden /> urgente</span>}
                 <span className="espaco" />
                 <span className="valor-lista">{moeda(c.valor)}</span>
               </div>

@@ -37,6 +37,8 @@ export const PARAMETROS: DefParametro[] = [
   { chave: "oferta_segundos", grupo: "despacho", rotulo: "Tempo para aceitar", descricao: "Quanto tempo cada motoboy tem para aceitar a corrida antes dela passar ao próximo.", tipo: "numero", padrao: 30, unidade: "s", min: 10, max: 180 },
   { chave: "posicao_max_min", grupo: "despacho", rotulo: "Posição recente", descricao: "Só entra na cascata quem enviou posição dentro desse tempo.", tipo: "numero", padrao: 15, unidade: "min", min: 1, max: 120 },
   { chave: "raio_max_despacho_km", grupo: "despacho", rotulo: "Distância máxima até a coleta", descricao: "Motoboys mais longe que isso não recebem a corrida. 0 = sem limite.", tipo: "numero", padrao: 0, unidade: "km", min: 0, max: 200 },
+  { chave: "raio_motoboy_max_km", grupo: "despacho", rotulo: "Raio máximo do motoboy", descricao: "Até quanto cada motoboy pode escolher no raio de disponibilidade dele. Corridas urgentes ignoram o raio.", tipo: "numero", padrao: 100, unidade: "km", min: 1, max: 500, passo: 5 },
+  { chave: "offline_auto_min", grupo: "despacho", rotulo: "Offline automático", descricao: "Disponível sem enviar posição há esse tempo vira offline sozinho; volta quando a posição chegar. 0 = desligado.", tipo: "numero", padrao: 30, unidade: "min", min: 0, max: 240, passo: 5 },
   { chave: "favoritos_primeiro", grupo: "despacho", rotulo: "Favoritos da empresa primeiro", descricao: "Na cascata, oferecer antes aos motoboys favoritos do cliente.", tipo: "booleano", padrao: true },
 
   { chave: "agendada_antecedencia_min", grupo: "planejadas", rotulo: "Antecedência mínima", descricao: "Só dá para planejar corridas que começam pelo menos isso depois de agora.", tipo: "numero", padrao: 30, unidade: "min", min: 5, max: 1440, passo: 5 },
