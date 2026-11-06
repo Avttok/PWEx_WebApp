@@ -45,13 +45,13 @@ export function PainelConfiguracoes() {
         {grupos.map((g) => {
           const Icone = ICONES[g];
           return (
-            <a key={g} href={`#grupo-${g}`} className="cartao-motoboy" style={{ textDecoration: "none" }}>
+            <a key={g} href={`#grupo-${g}`} className="cartao-motoboy so-desktop" style={{ textDecoration: "none" }}>
               <div className="linha"><Icone size={16} aria-hidden style={{ color: "var(--ouro)" }} /><strong>{GRUPOS[g].titulo}</strong></div>
               <span className="dica">{GRUPOS[g].descricao}</span>
             </a>
           );
         })}
-        <p className="dica">As mudanças são salvas sozinhas. O app aplica as de rastreamento na próxima sincronização.</p>
+        <p className="dica so-desktop">As mudanças são salvas sozinhas. O app aplica as de rastreamento na próxima sincronização.</p>
       </aside>
 
       <main className="conteudo">

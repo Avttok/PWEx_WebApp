@@ -507,3 +507,28 @@ html, body { overscroll-behavior: none; }
   .parada-topo { flex-wrap: wrap; }
   .resumo-rota strong, .resumo-rota .valor { font-size: 18px; }
 }
+
+/* ---------------------------------------------------------------- gaveta do celular */
+.botao-gaveta { display: none; }
+.botao-ouro, .botao-texto, .botao-excluir, .botao-perigo { white-space: nowrap; }
+@media (max-width: 860px) {
+  .so-desktop { display: none !important; }
+  .corpo[data-gaveta] { --gaveta: 36dvh; }
+  .corpo[data-gaveta="expandida"] { --gaveta: 74dvh; }
+  .corpo[data-gaveta="oculta"] { --gaveta: 0px; }
+  .corpo[data-gaveta] > .lateral { max-height: var(--gaveta); transition: max-height 0.28s cubic-bezier(0.2, 0.8, 0.3, 1); }
+  .corpo[data-gaveta="oculta"] > .lateral { display: none; }
+  .corpo[data-gaveta] > .mapa .maplibregl-ctrl-bottom-right { bottom: calc(var(--gaveta) + 64px); transition: bottom 0.28s; }
+  .corpo[data-gaveta] > .mapa .maplibregl-ctrl-bottom-left { bottom: calc(var(--gaveta) + 64px); }
+  .botao-gaveta {
+    display: inline-flex; align-items: center; gap: 6px; position: absolute; z-index: 25; left: 50%; transform: translateX(-50%);
+    bottom: calc(var(--gaveta) + 18px); padding: 8px 14px; border-radius: 99px; font-size: 13px; font-weight: 600; color: var(--texto);
+    transition: bottom 0.28s cubic-bezier(0.2, 0.8, 0.3, 1);
+  }
+  .corpo[data-gaveta="oculta"] .botao-gaveta { bottom: 18px; color: var(--ouro); }
+  .lateral::before { display: none; }
+  .lateral { gap: 10px; }
+  .cabeca-texto p { font-size: 12px; }
+  .linha-botoes > .botao-ouro { flex: 2 1 auto; }
+  .marcador { width: 34px; height: 34px; font-size: 13px; }
+}

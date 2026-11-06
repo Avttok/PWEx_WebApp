@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import type { Session } from "@supabase/supabase-js";
-import { Building2, Heart, LogOut, Map, Route, Settings2, Users, Wallet } from "lucide-react";
+import { Building2, ChevronDown, ChevronUp, Heart, List, LogOut, Map, Route, Settings2, Users, Wallet } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
 import { LoginForm } from "@/features/auth/LoginForm";
 import { Logo } from "@/features/marca/Logo";
@@ -31,6 +31,9 @@ export function AreaGestor({ children }: { children: ReactNode }) {
   const [foto, setFoto] = useState<string | null>(null);
   const [acesso, setAcesso] = useState<Acesso>("carregando");
   const caminho = usePathname();
+  // celular: gaveta sobre o mapa (compacta → expandida → oculta)
+  const [gaveta, setGaveta] = useState<"compacta" | "expandida" | "oculta">("compacta");
+  const telaDeMapa = caminho?.startsWith("/gestor/mapa") || caminho?.startsWith("/gestor/corridas");
 
   useEffect(() => {
     const sb = supabase();
@@ -107,7 +110,14 @@ export function AreaGestor({ children }: { children: ReactNode }) {
           </div>
           <button className="botao-icone" onClick={sair} title="Sair" aria-label="Sair"><LogOut size={17} aria-hidden /></button>
         </header>
-        <div className="corpo">{children}</div>
+        <div className="corpo" data-gaveta={telaDeMapa ? gaveta : undefined}>
+          {children}
+          {telaDeMapa && (
+            <button className="botao-gaveta vidro" onClick={() => setGaveta((g) => (g === "compacta" ? "expandida" : g === "expandida" ? "oculta" : "compacta"))}>
+              {gaveta === "compacta" ? <><ChevronUp size={16} /> Expandir</> : gaveta === "expandida" ? <><ChevronDown size={16} /> Ver mapa</> : <><List size={16} /> Mostrar painel</>}
+            </button>
+          )}
+        </div>
         <footer className="rodape">
           Um projeto de irmão para irmão! <Heart size={13} aria-label="com amor" className="coracao" fill="currentColor" />
         </footer>

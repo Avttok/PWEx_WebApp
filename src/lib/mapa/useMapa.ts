@@ -31,6 +31,8 @@ export function useMapa(container: RefObject<HTMLDivElement | null>) {
     m.addControl(new BotaoEstabelecimentos(), "bottom-right");
     m.on("load", () => {
       adicionarEstabelecimentos(m, tema === "escuro");
+      // créditos do mapa começam recolhidos (continuam no botão "i")
+      container.current?.querySelector(".maplibregl-compact-show")?.classList.remove("maplibregl-compact-show");
       setPronto(true);
     });
     mapa.current = m;
