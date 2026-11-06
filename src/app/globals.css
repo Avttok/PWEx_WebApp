@@ -412,3 +412,10 @@ input[type="radio"] { width: 18px; height: 18px; padding: 0; margin: 0; accent-c
 .tabela td { padding: 10px 6px; border-bottom: 1px solid var(--borda); }
 .tabela tr:last-child td { border-bottom: 0; }
 @media (max-width: 1280px) { .abas a { padding: 9px 10px; } }
+.selo { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+.selos { display: flex; flex-wrap: wrap; gap: 6px; }
+.mapa-mini { position: relative; height: 280px; border-radius: 16px; overflow: hidden; border: 1px solid var(--borda); }
+.mapa-mini .mapa::after { display: none; }
+.botao-poi { display: grid !important; place-items: center; }
+.botao-poi.desligado svg { opacity: 0.4; }
+.botao-poi { color: var(--texto) !important; } .botao-poi:not(.desligado) { color: var(--ouro) !important; }

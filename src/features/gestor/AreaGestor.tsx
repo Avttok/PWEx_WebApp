@@ -16,7 +16,7 @@ const ContextoSessao = createContext<Session | null>(null);
 export const useSessaoGestor = () => useContext(ContextoSessao);
 
 const ABAS = [
-  { href: "/gestor/mapa", rotulo: "Mapa ao vivo", icone: Map },
+  { href: "/gestor/mapa", rotulo: "Mapa", icone: Map },
   { href: "/gestor/corridas", rotulo: "Corridas", icone: Route },
   { href: "/gestor/empresas", rotulo: "Empresas", icone: Building2 },
   { href: "/gestor/equipe", rotulo: "Equipe", icone: Users },

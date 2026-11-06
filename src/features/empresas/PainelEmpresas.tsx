@@ -7,6 +7,7 @@ import { geo } from "@/features/geo";
 import { useEmpresas, useEquipe } from "@/features/corridas/dados";
 import { ROTULO_MODALIDADE, VALOR_KM_PADRAO, moeda, type Modalidade } from "@/features/precos/estrategias";
 import { CabecaPagina } from "@/features/ui/CabecaPagina";
+import { MapaCorridas } from "@/features/corridas/MapaCorridas";
 import type { Empresa } from "@/features/corridas/tipos";
 import type { DadosCnpj } from "@/lib/cnpj/consulta";
 
@@ -88,8 +89,14 @@ export function PainelEmpresas() {
 
   const set = (m: Partial<Formulario>) => setForm((f) => ({ ...f, ...m }));
 
+  async function marcarNoMapa(lat: number, lng: number) {
+    set({ lat, lng });
+    const texto = await geo.enderecoDoPonto(lat, lng);
+    setForm((f) => ({ ...f, endereco: f.endereco.trim() ? f.endereco : texto }));
+  }
+
   async function localizar(texto: string) {
-    if (!texto.trim()) return;
+    if (!texto.trim()) return setMsg({ tipo: "erro", texto: "Digite o endereço ou clique no mapa abaixo para marcar a coleta." });
     setLocalizando(true);
     const r = await geo.buscarEnderecos(texto).catch(() => []);
     setLocalizando(false);
@@ -255,6 +262,15 @@ export function PainelEmpresas() {
                   </button>
                 </div>
               </div>
+              <div className="mapa-mini">
+                <MapaCorridas
+                  paradas={form.lat != null && form.lng != null ? [{ chave: "coleta", lat: form.lat, lng: form.lng, tipo: "coleta", rotulo: "C" }] : []}
+                  aoClicar={marcarNoMapa}
+                  modoEscolha
+                  enquadrar={form.lat != null ? `${selecionada}-ok` : `${selecionada}`}
+                />
+              </div>
+              <p className="dica">Clique no mapa para marcar (ou ajustar) o ponto exato da coleta.</p>
               <label className="campo"><span>Instruções para a coleta</span>
                 <input value={form.instrucoes_coleta} placeholder="Portaria, doca, horário…" onChange={(e) => set({ instrucoes_coleta: e.target.value })} /></label>
             </section>

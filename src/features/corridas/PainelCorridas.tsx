@@ -17,14 +17,17 @@ export function PainelCorridas() {
   const { corridas, ofertas, erro } = useCorridas();
   const equipe = useEquipe();
   const [visao, setVisao] = useState<Visao>({ tipo: "lista" });
-  const [filtro, setFiltro] = useState<"ativas" | "todas">("ativas");
+  const [filtro, setFiltro] = useState<"ativas" | "concluidas" | "canceladas" | "todas">("ativas");
   const [selecionando, setSelecionando] = useState(false);
   const [marcadas, setMarcadas] = useState<string[]>([]);
   const [excluindo, setExcluindo] = useState(false);
   const alternar = (id: string) => setMarcadas((m) => (m.includes(id) ? m.filter((x) => x !== id) : [...m, id]));
   const sairSelecao = () => { setSelecionando(false); setMarcadas([]); };
 
-  const lista = filtro === "ativas" ? corridas.filter((c) => ATIVAS.includes(c.status)) : corridas;
+  const lista = filtro === "ativas" ? corridas.filter((c) => ATIVAS.includes(c.status))
+    : filtro === "concluidas" ? corridas.filter((c) => c.status === "concluida")
+    : filtro === "canceladas" ? corridas.filter((c) => c.status === "cancelada")
+    : corridas;
   const nome = (id: string | null) => equipe.find((m) => m.id === id)?.nome;
 
   const pinosAtivos = useMemo(
@@ -60,8 +63,9 @@ export function PainelCorridas() {
         <div className="lateral-cabecalho">
           <span className="rotulo">Mostrar</span>
           <div className="filtro">
-            <button className={filtro === "ativas" ? "ativo" : ""} onClick={() => setFiltro("ativas")}>Ativas</button>
-            <button className={filtro === "todas" ? "ativo" : ""} onClick={() => setFiltro("todas")}>Últimos 3 dias</button>
+            {([["ativas", "Ativas"], ["concluidas", "Concluídas"], ["canceladas", "Canceladas"], ["todas", "Todas"]] as const).map(([v, r]) => (
+              <button key={v} className={filtro === v ? "ativo" : ""} onClick={() => setFiltro(v)}>{r}</button>
+            ))}
           </div>
         </div>
         <div className="linha-botoes">
@@ -71,7 +75,7 @@ export function PainelCorridas() {
           </button>
         </div>
         {erro && <p className="erro">{erro}</p>}
-        {lista.length === 0 && <p className="vazio">Nenhuma corrida {filtro === "ativas" ? "ativa" : "recente"}.</p>}
+        {lista.length === 0 && <p className="vazio">Nenhuma corrida {filtro === "ativas" ? "ativa" : filtro === "concluidas" ? "concluída" : filtro === "canceladas" ? "cancelada" : ""} nos últimos 30 dias.</p>}
         {lista.map((c) => {
           const oferta = ofertas.find((o) => o.corrida_id === c.id);
           const coleta = c.paradas[0];

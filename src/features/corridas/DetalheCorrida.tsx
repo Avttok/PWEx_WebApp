@@ -165,7 +165,7 @@ export function DetalheCorrida({ corrida, oferta, onVoltar, onExcluida }: { corr
           <section className="bloco alerta-bloco">
             <span className="rotulo">Despachar de novo</span>
             <select value={motoboyRedespacho} onChange={(e) => setMotoboyRedespacho(e.target.value)}>
-              <option value="">Mais próximo (cascata)</option>
+              <option value="">Mais próximo da coleta</option>
               {equipe.map((m) => <option key={m.id} value={m.id}>{m.nome}</option>)}
             </select>
             <button className="botao-ouro" onClick={redespachar}>Despachar</button>

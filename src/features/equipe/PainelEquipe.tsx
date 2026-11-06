@@ -58,14 +58,15 @@ export function PainelEquipe() {
               {x.foto_url ? <img src={x.foto_url} alt="" className="foto-mini" style={{ borderColor: "var(--ouro)" }} />
                 : <span className="avatar grad" style={{ width: 26, height: 26, fontSize: 11 }}>{(x.nome || x.email).charAt(0).toUpperCase()}</span>}
               <strong>{x.nome || x.email}</strong>
-              <span className="espaco" />
-              {x.papeis.includes("gestor") && <span className="selo" style={{ color: "var(--ouro)" }}><ShieldCheck size={11} /> gestor</span>}
-              {x.papeis.includes("motoboy") && <span className="selo" style={{ color: "var(--texto-2)" }}><Bike size={11} /> motoboy</span>}
+            </div>
+            <div className="selos">
+              {x.papeis.includes("gestor") && <span className="selo" style={{ color: "var(--ouro)" }}><ShieldCheck size={11} /> Gestor</span>}
+              {x.papeis.includes("motoboy") && <span className="selo" style={{ color: "var(--texto-2)" }}><Bike size={11} /> Motoboy</span>}
+              {x.modo_teste && <span className="selo" style={{ color: "#a78bfa" }}><FlaskConical size={11} /> Teste</span>}
             </div>
             <div className="detalhes">
               <span>{x.email}</span>
               {x.status && <span style={{ color: COR_STATUS[x.status] }}>{ROTULO_STATUS[x.status]}</span>}
-              {x.modo_teste && <span style={{ color: "#a78bfa" }}><FlaskConical size={11} /> teste</span>}
               {x.repasse_pct != null && <span>repasse {Number(x.repasse_pct)}%</span>}
             </div>
           </button>

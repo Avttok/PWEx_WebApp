@@ -320,7 +320,7 @@ export function NovaCorrida({ onCriada, onVoltar }: { onCriada: (id: string) => 
         <section className="bloco">
           <span className="rotulo"><Radar size={12} aria-hidden style={{ verticalAlign: -1 }} /> Despacho</span>
           <div className="checks">
-            <label><input type="radio" checked={modo === "cascata"} onChange={() => setModo("cascata")} /> Mais próximo da coleta (cascata{favoritosDaEmpresa.length && cfg.favoritos_primeiro ? ", favoritos primeiro" : ""})</label>
+            <label><input type="radio" checked={modo === "cascata"} onChange={() => setModo("cascata")} /> Mais próximo da coleta{favoritosDaEmpresa.length && cfg.favoritos_primeiro ? " · favoritos primeiro" : ""}</label>
             <label><input type="radio" checked={modo === "direto"} onChange={() => setModo("direto")} /> Motoboy específico</label>
           </div>
           {modo === "direto" && (

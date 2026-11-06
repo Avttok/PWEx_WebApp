@@ -48,9 +48,9 @@ export function useCorridas() {
 
   useRecarregarAoMudar(["corridas", "paradas", "ofertas"], async () => {
     const sb = supabase();
-    const desde = new Date(Date.now() - 3 * 86400_000).toISOString();
+    const desde = new Date(Date.now() - 30 * 86400_000).toISOString();
     const [c, o] = await Promise.all([
-      sb.from("corridas").select("*, paradas(*)").gte("criada_em", desde).order("criada_em", { ascending: false }).limit(200),
+      sb.from("corridas").select("*, paradas(*)").gte("criada_em", desde).order("criada_em", { ascending: false }).limit(400),
       sb.from("ofertas").select("id,corrida_id,motoboy_id,status,distancia_m,expira_em").eq("status", "pendente"),
     ]);
     if (c.error || o.error) return setErro((c.error ?? o.error)!.message);
