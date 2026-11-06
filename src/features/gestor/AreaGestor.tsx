@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import type { Session } from "@supabase/supabase-js";
-import { Building2, Heart, LogOut, Map, Route, Settings2 } from "lucide-react";
+import { Building2, Heart, LogOut, Map, Route, Settings2, Users, Wallet } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
 import { LoginForm } from "@/features/auth/LoginForm";
 import { Logo } from "@/features/marca/Logo";
@@ -19,6 +19,8 @@ const ABAS = [
   { href: "/gestor/mapa", rotulo: "Mapa ao vivo", icone: Map },
   { href: "/gestor/corridas", rotulo: "Corridas", icone: Route },
   { href: "/gestor/empresas", rotulo: "Empresas", icone: Building2 },
+  { href: "/gestor/equipe", rotulo: "Equipe", icone: Users },
+  { href: "/gestor/financeiro", rotulo: "Financeiro", icone: Wallet },
   { href: "/gestor/configuracoes", rotulo: "Configurações", icone: Settings2 },
 ];
 

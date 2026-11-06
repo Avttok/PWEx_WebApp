@@ -113,3 +113,42 @@ drop policy if exists avatares_leitura on storage.objects;
 create policy avatares_leitura on storage.objects
   for select to authenticated
   using (bucket_id = 'avatares');
+
+-- =====================================================================
+-- Equipe: gestor vê e edita papéis, nome e repasse individual
+-- (contas novas continuam sendo criadas em Authentication → Users)
+-- =====================================================================
+create or replace function public.listar_equipe()
+returns table (id uuid, email text, nome text, foto_url text, papeis public.papel_usuario[],
+               status public.status_motoboy, modo_teste boolean, repasse_pct numeric, criado_em timestamptz)
+language sql stable security definer set search_path = '' as $$
+  select p.id, u.email::text, p.nome, p.foto_url, p.papeis, m.status, coalesce(m.modo_teste, false), m.repasse_pct, p.criado_em
+    from public.perfis p
+    join auth.users u on u.id = p.id
+    left join public.motoboys m on m.id = p.id
+   where public.is_gestor()
+   order by p.nome;
+$$;
+
+create or replace function public.editar_membro(p_usuario uuid, p_nome text, p_papeis public.papel_usuario[], p_repasse numeric default null)
+returns void language plpgsql security definer set search_path = '' as $$
+begin
+  if not public.is_gestor() then raise exception 'apenas_gestor' using errcode = '42501'; end if;
+  if p_usuario = auth.uid() and not ('gestor' = any (p_papeis)) then
+    raise exception 'nao_remova_seu_proprio_acesso' using errcode = '22023';
+  end if;
+  if p_repasse is not null and (p_repasse < 0 or p_repasse > 100) then
+    raise exception 'percentual_invalido' using errcode = '22023';
+  end if;
+  update public.perfis set nome = coalesce(nullif(trim(p_nome), ''), nome), papeis = p_papeis where id = p_usuario;
+  if 'motoboy' = any (p_papeis) then
+    insert into public.motoboys (id, repasse_pct) values (p_usuario, p_repasse)
+    on conflict (id) do update set repasse_pct = excluded.repasse_pct;
+  end if;
+end;
+$$;
+
+revoke all on function public.listar_equipe() from public, anon;
+revoke all on function public.editar_membro(uuid, text, public.papel_usuario[], numeric) from public, anon;
+grant execute on function public.listar_equipe() to authenticated;
+grant execute on function public.editar_membro(uuid, text, public.papel_usuario[], numeric) to authenticated;

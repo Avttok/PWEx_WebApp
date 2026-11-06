@@ -407,3 +407,8 @@ input[type="radio"] { width: 18px; height: 18px; padding: 0; margin: 0; accent-c
 .botao-excluir:hover:not(:disabled) { filter: brightness(1.08); }
 .cartao-motoboy.marcado { border-color: var(--vermelho); background: color-mix(in srgb, var(--vermelho) 7%, transparent); }
 .barra-selecao { position: sticky; bottom: 0; display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-radius: 14px; margin-top: 4px; }
+.tabela { width: 100%; border-collapse: collapse; font-size: 14px; font-variant-numeric: tabular-nums; }
+.tabela th { text-align: left; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--texto-3); font-weight: 600; padding: 8px 6px; border-bottom: 1px solid var(--borda); }
+.tabela td { padding: 10px 6px; border-bottom: 1px solid var(--borda); }
+.tabela tr:last-child td { border-bottom: 0; }
+@media (max-width: 1280px) { .abas a { padding: 9px 10px; } }
