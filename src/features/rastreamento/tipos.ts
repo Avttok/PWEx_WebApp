@@ -11,6 +11,7 @@ export interface Motoboy {
   posicao_em: string | null;
   status_em: string;
   versao_app: string | null;
+  modo_teste?: boolean;
 }
 
 export interface Ponto {

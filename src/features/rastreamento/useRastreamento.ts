@@ -6,12 +6,13 @@ import type { Motoboy, Ponto } from "./tipos";
 
 const HORAS_DE_TRILHA = 12;
 const MAX_PONTOS = 5000;
-const COLUNAS_MOTOBOY = "id,status,modo_economia,lat,lng,precisao_m,bateria,posicao_em,status_em,versao_app";
+const COLUNAS_MOTOBOY = "id,status,modo_economia,lat,lng,precisao_m,bateria,posicao_em,status_em,versao_app,modo_teste";
 const COLUNAS_PONTO = "id,motoboy_id,sessao_id,status,lat,lng,precisao_m,velocidade_ms,bateria,registrado_em";
 
 export interface EstadoRastreamento {
   motoboys: Record<string, Motoboy>;
   nomes: Record<string, string>;
+  fotos: Record<string, string>;
   trilhas: Record<string, Ponto[]>;
   conectado: boolean;
   erro: string | null;
@@ -21,6 +22,7 @@ export interface EstadoRastreamento {
 export function useRastreamento(): EstadoRastreamento {
   const [motoboys, setMotoboys] = useState<Record<string, Motoboy>>({});
   const [nomes, setNomes] = useState<Record<string, string>>({});
+  const [fotos, setFotos] = useState<Record<string, string>>({});
   const [trilhas, setTrilhas] = useState<Record<string, Ponto[]>>({});
   const [conectado, setConectado] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
@@ -33,7 +35,7 @@ export function useRastreamento(): EstadoRastreamento {
       const desde = new Date(Date.now() - HORAS_DE_TRILHA * 3600_000).toISOString();
       const [m, p, l] = await Promise.all([
         sb.from("motoboys").select(COLUNAS_MOTOBOY),
-        sb.from("perfis").select("id,nome"),
+        sb.from("perfis").select("id,nome,foto_url"),
         sb
           .from("localizacoes")
           .select(COLUNAS_PONTO)
@@ -48,7 +50,9 @@ export function useRastreamento(): EstadoRastreamento {
         return;
       }
       setMotoboys(Object.fromEntries((m.data as Motoboy[]).map((x) => [x.id, x])));
-      setNomes(Object.fromEntries((p.data ?? []).map((x: { id: string; nome: string }) => [x.id, x.nome])));
+      const perfis = (p.data ?? []) as { id: string; nome: string; foto_url: string | null }[];
+      setNomes(Object.fromEntries(perfis.map((x) => [x.id, x.nome])));
+      setFotos(Object.fromEntries(perfis.filter((x) => x.foto_url).map((x) => [x.id, x.foto_url!])));
       const porMotoboy: Record<string, Ponto[]> = {};
       for (const ponto of l.data as Ponto[]) (porMotoboy[ponto.motoboy_id] ??= []).push(ponto);
       setTrilhas(porMotoboy);
@@ -79,5 +83,5 @@ export function useRastreamento(): EstadoRastreamento {
     };
   }, []);
 
-  return { motoboys, nomes, trilhas, conectado, erro };
+  return { motoboys, nomes, fotos, trilhas, conectado, erro };
 }

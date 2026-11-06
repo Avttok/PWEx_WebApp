@@ -4,9 +4,11 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import type { Session } from "@supabase/supabase-js";
+import { Building2, Heart, LogOut, Map, Route, Settings2 } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
 import { LoginForm } from "@/features/auth/LoginForm";
 import { Logo } from "@/features/marca/Logo";
+import { BotaoTema } from "@/features/tema/BotaoTema";
 
 type Acesso = "carregando" | "anonimo" | "negado" | "gestor";
 
@@ -14,14 +16,16 @@ const ContextoSessao = createContext<Session | null>(null);
 export const useSessaoGestor = () => useContext(ContextoSessao);
 
 const ABAS = [
-  { href: "/gestor/mapa", rotulo: "Mapa ao vivo" },
-  { href: "/gestor/corridas", rotulo: "Corridas" },
-  { href: "/gestor/empresas", rotulo: "Empresas" },
+  { href: "/gestor/mapa", rotulo: "Mapa ao vivo", icone: Map },
+  { href: "/gestor/corridas", rotulo: "Corridas", icone: Route },
+  { href: "/gestor/empresas", rotulo: "Empresas", icone: Building2 },
+  { href: "/gestor/configuracoes", rotulo: "Configurações", icone: Settings2 },
 ];
 
 /** Protege as páginas do gestor e desenha o cabeçalho com o menu. */
 export function AreaGestor({ children }: { children: ReactNode }) {
   const [sessao, setSessao] = useState<Session | null>(null);
+  const [nome, setNome] = useState("");
   const [acesso, setAcesso] = useState<Acesso>("carregando");
   const caminho = usePathname();
 
@@ -30,7 +34,11 @@ export function AreaGestor({ children }: { children: ReactNode }) {
     async function verificar(s: Session | null) {
       setSessao(s);
       if (!s) return setAcesso("anonimo");
-      const { data } = await sb.rpc("is_gestor");
+      const [{ data }, perfil] = await Promise.all([
+        sb.rpc("is_gestor"),
+        sb.from("perfis").select("nome").eq("id", s.user.id).maybeSingle(),
+      ]);
+      setNome((perfil.data as { nome?: string } | null)?.nome ?? "");
       setAcesso(data === true ? "gestor" : "negado");
     }
     sb.auth.getSession().then(({ data }) => verificar(data.session));
@@ -47,30 +55,39 @@ export function AreaGestor({ children }: { children: ReactNode }) {
   if (acesso === "negado")
     return (
       <main className="tela-login">
-        <div className="caixa-login">
+        <div className="caixa-login vidro">
           <p className="erro">Este usuário não tem acesso de gestor.</p>
           <button className="botao-ouro" onClick={sair}>Sair</button>
         </div>
       </main>
     );
 
+  const exibido = nome || sessao?.user.email?.split("@")[0] || "Gestor";
+
   return (
     <ContextoSessao.Provider value={sessao}>
       <div className="painel">
-        <header className="topo">
-          <Logo />
+        <header className="topo vidro">
+          <Link href="/gestor/mapa" aria-label="PW Express, início"><Logo /></Link>
           <nav className="abas">
-            {ABAS.map((a) => (
-              <Link key={a.href} href={a.href} className={caminho?.startsWith(a.href) ? "ativa" : ""}>
-                {a.rotulo}
+            {ABAS.map(({ href, rotulo, icone: Icone }) => (
+              <Link key={href} href={href} className={caminho?.startsWith(href) ? "ativa" : ""}>
+                <Icone size={17} aria-hidden /> {rotulo}
               </Link>
             ))}
           </nav>
           <span className="espaco" />
-          <span className="topo-email">{sessao?.user.email}</span>
-          <button className="botao-texto" onClick={sair}>Sair</button>
+          <BotaoTema />
+          <div className="usuario">
+            <span className="avatar grad">{exibido.trim().charAt(0).toUpperCase()}</span>
+            <span className="usuario-texto"><strong>{exibido}</strong><span>{sessao?.user.email}</span></span>
+          </div>
+          <button className="botao-icone" onClick={sair} title="Sair" aria-label="Sair"><LogOut size={17} aria-hidden /></button>
         </header>
         <div className="corpo">{children}</div>
+        <footer className="rodape">
+          Um projeto de irmão para irmão! <Heart size={13} aria-label="com amor" className="coracao" fill="currentColor" />
+        </footer>
       </div>
     </ContextoSessao.Provider>
   );

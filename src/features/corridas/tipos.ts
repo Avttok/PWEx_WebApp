@@ -21,6 +21,8 @@ export interface Parada {
   recebedor_nome: string | null;
   foto_path: string | null;
   assinatura_path: string | null;
+  distancia_chegada_m: number | null;
+  local_ignorado: boolean;
 }
 
 export interface Corrida {
@@ -29,6 +31,9 @@ export interface Corrida {
   empresa_id: string | null;
   status: StatusCorrida;
   modo_despacho: "direto" | "cascata";
+  teste: boolean;
+  exigir_no_local: boolean;
+  raio_chegada_m: number;
   motoboy_designado_id: string | null;
   motoboy_id: string | null;
   exige_foto: boolean;
@@ -40,6 +45,9 @@ export interface Corrida {
   duracao_planejada_s: number | null;
   rota_planejada: string | null;
   valor: number | null;
+  repasse_pct: number | null;
+  valor_motoboy: number | null;
+  valor_gestao: number | null;
   distancia_real_m: number | null;
   trajeto: string | null;
   observacoes: string | null;
@@ -77,6 +85,16 @@ export interface Empresa {
   valor_fixo: number | null;
   cliente_ve_ao_vivo: boolean;
   observacoes: string | null;
+  razao_social: string | null;
+  nome_fantasia: string | null;
+  situacao: string | null;
+  telefone: string | null;
+  email: string | null;
+  endereco: string | null;
+  lat: number | null;
+  lng: number | null;
+  instrucoes_coleta: string | null;
+  consultado_em: string | null;
 }
 
 export const ROTULO_CORRIDA: Record<StatusCorrida, string> = {

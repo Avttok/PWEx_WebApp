@@ -20,6 +20,7 @@ supabase/seed/           → dados de teste
 2. Nova query → cole `supabase/seed/piloto_usuario_teste.sql` → **Run**. A última consulta deve mostrar seu usuário com `{gestor,motoboy}`.
 
 3. Fase de corridas: rode `supabase/migrations/20261106000001_corridas.sql`.
+4. Configurações, modo teste, geolocalização, repasse e perfil: rode `supabase/migrations/20261106000002_configuracoes_teste_geo.sql`.
 
 Regras de segurança: ninguém grava direto nas tabelas. O app usa as funções `atualizar_status` e `registrar_localizacoes`; leitura é liberada para o próprio motoboy e para gestores.
 

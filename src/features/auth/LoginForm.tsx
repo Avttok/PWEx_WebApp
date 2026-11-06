@@ -1,8 +1,10 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { LogIn } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
 import { Logo } from "@/features/marca/Logo";
+import { BotaoTema } from "@/features/tema/BotaoTema";
 
 export function LoginForm({ titulo }: { titulo: string }) {
   const [email, setEmail] = useState("");
@@ -21,7 +23,8 @@ export function LoginForm({ titulo }: { titulo: string }) {
 
   return (
     <main className="tela-login">
-      <form className="caixa-login" onSubmit={entrar}>
+      <div style={{ position: "fixed", top: 16, right: 16 }}><BotaoTema /></div>
+      <form className="caixa-login vidro entrar" onSubmit={entrar}>
         <Logo grande />
         <p className="subtitulo">{titulo}</p>
         <label>
@@ -33,7 +36,9 @@ export function LoginForm({ titulo }: { titulo: string }) {
           <input type="password" autoComplete="current-password" value={senha} onChange={(e) => setSenha(e.target.value)} required />
         </label>
         {erro && <p className="erro">{erro}</p>}
-        <button className="botao-ouro" disabled={carregando}>{carregando ? "Entrando…" : "Entrar"}</button>
+        <button className="botao-ouro" disabled={carregando}>
+          <LogIn size={18} aria-hidden /> {carregando ? "Entrando…" : "Entrar"}
+        </button>
       </form>
     </main>
   );

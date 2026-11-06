@@ -1,13 +1,18 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  ArrowDown, ArrowLeft, ArrowUp, CheckCircle2, FlaskConical, MapPin, MapPinned, PackagePlus, Plus, Radar, Receipt, Send, StickyNote, UserRound, X,
+} from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
 import { geo, type Endereco, type Rota } from "@/features/geo";
 import { moeda, orcar, ROTULO_MODALIDADE } from "@/features/precos/estrategias";
+import { useConfiguracoes } from "@/features/configuracoes/useConfiguracoes";
+import { CabecaPagina } from "@/features/ui/CabecaPagina";
+import { ROTULO_STATUS } from "@/features/rastreamento/tipos";
 import { MapaCorridas, type PinoParada } from "./MapaCorridas";
 import { traduzirErro, useEmpresas, useEquipe } from "./dados";
 import { formatarDuracao, formatarKm, type TipoParada } from "./tipos";
-import { ROTULO_STATUS } from "@/features/rastreamento/tipos";
 
 interface ParadaForm {
   chave: string;
@@ -21,17 +26,13 @@ interface ParadaForm {
 }
 
 let seq = 0;
-const novaParada = (tipo: TipoParada): ParadaForm => ({
-  chave: `p${++seq}`, tipo, endereco: "", lat: null, lng: null, contato_nome: "", contato_telefone: "", instrucoes: "",
+const novaParada = (tipo: TipoParada, base: Partial<ParadaForm> = {}): ParadaForm => ({
+  chave: `p${++seq}`, tipo, endereco: "", lat: null, lng: null, contato_nome: "", contato_telefone: "", instrucoes: "", ...base,
 });
 
 // ------------------------------------------------------------------ campo de endereço
 
-function CampoEndereco({ valor, onTexto, onEscolher }: {
-  valor: string;
-  onTexto: (t: string) => void;
-  onEscolher: (e: Endereco) => void;
-}) {
+function CampoEndereco({ valor, onTexto, onEscolher }: { valor: string; onTexto: (t: string) => void; onEscolher: (e: Endereco) => void }) {
   const [sugestoes, setSugestoes] = useState<Endereco[]>([]);
   const [aberto, setAberto] = useState(false);
   const digitado = useRef(false);
@@ -48,19 +49,16 @@ function CampoEndereco({ valor, onTexto, onEscolher }: {
 
   return (
     <div className="campo-endereco">
-      <input
-        value={valor}
-        placeholder="Rua, número, cidade"
+      <input value={valor} placeholder="Rua, número, cidade"
         onChange={(e) => { digitado.current = true; onTexto(e.target.value); }}
         onFocus={() => setAberto(sugestoes.length > 0)}
-        onBlur={() => setTimeout(() => setAberto(false), 150)}
-      />
+        onBlur={() => setTimeout(() => setAberto(false), 150)} />
       {aberto && (
         <ul className="sugestoes">
           {sugestoes.map((s, i) => (
             <li key={i}>
               <button type="button" onMouseDown={() => { digitado.current = false; onEscolher(s); setAberto(false); }}>
-                {s.descricao}
+                <MapPin size={13} aria-hidden style={{ verticalAlign: -2, marginRight: 6 }} />{s.descricao}
               </button>
             </li>
           ))}
@@ -75,6 +73,7 @@ function CampoEndereco({ valor, onTexto, onEscolher }: {
 export function NovaCorrida({ onCriada, onVoltar }: { onCriada: (id: string) => void; onVoltar: () => void }) {
   const { empresas, favoritos } = useEmpresas();
   const equipe = useEquipe();
+  const cfg = useConfiguracoes();
 
   const [empresaId, setEmpresaId] = useState("");
   const [paradas, setParadas] = useState<ParadaForm[]>(() => [novaParada("coleta"), novaParada("entrega")]);
@@ -83,18 +82,41 @@ export function NovaCorrida({ onCriada, onVoltar }: { onCriada: (id: string) => 
   const [rota, setRota] = useState<Rota | null>(null);
   const [calculando, setCalculando] = useState(false);
   const [valorManual, setValorManual] = useState<string | null>(null);
-  const [exige, setExige] = useState({ foto: false, assinatura: false, nome: true, codigo: false });
+  const [exige, setExige] = useState<{ foto: boolean; assinatura: boolean; nome: boolean; codigo: boolean } | null>(null);
+  const [noLocal, setNoLocal] = useState<boolean | null>(null);
+  const [raio, setRaio] = useState<string | null>(null);
+  const [teste, setTeste] = useState(false);
   const [modo, setModo] = useState<"cascata" | "direto">("cascata");
   const [motoboyId, setMotoboyId] = useState("");
   const [observacoes, setObservacoes] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
 
+  // padrões vindos das Configurações (até o gestor mexer)
+  const exigeAtual = exige ?? {
+    nome: Boolean(cfg.padrao_exige_nome), foto: Boolean(cfg.padrao_exige_foto),
+    assinatura: Boolean(cfg.padrao_exige_assinatura), codigo: Boolean(cfg.padrao_exige_codigo),
+  };
+  const noLocalAtual = noLocal ?? Boolean(cfg.exigir_no_local);
+  const raioAtual = raio ?? String(cfg.raio_chegada_m);
+
   const empresa = empresas.find((e) => e.id === empresaId) ?? null;
   const favoritosDaEmpresa = favoritos.filter((f) => f.empresa_id === empresaId).map((f) => f.motoboy_id);
 
   const atualizar = (chave: string, mudanca: Partial<ParadaForm>) =>
     setParadas((lista) => lista.map((p) => (p.chave === chave ? { ...p, ...mudanca } : p)));
+
+  function escolherEmpresa(id: string) {
+    setEmpresaId(id);
+    setValorManual(null);
+    const e = empresas.find((x) => x.id === id);
+    // coleta padrão da empresa entra na primeira parada (se ela ainda estiver vazia ou veio de outra empresa)
+    if (e?.endereco && e.lat != null && e.lng != null) {
+      setParadas((l) => l.map((p, i) => (i === 0 && p.tipo === "coleta"
+        ? { ...p, endereco: e.endereco!, lat: e.lat, lng: e.lng, contato_nome: e.nome_fantasia ?? e.nome, contato_telefone: e.telefone ?? "", instrucoes: e.instrucoes_coleta ?? "" }
+        : p)));
+    }
+  }
 
   // rota: recalcula quando as coordenadas mudam
   const chaveCoords = paradas.map((p) => `${p.lat},${p.lng}`).join("|");
@@ -114,6 +136,7 @@ export function NovaCorrida({ onCriada, onVoltar }: { onCriada: (id: string) => 
   const orcamento = orcar(
     empresa ? { modalidade: empresa.modalidade_preco, valor_km: empresa.valor_km, valor_fixo: empresa.valor_fixo } : null,
     rota?.distanciaM ?? null,
+    { valorKmPadrao: Number(cfg.valor_km_padrao), valorMinimo: Number(cfg.valor_minimo), arredondamento: Number(cfg.arredondamento) },
   );
   const valorFinal = valorManual !== null ? Number(valorManual.replace(",", ".")) : orcamento.valor;
 
@@ -137,7 +160,7 @@ export function NovaCorrida({ onCriada, onVoltar }: { onCriada: (id: string) => 
 
   async function enviar() {
     setErro(null);
-    if (paradas.some((p) => p.lat == null)) return setErro("Defina a localização de todas as paradas (busque o endereço ou clique no mapa).");
+    if (paradas.some((p) => p.lat == null)) return setErro("Defina a localização de todas as paradas (busque o endereço ou marque no mapa).");
     if (paradas[0].tipo !== "coleta") return setErro("A primeira parada precisa ser uma coleta.");
     if (!paradas.some((p) => p.tipo === "entrega")) return setErro("Inclua pelo menos uma entrega.");
     if (valorFinal == null || Number.isNaN(valorFinal)) return setErro("Informe o valor da corrida.");
@@ -147,12 +170,15 @@ export function NovaCorrida({ onCriada, onVoltar }: { onCriada: (id: string) => 
     const { data, error } = await supabase().rpc("criar_corrida", {
       dados: {
         empresa_id: empresaId || null,
+        teste,
         modo_despacho: modo,
         motoboy_id: modo === "direto" ? motoboyId : null,
-        exige_foto: exige.foto,
-        exige_assinatura: exige.assinatura,
-        exige_nome: exige.nome,
-        exige_codigo: exige.codigo,
+        exige_foto: exigeAtual.foto,
+        exige_assinatura: exigeAtual.assinatura,
+        exige_nome: exigeAtual.nome,
+        exige_codigo: exigeAtual.codigo,
+        exigir_no_local: noLocalAtual,
+        raio_chegada_m: Number(raioAtual) || Number(cfg.raio_chegada_m),
         distancia_planejada_m: rota?.distanciaM ?? null,
         duracao_planejada_s: rota?.duracaoS ?? null,
         rota_planejada: rota?.polyline ?? null,
@@ -169,30 +195,40 @@ export function NovaCorrida({ onCriada, onVoltar }: { onCriada: (id: string) => 
   }
 
   const pinos: PinoParada[] = useMemo(
-    () => paradas.flatMap((p, i) =>
-      p.lat == null || p.lng == null ? [] : [{ chave: p.chave, lat: p.lat, lng: p.lng, tipo: p.tipo, rotulo: String(i + 1) }]),
+    () => paradas.flatMap((p, i) => (p.lat == null || p.lng == null ? [] : [{ chave: p.chave, lat: p.lat, lng: p.lng, tipo: p.tipo, rotulo: String(i + 1) }])),
     [paradas],
   );
 
-  const motoboysOrdenados = [...equipe].sort((a, b) =>
-    Number(favoritosDaEmpresa.includes(b.id)) - Number(favoritosDaEmpresa.includes(a.id)));
+  // só aparecem motoboys compatíveis com o tipo da corrida (teste ↔ modo teste)
+  const motoboysCompativeis = equipe
+    .filter((m) => m.modo_teste === teste)
+    .sort((a, b) => Number(favoritosDaEmpresa.includes(b.id)) - Number(favoritosDaEmpresa.includes(a.id)));
 
   return (
     <>
-      <aside className="lateral lateral-larga">
+      <aside className="lateral lateral-larga entrar">
         <div className="lateral-cabecalho">
-          <button className="botao-texto" onClick={onVoltar}>← Voltar</button>
-          <span className="rotulo">Nova corrida</span>
+          <button className="botao-texto" onClick={onVoltar}><ArrowLeft size={15} aria-hidden /> Voltar</button>
         </div>
+        <CabecaPagina icone={PackagePlus} titulo="Nova corrida" subtitulo="Defina as paradas, o preço e o despacho" />
+
+        <section className={`bloco ${teste ? "bloco-teste" : ""}`}>
+          <label className="opcao">
+            <FlaskConical size={17} aria-hidden style={{ color: "#a78bfa" }} />
+            <span><strong>Corrida de teste</strong><br /><span className="dica">Só vai para motoboys com o modo teste ligado no app.</span></span>
+            <input type="checkbox" checked={teste} onChange={(e) => { setTeste(e.target.checked); setMotoboyId(""); }} />
+          </label>
+        </section>
 
         <section className="bloco">
           <label className="campo">
             <span>Cliente</span>
-            <select value={empresaId} onChange={(e) => { setEmpresaId(e.target.value); setValorManual(null); }}>
-              <option value="">Avulso (R$ 2,00/km)</option>
-              {empresas.map((e) => <option key={e.id} value={e.id}>{e.nome}</option>)}
+            <select value={empresaId} onChange={(e) => escolherEmpresa(e.target.value)}>
+              <option value="">Avulso ({moeda(Number(cfg.valor_km_padrao))}/km)</option>
+              {empresas.map((e) => <option key={e.id} value={e.id}>{e.nome}{e.situacao && e.situacao !== "ATIVA" ? ` (${e.situacao})` : ""}</option>)}
             </select>
           </label>
+          {empresa?.situacao && empresa.situacao !== "ATIVA" && <p className="erro">Atenção: situação cadastral {empresa.situacao} na Receita.</p>}
         </section>
 
         <section className="bloco">
@@ -206,11 +242,10 @@ export function NovaCorrida({ onCriada, onVoltar }: { onCriada: (id: string) => 
                   <option value="entrega">Entrega</option>
                 </select>
                 <span className="espaco" />
-                <button type="button" className="icone" title="Subir" onClick={() => mover(i, -1)}>↑</button>
-                <button type="button" className="icone" title="Descer" onClick={() => mover(i, 1)}>↓</button>
+                <button type="button" className="icone" title="Subir" onClick={() => mover(i, -1)}><ArrowUp size={14} /></button>
+                <button type="button" className="icone" title="Descer" onClick={() => mover(i, 1)}><ArrowDown size={14} /></button>
                 {paradas.length > 2 && (
-                  <button type="button" className="icone" title="Remover"
-                    onClick={() => setParadas((l) => l.filter((x) => x.chave !== p.chave))}>✕</button>
+                  <button type="button" className="icone" title="Remover" onClick={() => setParadas((l) => l.filter((x) => x.chave !== p.chave))}><X size={14} /></button>
                 )}
               </div>
               <CampoEndereco
@@ -219,13 +254,12 @@ export function NovaCorrida({ onCriada, onVoltar }: { onCriada: (id: string) => 
                 onEscolher={(e) => atualizar(p.chave, { endereco: e.descricao, lat: e.lat, lng: e.lng })}
               />
               <div className="parada-acoes">
-                <button type="button" className={`link ${escolhendo === p.chave ? "ativo" : ""}`}
-                  onClick={() => setEscolhendo(escolhendo === p.chave ? null : p.chave)}>
-                  {escolhendo === p.chave ? "Clique no mapa…" : "📍 Marcar no mapa"}
+                <button type="button" className={`link ${escolhendo === p.chave ? "ativo" : ""}`} onClick={() => setEscolhendo(escolhendo === p.chave ? null : p.chave)}>
+                  <MapPinned size={13} aria-hidden /> {escolhendo === p.chave ? "Clique no mapa…" : "Marcar no mapa"}
                 </button>
-                <span className={p.lat != null ? "ok" : "pendente"}>{p.lat != null ? "Localizado" : "Sem localização"}</span>
+                {p.lat != null ? <span className="ok"><CheckCircle2 size={13} aria-hidden /> Localizado</span> : <span className="pendente">Sem localização</span>}
                 <button type="button" className="link" onClick={() => setAberta(aberta === p.chave ? null : p.chave)}>
-                  {aberta === p.chave ? "Menos" : "Contato e instruções"}
+                  <UserRound size={13} aria-hidden /> {aberta === p.chave ? "Menos" : "Contato e instruções"}
                 </button>
               </div>
               {aberta === p.chave && (
@@ -238,8 +272,8 @@ export function NovaCorrida({ onCriada, onVoltar }: { onCriada: (id: string) => 
             </div>
           ))}
           <div className="linha-botoes">
-            <button type="button" className="botao-texto" onClick={() => setParadas((l) => [...l, novaParada("coleta")])}>+ Coleta</button>
-            <button type="button" className="botao-texto" onClick={() => setParadas((l) => [...l, novaParada("entrega")])}>+ Entrega</button>
+            <button type="button" className="botao-texto" onClick={() => setParadas((l) => [...l, novaParada("coleta")])}><Plus size={15} /> Coleta</button>
+            <button type="button" className="botao-texto" onClick={() => setParadas((l) => [...l, novaParada("entrega")])}><Plus size={15} /> Entrega</button>
           </div>
         </section>
 
@@ -259,49 +293,68 @@ export function NovaCorrida({ onCriada, onVoltar }: { onCriada: (id: string) => 
         </section>
 
         <section className="bloco">
-          <span className="rotulo">Comprovantes na entrega</span>
-          <div className="checks">
-            {([["nome", "Nome de quem recebeu"], ["foto", "Foto"], ["assinatura", "Assinatura"], ["codigo", "Código de 4 dígitos"]] as const).map(([k, r]) => (
-              <label key={k}><input type="checkbox" checked={exige[k]} onChange={(e) => setExige({ ...exige, [k]: e.target.checked })} /> {r}</label>
-            ))}
-          </div>
+          <span className="rotulo"><MapPinned size={12} aria-hidden style={{ verticalAlign: -1 }} /> Localização</span>
+          <label className="opcao">
+            <span>Exigir que o motoboy esteja no local para avançar as etapas</span>
+            <input type="checkbox" checked={noLocalAtual} onChange={(e) => setNoLocal(e.target.checked)} />
+          </label>
+          {noLocalAtual && (
+            <label className="opcao">
+              <span className="dica">Raio permitido</span>
+              <input inputMode="numeric" style={{ width: 90, textAlign: "right" }} value={raioAtual} onChange={(e) => setRaio(e.target.value.replace(/\D/g, ""))} />
+              <span className="unidade">m</span>
+            </label>
+          )}
         </section>
 
         <section className="bloco">
-          <span className="rotulo">Despacho</span>
+          <span className="rotulo"><Receipt size={12} aria-hidden style={{ verticalAlign: -1 }} /> Comprovantes na entrega</span>
+          {([["nome", "Nome de quem recebeu"], ["foto", "Foto"], ["assinatura", "Assinatura"], ["codigo", "Código de 4 dígitos"]] as const).map(([k, r]) => (
+            <label key={k} className="opcao">
+              <span>{r}</span>
+              <input type="checkbox" checked={exigeAtual[k]} onChange={(e) => setExige({ ...exigeAtual, [k]: e.target.checked })} />
+            </label>
+          ))}
+        </section>
+
+        <section className="bloco">
+          <span className="rotulo"><Radar size={12} aria-hidden style={{ verticalAlign: -1 }} /> Despacho</span>
           <div className="checks">
-            <label><input type="radio" checked={modo === "cascata"} onChange={() => setModo("cascata")} /> Mais próximo da coleta (cascata{favoritosDaEmpresa.length ? ", favoritos primeiro" : ""})</label>
+            <label><input type="radio" checked={modo === "cascata"} onChange={() => setModo("cascata")} /> Mais próximo da coleta (cascata{favoritosDaEmpresa.length && cfg.favoritos_primeiro ? ", favoritos primeiro" : ""})</label>
             <label><input type="radio" checked={modo === "direto"} onChange={() => setModo("direto")} /> Motoboy específico</label>
           </div>
           {modo === "direto" && (
-            <select value={motoboyId} onChange={(e) => setMotoboyId(e.target.value)}>
-              <option value="">Escolha…</option>
-              {motoboysOrdenados.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {favoritosDaEmpresa.includes(m.id) ? "★ " : ""}{m.nome} · {ROTULO_STATUS[m.status]}
-                </option>
-              ))}
-            </select>
+            <>
+              <select value={motoboyId} onChange={(e) => setMotoboyId(e.target.value)}>
+                <option value="">Escolha…</option>
+                {motoboysCompativeis.map((m) => (
+                  <option key={m.id} value={m.id}>{favoritosDaEmpresa.includes(m.id) ? "★ " : ""}{m.nome} · {ROTULO_STATUS[m.status]}</option>
+                ))}
+              </select>
+              {motoboysCompativeis.length === 0 && (
+                <p className="dica">{teste ? "Nenhum motoboy com o modo teste ligado." : "Nenhum motoboy fora do modo teste."}</p>
+              )}
+            </>
           )}
         </section>
 
         <section className="bloco">
           <label className="campo">
-            <span>Observações para o motoboy</span>
+            <span><StickyNote size={13} aria-hidden style={{ verticalAlign: -2 }} /> Observações para o motoboy</span>
             <textarea rows={2} value={observacoes} onChange={(e) => setObservacoes(e.target.value)} />
           </label>
         </section>
 
         {erro && <p className="erro">{erro}</p>}
         <button className="botao-ouro" disabled={enviando} onClick={enviar}>
-          {enviando ? "Criando…" : `Criar e despachar · ${moeda(valorFinal)}`}
+          <Send size={17} aria-hidden /> {enviando ? "Criando…" : `${teste ? "Criar teste" : "Criar e despachar"} · ${moeda(valorFinal)}`}
         </button>
       </aside>
 
       <MapaCorridas
         paradas={pinos}
         rotaPlanejada={rota?.polyline}
-        motoboys={equipe.filter((m) => m.status !== "offline" && m.lat != null && m.lng != null)
+        motoboys={equipe.filter((m) => m.status !== "offline" && m.lat != null && m.lng != null && m.modo_teste === teste)
           .map((m) => ({ id: m.id, nome: m.nome, lat: m.lat!, lng: m.lng!, status: m.status }))}
         aoClicar={aoClicarMapa}
         modoEscolha={escolhendo !== null}

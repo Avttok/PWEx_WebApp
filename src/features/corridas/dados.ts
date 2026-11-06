@@ -12,6 +12,7 @@ export interface MembroEquipe {
   lat: number | null;
   lng: number | null;
   posicao_em: string | null;
+  modo_teste: boolean;
 }
 
 /** Recarrega quando qualquer tabela observada mudar (agrupa rajadas em 300 ms). */
@@ -66,7 +67,7 @@ export function useEquipe() {
   useRecarregarAoMudar(["motoboys"], async () => {
     const sb = supabase();
     const [m, p] = await Promise.all([
-      sb.from("motoboys").select("id,status,lat,lng,posicao_em"),
+      sb.from("motoboys").select("id,status,lat,lng,posicao_em,modo_teste"),
       sb.from("perfis").select("id,nome,papeis"),
     ]);
     if (m.error || p.error) return;
@@ -104,6 +105,8 @@ export function traduzirErro(msg: string | undefined): string {
     primeira_parada_deve_ser_coleta: "A primeira parada precisa ser uma coleta.",
     escolha_o_motoboy: "Escolha o motoboy para o despacho direto.",
     corrida_nao_esta_sem_motoboy: "Essa corrida não está aguardando novo despacho.",
+    motoboy_fora_do_modo_teste: "Esse motoboy não está com o modo teste ligado no app.",
+    motoboy_em_modo_teste: "Esse motoboy está com o modo teste ligado: só recebe corridas de teste.",
   };
   return (msg && mapa[msg]) || msg || "Erro desconhecido.";
 }

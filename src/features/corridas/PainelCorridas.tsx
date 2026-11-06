@@ -1,6 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { ArrowDownToLine, ArrowUpFromLine, Bike, Clock, FlaskConical, Plus, Route, Ruler } from "lucide-react";
+import { CabecaPagina } from "@/features/ui/CabecaPagina";
 import { moeda } from "@/features/precos/estrategias";
 import { MapaCorridas } from "./MapaCorridas";
 import { NovaCorrida } from "./NovaCorrida";
@@ -46,15 +48,16 @@ export function PainelCorridas() {
 
   return (
     <>
-      <aside className="lateral lateral-larga">
+      <aside className="lateral lateral-larga entrar">
+        <CabecaPagina icone={Route} titulo="Corridas" subtitulo={`${corridas.filter((c) => ATIVAS.includes(c.status)).length} ativas agora`} />
         <div className="lateral-cabecalho">
-          <span className="rotulo">Corridas</span>
+          <span className="rotulo">Mostrar</span>
           <div className="filtro">
             <button className={filtro === "ativas" ? "ativo" : ""} onClick={() => setFiltro("ativas")}>Ativas</button>
             <button className={filtro === "todas" ? "ativo" : ""} onClick={() => setFiltro("todas")}>Últimos 3 dias</button>
           </div>
         </div>
-        <button className="botao-ouro" onClick={() => setVisao({ tipo: "nova" })}>+ Nova corrida</button>
+        <button className="botao-ouro" onClick={() => setVisao({ tipo: "nova" })}><Plus size={17} aria-hidden /> Nova corrida</button>
         {erro && <p className="erro">{erro}</p>}
         {lista.length === 0 && <p className="vazio">Nenhuma corrida {filtro === "ativas" ? "ativa" : "recente"}.</p>}
         {lista.map((c) => {
@@ -64,19 +67,20 @@ export function PainelCorridas() {
           return (
             <button key={c.id} className="cartao-motoboy" onClick={() => setVisao({ tipo: "detalhe", id: c.id })}>
               <div className="linha">
-                <strong>#{c.numero}</strong>
-                <span className="status" style={{ color: COR_CORRIDA[c.status] }}>{ROTULO_CORRIDA[c.status]}</span>
+                <strong className="figura">#{c.numero}</strong>
+                <span className="selo" style={{ color: COR_CORRIDA[c.status] }}>{ROTULO_CORRIDA[c.status]}</span>
+                {c.teste && <span className="selo" style={{ color: "#a78bfa" }}><FlaskConical size={11} aria-hidden /> teste</span>}
                 <span className="espaco" />
                 <span className="valor-lista">{moeda(c.valor)}</span>
               </div>
               <div className="trajeto-lista">
-                <span>↑ {coleta?.endereco}</span>
-                <span>↓ {entregas[entregas.length - 1]?.endereco}{entregas.length > 1 ? ` (+${entregas.length - 1})` : ""}</span>
+                <span><ArrowUpFromLine size={13} aria-hidden style={{ color: "var(--ouro)" }} /> {coleta?.endereco}</span>
+                <span><ArrowDownToLine size={13} aria-hidden /> {entregas[entregas.length - 1]?.endereco}{entregas.length > 1 ? ` (+${entregas.length - 1})` : ""}</span>
               </div>
               <div className="detalhes">
-                <span>{hora(c.criada_em)}</span>
-                <span>{formatarKm(c.distancia_planejada_m)}</span>
-                {c.motoboy_id && <span>🏍 {nome(c.motoboy_id)}</span>}
+                <span><Clock size={12} aria-hidden /> {hora(c.criada_em)}</span>
+                <span><Ruler size={12} aria-hidden /> {formatarKm(c.distancia_planejada_m)}</span>
+                {c.motoboy_id && <span><Bike size={12} aria-hidden /> {nome(c.motoboy_id)}</span>}
                 {oferta && <span>Oferecida a {nome(oferta.motoboy_id)}</span>}
               </div>
             </button>

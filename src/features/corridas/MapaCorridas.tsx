@@ -55,6 +55,7 @@ export function MapaCorridas({ paradas = [], rotaPlanejada, trilha = [], motoboy
   useEffect(() => {
     const m = mapa.current;
     if (!m || !pronto) return;
+    pinos.current = {}; // mapa (re)criado: pinos antigos pertenciam ao mapa anterior
     m.addSource("rota", { type: "geojson", data: VAZIO });
     m.addSource("trilha", { type: "geojson", data: VAZIO });
     m.addLayer({
@@ -107,12 +108,18 @@ export function MapaCorridas({ paradas = [], rotaPlanejada, trilha = [], motoboy
       let pino = pinos.current[id];
       if (!pino) {
         const el = document.createElement("div");
-        pino = new maplibregl.Marker({ element: el, anchor: "bottom" }).setLngLat([p.lng, p.lat]).addTo(m);
+        el.className = "pino-parada";
+        el.appendChild(document.createElement("span"));
+        pino = new maplibregl.Marker({ element: el, anchor: "bottom", offset: [0, -7] }).setLngLat([p.lng, p.lat]).addTo(m);
         pinos.current[id] = pino;
       }
+      // classList (nunca className): o MapLibre usa classes próprias no mesmo elemento para posicioná-lo
       const el = pino.getElement();
-      el.className = `pino-parada ${p.tipo} ${p.concluida ? "concluida" : ""}`;
-      el.textContent = p.rotulo;
+      el.classList.toggle("coleta", p.tipo === "coleta");
+      el.classList.toggle("entrega", p.tipo === "entrega");
+      el.classList.toggle("concluida", Boolean(p.concluida));
+      el.classList.toggle("largo", p.rotulo.length > 2);
+      el.firstElementChild!.textContent = p.rotulo;
       pino.setLngLat([p.lng, p.lat]);
     }
 
@@ -122,11 +129,11 @@ export function MapaCorridas({ paradas = [], rotaPlanejada, trilha = [], motoboy
       let pino = pinos.current[id];
       if (!pino) {
         const el = document.createElement("div");
+        el.className = "marcador";
         pino = new maplibregl.Marker({ element: el }).setLngLat([mb.lng, mb.lat]).addTo(m);
         pinos.current[id] = pino;
       }
       const el = pino.getElement();
-      el.className = "marcador";
       el.dataset.status = mb.status;
       el.style.setProperty("--cor", COR_STATUS[mb.status]);
       el.textContent = mb.nome.trim().charAt(0).toUpperCase();

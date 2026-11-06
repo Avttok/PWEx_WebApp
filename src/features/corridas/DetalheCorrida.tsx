@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { ArrowLeft, FlaskConical, MapPinned, Route, XCircle } from "lucide-react";
+import { CabecaPagina } from "@/features/ui/CabecaPagina";
 import { supabase } from "@/lib/supabase/client";
 import { decodificarPolyline } from "@/lib/geo/polyline";
 import { moeda } from "@/features/precos/estrategias";
@@ -116,14 +118,15 @@ export function DetalheCorrida({ corrida, oferta, onVoltar }: { corrida: Corrida
 
   return (
     <>
-      <aside className="lateral lateral-larga">
+      <aside className="lateral lateral-larga entrar">
         <div className="lateral-cabecalho">
-          <button className="botao-texto" onClick={onVoltar}>← Corridas</button>
-          <span className="rotulo">Corrida #{corrida.numero}</span>
+          <button className="botao-texto" onClick={onVoltar}><ArrowLeft size={15} aria-hidden /> Corridas</button>
+          {corrida.teste && <span className="selo" style={{ color: "#a78bfa" }}><FlaskConical size={11} aria-hidden /> TESTE</span>}
         </div>
+        <CabecaPagina icone={Route} titulo={`Corrida #${corrida.numero}`} subtitulo={`Criada às ${hora(corrida.criada_em)}`} />
 
         <section className="bloco">
-          <div className="status-grande" style={{ color: COR_CORRIDA[corrida.status] }}>{ROTULO_CORRIDA[corrida.status]}</div>
+          <div className="status-grande display" style={{ color: COR_CORRIDA[corrida.status] }}>{ROTULO_CORRIDA[corrida.status]}</div>
           {oferta && (
             <p className="dica">Oferecida a <strong>{nome(oferta.motoboy_id)}</strong> ({formatarKm(oferta.distancia_m)} da coleta) · responde em {restante}s</p>
           )}
@@ -133,8 +136,18 @@ export function DetalheCorrida({ corrida, oferta, onVoltar }: { corrida: Corrida
             <div><span className="rotulo">Planejado</span><strong>{formatarKm(corrida.distancia_planejada_m)}</strong><small>{formatarDuracao(corrida.duracao_planejada_s)}</small></div>
             <div><span className="rotulo">Real</span><strong>{formatarKm(corrida.distancia_real_m)}</strong></div>
           </div>
+          {corrida.valor_motoboy != null && (
+            <div className="numeros">
+              <div><span className="rotulo">Motoboy ({Number(corrida.repasse_pct)}%)</span><strong>{moeda(corrida.valor_motoboy)}</strong></div>
+              <div><span className="rotulo">Gestão</span><strong className="texto-grad">{moeda(corrida.valor_gestao)}</strong></div>
+            </div>
+          )}
+          <p className="dica" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <MapPinned size={13} aria-hidden />
+            {corrida.exigir_no_local ? `Etapas exigem estar no local (raio de ${corrida.raio_chegada_m} m)` : "Etapas liberadas em qualquer lugar"}
+          </p>
           {corrida.exige_codigo && corrida.codigo_entrega && (
-            <p className="codigo">Código de entrega: <strong>{corrida.codigo_entrega}</strong> <span className="dica">(passe para quem vai receber)</span></p>
+            <p className="codigo">Código de entrega: <strong className="texto-grad">{corrida.codigo_entrega}</strong> <span className="dica">(passe para quem vai receber)</span></p>
           )}
         </section>
 
@@ -159,6 +172,9 @@ export function DetalheCorrida({ corrida, oferta, onVoltar }: { corrida: Corrida
                 <span>{p.endereco}</span>
                 {(p.contato_nome || p.contato_telefone) && <span className="dica">{p.contato_nome} {p.contato_telefone}</span>}
                 {p.concluida_em && <span className="dica">Concluída às {hora(p.concluida_em)}</span>}
+                {p.distancia_chegada_m != null && (
+                  <span className="dica">Marcado a {p.distancia_chegada_m} m do endereço{p.local_ignorado ? " · localização ignorada (teste)" : ""}</span>
+                )}
                 {p.recebedor_nome && <span>Recebido por <strong>{p.recebedor_nome}</strong></span>}
                 <div className="comprovantes">
                   {p.foto_path && <Comprovante caminho={p.foto_path} rotulo="Foto" />}
@@ -183,6 +199,8 @@ export function DetalheCorrida({ corrida, oferta, onVoltar }: { corrida: Corrida
                   {ROTULO_EVENTO[e.tipo] ?? e.tipo}
                   {typeof e.dados.motoboy_id === "string" && ` · ${nome(e.dados.motoboy_id)}`}
                   {typeof e.dados.parada === "number" && ` · parada ${e.dados.parada + 1}`}
+                  {typeof e.dados.distancia_m === "number" && ` · a ${e.dados.distancia_m} m`}
+                  {e.dados.local_ignorado === true && " · local ignorado"}
                 </span>
               </li>
             ))}
@@ -191,7 +209,7 @@ export function DetalheCorrida({ corrida, oferta, onVoltar }: { corrida: Corrida
 
         {erro && <p className="erro">{erro}</p>}
         {!["concluida", "cancelada"].includes(corrida.status) && (
-          <button className="botao-perigo" onClick={cancelar}>Cancelar corrida</button>
+          <button className="botao-perigo" onClick={cancelar}><XCircle size={16} aria-hidden /> Cancelar corrida</button>
         )}
       </aside>
 
