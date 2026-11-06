@@ -105,6 +105,7 @@ export function PainelCorridas() {
                 <span><Clock size={12} aria-hidden /> {hora(c.criada_em)}</span>
                 <span><Ruler size={12} aria-hidden /> {formatarKm(c.distancia_planejada_m)}</span>
                 {c.motoboy_id && <span><Bike size={12} aria-hidden /> {nome(c.motoboy_id)}</span>}
+                {!c.motoboy_id && c.motoboy_nome_arquivado && <span><Bike size={12} aria-hidden /> {c.motoboy_nome_arquivado} (conta excluída)</span>}
                 {oferta && <span>Oferecida a {nome(oferta.motoboy_id)}</span>}
               </div>
             </button>

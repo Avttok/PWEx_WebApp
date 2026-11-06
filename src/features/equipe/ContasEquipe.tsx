@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { Bike, Check, Copy, Eye, EyeOff, KeyRound, RefreshCw, ShieldCheck, UserPlus, X } from "lucide-react";
+import { Bike, Check, Copy, Eye, EyeOff, KeyRound, Lock, LockOpen, RefreshCw, ShieldCheck, Trash2, TriangleAlert, UserPlus, X } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
 
 const ERROS: Record<string, string> = {
@@ -14,10 +14,16 @@ const ERROS: Record<string, string> = {
   sem_papel: "Marque pelo menos um papel (motoboy ou gestor).",
   percentual_invalido: "O repasse precisa ficar entre 0 e 100%.",
   email_existe: "Já existe uma conta com esse e-mail.",
+  senha_incorreta: "Senha incorreta.",
+  muitas_tentativas: "Muitas senhas erradas. Por segurança, ficou bloqueado por 15 minutos.",
+  nao_exclua_a_si_mesmo: "Você não pode excluir a sua própria conta.",
+  nao_bloqueie_a_si_mesmo: "Você não pode bloquear a sua própria conta.",
+  membro_em_corrida: "Essa pessoa está com uma corrida ou oferta em andamento. Espere terminar (ou cancele a corrida) antes.",
+  usuario_nao_encontrado: "Conta não encontrada (talvez já tenha sido excluída).",
 };
 
 /** Chama as rotas do servidor com o token da sessão do gestor. */
-async function chamar(rota: string, corpo: unknown): Promise<{ ok: boolean; erro?: string; id?: string }> {
+async function chamar(rota: string, corpo: unknown): Promise<{ ok: boolean; erro?: string; id?: string; codigo?: string; restantes?: number }> {
   const { data } = await supabase().auth.getSession();
   try {
     const r = await fetch(rota, {
@@ -26,7 +32,7 @@ async function chamar(rota: string, corpo: unknown): Promise<{ ok: boolean; erro
       body: JSON.stringify(corpo),
     });
     const j = await r.json().catch(() => ({}));
-    return r.ok ? { ok: true, id: j.id } : { ok: false, erro: ERROS[j.erro] ?? j.detalhe ?? j.erro ?? `Erro ${r.status}` };
+    return r.ok ? { ok: true, id: j.id } : { ok: false, codigo: j.erro, restantes: j.restantes, erro: ERROS[j.erro] ?? j.detalhe ?? j.erro ?? `Erro ${r.status}` };
   } catch {
     return { ok: false, erro: "Sem conexão com o servidor." };
   }
@@ -190,5 +196,86 @@ export function RedefinirSenha({ id, nome, email }: { id: string; nome: string; 
         </Janela>
       )}
     </>
+  );
+}
+
+// ------------------------------------------------------------------ bloquear / excluir
+
+export function BloquearConta({ id, nome, bloqueado, onFeito }: { id: string; nome: string; bloqueado: boolean; onFeito: () => void }) {
+  const [enviando, setEnviando] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
+  async function alternar() {
+    if (!bloqueado && !confirm(`Bloquear o acesso de ${nome}? A pessoa sai do app e do painel e não consegue entrar até você liberar.`)) return;
+    setErro(null);
+    setEnviando(true);
+    const r = await chamar("/api/equipe/bloquear", { id, bloquear: !bloqueado });
+    setEnviando(false);
+    if (!r.ok) return setErro(r.erro ?? "Não foi possível.");
+    onFeito();
+  }
+  return (
+    <div className="perigo-item">
+      <div>
+        <strong>{bloqueado ? "Acesso bloqueado" : "Bloquear acesso"}</strong>
+        <span className="dica">{bloqueado ? "Não entra no app nem no painel. O histórico continua." : "Impede de entrar, sem apagar nada. Dá para liberar depois."}</span>
+        {erro && <span className="erro">{erro}</span>}
+      </div>
+      <button type="button" className={bloqueado ? "botao-texto" : "botao-perigo"} onClick={alternar} disabled={enviando}>
+        {bloqueado ? <><LockOpen size={15} aria-hidden /> {enviando ? "Liberando…" : "Liberar acesso"}</> : <><Lock size={15} aria-hidden /> {enviando ? "Bloqueando…" : "Bloquear"}</>}
+      </button>
+    </div>
+  );
+}
+
+export function ExcluirConta({ id, nome, email, onExcluida }: { id: string; nome: string; email: string; onExcluida: () => void }) {
+  const [aberto, setAberto] = useState(false);
+  const [entendi, setEntendi] = useState(false);
+  const [senha, setSenha] = useState("");
+  const [motivo, setMotivo] = useState("");
+  const [enviando, setEnviando] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
+  const fechar = () => { setAberto(false); setEntendi(false); setSenha(""); setMotivo(""); setErro(null); };
+
+  async function excluir() {
+    setErro(null);
+    setEnviando(true);
+    const r = await chamar("/api/equipe/excluir", { id, senha, motivo });
+    setEnviando(false);
+    if (!r.ok) {
+      setSenha("");
+      return setErro(r.codigo === "senha_incorreta" && r.restantes != null ? `Senha incorreta. Restam ${r.restantes} tentativa${r.restantes === 1 ? "" : "s"}.` : r.erro ?? "Não foi possível excluir.");
+    }
+    fechar();
+    onExcluida();
+  }
+
+  return (
+    <div className="perigo-item">
+      <div>
+        <strong>Excluir conta</strong>
+        <span className="dica">Apaga a conta de vez. As corridas continuam no histórico com o nome da pessoa.</span>
+      </div>
+      <button type="button" className="botao-perigo" onClick={() => setAberto(true)}><Trash2 size={15} aria-hidden /> Excluir</button>
+      {aberto && (
+        <Janela titulo={`Excluir ${nome}?`} onFechar={fechar} travado={enviando}>
+          <div className="aviso-perigo">
+            <TriangleAlert size={18} aria-hidden />
+            <span><strong>{email}</strong> deixa de existir: não entra mais no app nem no painel e some da equipe. Isso não pode ser desfeito.
+              As corridas feitas por essa pessoa continuam no histórico, com o nome guardado.</span>
+          </div>
+          <label className="campo"><span>Motivo (opcional, fica no registro)</span><input value={motivo} maxLength={200} onChange={(e) => setMotivo(e.target.value)} /></label>
+          <label className="opcao"><span>Entendo que a exclusão é definitiva</span><input type="checkbox" checked={entendi} onChange={(e) => setEntendi(e.target.checked)} /></label>
+          <label className="campo"><span>Sua senha, para confirmar</span>
+            <input type="password" autoComplete="current-password" value={senha} onChange={(e) => setSenha(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && entendi && senha && !enviando && excluir()} />
+          </label>
+          {erro && <p className="erro">{erro}</p>}
+          <div className="linha-botoes" style={{ marginTop: 8 }}>
+            <button className="botao-texto" onClick={fechar} disabled={enviando}>Cancelar</button>
+            <button className="botao-excluir" onClick={excluir} disabled={!entendi || !senha || enviando}><Trash2 size={16} aria-hidden /> {enviando ? "Excluindo…" : "Excluir de vez"}</button>
+          </div>
+        </Janela>
+      )}
+    </div>
   );
 }

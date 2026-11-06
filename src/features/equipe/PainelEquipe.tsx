@@ -1,9 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Bike, FlaskConical, History, PencilLine, Save, ShieldCheck, UserPlus, Users } from "lucide-react";
+import { Bike, FlaskConical, History, Lock, PencilLine, Save, ShieldCheck, UserPlus, Users } from "lucide-react";
 import { RegistroMembro } from "./RegistroMembro";
-import { NovaConta, RedefinirSenha } from "./ContasEquipe";
+import { BloquearConta, ExcluirConta, NovaConta, RedefinirSenha } from "./ContasEquipe";
+import { useSessaoGestor } from "@/features/gestor/AreaGestor";
 import { supabase } from "@/lib/supabase/client";
 import { CabecaPagina } from "@/features/ui/CabecaPagina";
 import { useConfiguracoes } from "@/features/configuracoes/useConfiguracoes";
@@ -12,10 +13,12 @@ import { COR_STATUS, ROTULO_STATUS, type StatusMotoboy } from "@/features/rastre
 interface Membro {
   id: string; email: string; nome: string; foto_url: string | null; papeis: string[];
   status: StatusMotoboy | null; modo_teste: boolean; repasse_pct: number | null;
+  bloqueado?: boolean; ultimo_acesso?: string | null;
 }
 
 export function PainelEquipe() {
   const cfg = useConfiguracoes();
+  const eu = useSessaoGestor()?.user.id;
   const [lista, setLista] = useState<Membro[]>([]);
   const [sel, setSel] = useState<string | null>(null);
   const [nome, setNome] = useState("");
@@ -77,6 +80,7 @@ export function PainelEquipe() {
               {x.papeis.includes("gestor") && <span className="selo" style={{ color: "var(--ouro)" }}><ShieldCheck size={11} /> Gestor</span>}
               {x.papeis.includes("motoboy") && <span className="selo" style={{ color: "var(--texto-2)" }}><Bike size={11} /> Motoboy</span>}
               {x.modo_teste && <span className="selo" style={{ color: "#a78bfa" }}><FlaskConical size={11} /> Teste</span>}
+              {x.bloqueado && <span className="selo" style={{ color: "var(--vermelho)" }}><Lock size={11} /> Bloqueado</span>}
             </div>
             <div className="detalhes">
               <span>{x.email}</span>
@@ -101,6 +105,7 @@ export function PainelEquipe() {
                     {m.papeis.includes("gestor") && <span className="selo" style={{ color: "var(--ouro)" }}><ShieldCheck size={11} /> Gestor</span>}
                     {m.papeis.includes("motoboy") && <span className="selo" style={{ color: "var(--texto-2)" }}><Bike size={11} /> Motoboy</span>}
                     {m.modo_teste && <span className="selo" style={{ color: "#a78bfa" }}><FlaskConical size={11} /> Teste</span>}
+                    {m.bloqueado && <span className="selo" style={{ color: "var(--vermelho)" }}><Lock size={11} /> Bloqueado</span>}
                     {m.status && <span className="selo" style={{ color: COR_STATUS[m.status] }}>{ROTULO_STATUS[m.status]}</span>}
                   </div>
                 </div>
@@ -129,6 +134,14 @@ export function PainelEquipe() {
                     <RedefinirSenha id={m.id} nome={m.nome || m.email} email={m.email} />
                     <button className="botao-ouro" onClick={salvar}><Save size={16} /> Salvar</button>
                   </div>
+                  {m.ultimo_acesso && <p className="dica" style={{ margin: 0 }}>Último acesso: {new Date(m.ultimo_acesso).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}</p>}
+                  {m.id !== eu ? (
+                    <section className="zona-perigo">
+                      <span className="rotulo">Zona de perigo</span>
+                      <BloquearConta id={m.id} nome={m.nome || m.email} bloqueado={Boolean(m.bloqueado)} onFeito={carregar} />
+                      <ExcluirConta id={m.id} nome={m.nome || m.email} email={m.email} onExcluida={async () => { setSel(null); await carregar(); }} />
+                    </section>
+                  ) : <p className="dica" style={{ margin: 0 }}>Esta é a sua conta: para trocar nome e foto, use o menu da sua foto no topo.</p>}
                 </>
               )}
             </>

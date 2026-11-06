@@ -133,6 +133,9 @@ export function DetalheCorrida({ corrida, oferta, onVoltar, onExcluida }: { corr
           {oferta && (
             <p className="dica">Oferecida a <strong>{nome(oferta.motoboy_id)}</strong> ({formatarKm(oferta.distancia_m)} da coleta) · responde em {restante}s</p>
           )}
+          {!corrida.motoboy_id && corrida.motoboy_nome_arquivado && (
+            <p className="pessoa"><span>Motoboy: <strong>{corrida.motoboy_nome_arquivado}</strong> <span className="dica">(conta excluída)</span></span></p>
+          )}
           {corrida.motoboy_id && (
             <p className="pessoa">
               {motoboy?.foto

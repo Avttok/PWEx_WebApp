@@ -46,6 +46,7 @@ export interface Corrida {
   duracao_planejada_s: number | null;
   rota_planejada: string | null;
   cliente_nome?: string | null;
+  motoboy_nome_arquivado?: string | null;
   aplicar_acrescimo?: boolean;
   valor: number | null;
   valor_base?: number | null;

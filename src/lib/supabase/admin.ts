@@ -16,16 +16,25 @@ export function supabaseAdmin(): SupabaseClient {
   return createClient(url, secreta(), { auth: { persistSession: false, autoRefreshToken: false } });
 }
 
-/** Confere se quem chamou (pelo token da sessão) é gestor. Devolve o id ou null. */
-export async function gestorDaRequisicao(req: Request): Promise<string | null> {
+/** Cliente do Supabase agindo como quem chamou (respeita as regras do banco). */
+export function clienteDoUsuario(req: Request): SupabaseClient | null {
   const token = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
   if (!token || !url || !publica) return null;
-  const sb = createClient(url, publica, {
+  return createClient(url, publica, {
     auth: { persistSession: false, autoRefreshToken: false },
     global: { headers: { Authorization: `Bearer ${token}` } },
   });
+}
+
+/** Confere se quem chamou (pelo token da sessão) é gestor. Devolve o id ou null. */
+export async function gestorDaRequisicao(req: Request): Promise<string | null> {
+  const sb = clienteDoUsuario(req);
+  const token = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
+  if (!sb || !token) return null;
   const { data: u } = await sb.auth.getUser(token);
   if (!u.user) return null;
   const { data } = await sb.rpc("is_gestor");
   return data === true ? u.user.id : null;
 }
+
+export const uuidValido = (v: unknown): v is string => typeof v === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
