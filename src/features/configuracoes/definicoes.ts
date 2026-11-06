@@ -34,9 +34,9 @@ export const GRUPOS: Record<GrupoParametro, { titulo: string; descricao: string 
 };
 
 export const PARAMETROS: DefParametro[] = [
-  { chave: "oferta_segundos", grupo: "despacho", rotulo: "Tempo para aceitar", descricao: "Quanto tempo a oferta fica com cada motoboy antes de passar ao próximo.", tipo: "numero", padrao: 30, unidade: "s", min: 10, max: 180 },
+  { chave: "oferta_segundos", grupo: "despacho", rotulo: "Tempo para aceitar", descricao: "Quanto tempo cada motoboy tem para aceitar a corrida antes dela passar ao próximo.", tipo: "numero", padrao: 30, unidade: "s", min: 10, max: 180 },
   { chave: "posicao_max_min", grupo: "despacho", rotulo: "Posição recente", descricao: "Só entra na cascata quem enviou posição dentro desse tempo.", tipo: "numero", padrao: 15, unidade: "min", min: 1, max: 120 },
-  { chave: "raio_max_despacho_km", grupo: "despacho", rotulo: "Distância máxima até a coleta", descricao: "Motoboys mais longe que isso não recebem a oferta. 0 = sem limite.", tipo: "numero", padrao: 0, unidade: "km", min: 0, max: 200 },
+  { chave: "raio_max_despacho_km", grupo: "despacho", rotulo: "Distância máxima até a coleta", descricao: "Motoboys mais longe que isso não recebem a corrida. 0 = sem limite.", tipo: "numero", padrao: 0, unidade: "km", min: 0, max: 200 },
   { chave: "favoritos_primeiro", grupo: "despacho", rotulo: "Favoritos da empresa primeiro", descricao: "Na cascata, oferecer antes aos motoboys favoritos do cliente.", tipo: "booleano", padrao: true },
 
   { chave: "agendada_antecedencia_min", grupo: "planejadas", rotulo: "Antecedência mínima", descricao: "Só dá para planejar corridas que começam pelo menos isso depois de agora.", tipo: "numero", padrao: 30, unidade: "min", min: 5, max: 1440, passo: 5 },

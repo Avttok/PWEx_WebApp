@@ -12,6 +12,8 @@ import { Logo } from "@/features/marca/Logo";
 import { useEstabelecimentos } from "@/lib/mapa/estabelecimentos";
 import { ProvedorTeste } from "@/features/teste/modoTeste";
 import { MenuPerfil } from "./MenuPerfil";
+import { ProvedorConta, type ContextoConta, type CorTema, type Papel } from "@/features/conta/conta";
+import { Toasts, toast } from "@/features/ui/toast";
 
 type Acesso = "carregando" | "anonimo" | "negado" | "gestor";
 
@@ -23,7 +25,7 @@ const ABAS = [
   { href: "/gestor/corridas", rotulo: "Corridas", icone: Route },
   { href: "/gestor/empresas", rotulo: "Empresas", icone: Building2 },
   { href: "/gestor/equipe", rotulo: "Equipe", icone: Users },
-  { href: "/gestor/financeiro", rotulo: "Financeiro", icone: Wallet },
+  { href: "/gestor/carteira", rotulo: "Carteira", icone: Wallet },
   { href: "/gestor/configuracoes", rotulo: "Configurações", icone: Settings2 },
 ];
 
@@ -34,6 +36,10 @@ export function AreaGestor({ children }: { children: ReactNode }) {
   const [foto, setFoto] = useState<string | null>(null);
   const [acesso, setAcesso] = useState<Acesso>("carregando");
   const [teste, setTeste] = useState(false);
+  const [papeis, setPapeis] = useState<Papel[]>([]);
+  const [corTema, setCorTema] = useState<CorTema>("ouro");
+  const [modulos, setModulos] = useState<Record<string, boolean>>({});
+  const [versaoPerfil, setVersaoPerfil] = useState(0);
   const [estabelecimentos, setEstabelecimentos] = useEstabelecimentos();
   const caminho = usePathname();
   // celular: lista sobre o mapa, mostrando ou escondida
@@ -49,8 +55,11 @@ export function AreaGestor({ children }: { children: ReactNode }) {
         sb.rpc("is_gestor"),
         sb.rpc("meu_perfil"),
       ]);
-      const d = perfil.data as { nome?: string; foto_url?: string | null; modo_teste?: boolean } | null;
+      const d = perfil.data as { nome?: string; foto_url?: string | null; modo_teste?: boolean; papeis?: Papel[]; dev?: boolean; cor_tema?: CorTema; modulos?: Record<string, boolean> } | null;
       setTeste(Boolean(d?.modo_teste));
+      setPapeis(d?.papeis ?? []);
+      setCorTema(d?.dev && d?.cor_tema === "vermelho" ? "vermelho" : "ouro");
+      setModulos(d?.modulos ?? {});
       setNome(d?.nome ?? "");
       setFoto(d?.foto_url ?? null);
       if (s.user.email) contas.atualizarPerfil(s.user.email, d?.nome ?? null, d?.foto_url ?? null);
@@ -61,7 +70,7 @@ export function AreaGestor({ children }: { children: ReactNode }) {
       if (evento === "SIGNED_IN" || evento === "SIGNED_OUT") verificar(s);
     });
     return () => data.subscription.unsubscribe();
-  }, []);
+  }, [versaoPerfil]);
 
   // nome e foto mudados pelo app aparecem aqui na hora (é a mesma conta)
   useEffect(() => {
@@ -70,10 +79,12 @@ export function AreaGestor({ children }: { children: ReactNode }) {
     const sb = supabase();
     const canal = sb.channel(`meu-perfil-${id}`)
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "perfis", filter: `id=eq.${id}` }, (payload) => {
-        const n = payload.new as { nome?: string; foto_url?: string | null; modo_teste?: boolean };
+        const n = payload.new as { nome?: string; foto_url?: string | null; modo_teste?: boolean; cor_tema?: CorTema; papeis?: Papel[] };
         if (n.nome) setNome(n.nome);
         setFoto(n.foto_url ?? null);
         if (typeof n.modo_teste === "boolean") setTeste(n.modo_teste);
+        if (n.papeis) setPapeis(n.papeis);
+        if (n.cor_tema) setCorTema(n.papeis && !n.papeis.includes("dev") ? "ouro" : n.cor_tema);
       })
       .subscribe();
     return () => { sb.removeChannel(canal); };
@@ -85,12 +96,29 @@ export function AreaGestor({ children }: { children: ReactNode }) {
     const { error } = await supabase().rpc("definir_modo_teste", { p_ligado: ligado });
     if (error) {
       return error.message.includes("conclua_a_corrida_antes")
-        ? "Termine a corrida ou a oferta em andamento no app antes de trocar o modo."
-        : error.message.includes("apenas_gestor") ? "Só gestores podem usar o modo teste." : error.message;
+        ? "Termine a corrida em andamento no app antes de trocar o modo."
+        : error.message.includes("apenas_gestor") ? "Só gestores podem usar o modo teste."
+        : error.message.includes("modulo_desligado") ? "O modo teste está desligado pelo Dev." : error.message;
     }
     setTeste(ligado);
+    toast(ligado ? "Tudo violeta: só corridas e ganhos de teste." : "De volta ao normal: tudo vale de verdade.", "info", { titulo: ligado ? "Modo teste ligado" : "Modo teste desligado" });
     return null;
   }, []);
+  const dev = papeis.includes("dev");
+  // estabelecimentos desligados pelo Dev: some de todos os mapas
+  useEffect(() => { if (!dev && modulos.estabelecimentos === false) setEstabelecimentos(false); }, [dev, modulos.estabelecimentos, setEstabelecimentos]);
+  const contextoConta = useMemo<ContextoConta>(() => ({
+    id: sessao?.user.id ?? "",
+    papeis, dev, corTema, modulos,
+    modulo: (m) => dev || modulos[m] !== false,
+    definirCor: async (c) => {
+      const { error } = await supabase().rpc("definir_cor_tema", { p_cor: c });
+      if (error) return error.message.includes("apenas_dev") ? "Só o Dev pode usar o tema vermelho." : error.message;
+      setCorTema(c);
+      return null;
+    },
+    recarregar: () => setVersaoPerfil((v) => v + 1),
+  }), [sessao?.user.id, papeis, dev, corTema, modulos]);
   const contextoTeste = useMemo(() => ({ teste, definir: definirTeste }), [teste, definirTeste]);
 
   if (acesso === "carregando") return <main className="tela-login"><p className="subtitulo">Carregando…</p></main>;
@@ -109,12 +137,13 @@ export function AreaGestor({ children }: { children: ReactNode }) {
 
   return (
     <ContextoSessao.Provider value={sessao}>
+      <ProvedorConta valor={contextoConta}>
       <ProvedorTeste valor={contextoTeste}>
       <div className="painel">
         <header className="topo vidro">
           <Link href="/gestor/mapa" aria-label="PW Express, início"><Logo /></Link>
           <nav className="abas">
-            {ABAS.map(({ href, rotulo, icone: Icone }) => (
+            {ABAS.filter((a) => a.href !== "/gestor/carteira" || contextoConta.modulo("carteira")).map(({ href, rotulo, icone: Icone }) => (
               <Link key={href} href={href} className={caminho?.startsWith(href) ? "ativa" : ""}>
                 <Icone size={17} aria-hidden /> {rotulo}
               </Link>
@@ -141,9 +170,9 @@ export function AreaGestor({ children }: { children: ReactNode }) {
               <button className="pilula vidro so-celular" onClick={() => setGaveta((g) => (g === "mostrando" ? "oculta" : "mostrando"))}>
                 {gaveta === "mostrando" ? <><ChevronDown size={16} aria-hidden /> Esconder lista</> : <><List size={16} aria-hidden /> Mostrar lista</>}
               </button>
-              <button className={`pilula vidro ${estabelecimentos ? "ligada" : ""}`} onClick={() => setEstabelecimentos(!estabelecimentos)} aria-pressed={estabelecimentos}>
+              {contextoConta.modulo("estabelecimentos") && <button className={`pilula vidro ${estabelecimentos ? "ligada" : ""}`} onClick={() => setEstabelecimentos(!estabelecimentos)} aria-pressed={estabelecimentos}>
                 <Store size={16} aria-hidden /> {estabelecimentos ? "Ocultar estabelecimentos" : "Mostrar estabelecimentos"}
-              </button>
+              </button>}
             </div>
           )}
         </div>
@@ -151,7 +180,9 @@ export function AreaGestor({ children }: { children: ReactNode }) {
           Um projeto de irmão para irmão! <Heart size={13} aria-label="com amor" className="coracao" fill="currentColor" />
         </footer>
       </div>
+      <Toasts />
       </ProvedorTeste>
+      </ProvedorConta>
     </ContextoSessao.Provider>
   );
 }

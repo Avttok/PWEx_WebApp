@@ -1,9 +1,9 @@
-import { adminConfigurado, gestorDaRequisicao, supabaseAdmin } from "@/lib/supabase/admin";
+import { adminConfigurado, ehDev, gestorDaRequisicao, supabaseAdmin } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const PAPEIS = ["gestor", "motoboy"] as const;
+const PAPEIS = ["gestor", "motoboy", "dev"] as const;
 
 /** Cria uma conta (motoboy e/ou gestor) já confirmada. Só gestores podem chamar. */
 export async function POST(req: Request) {
@@ -22,6 +22,7 @@ export async function POST(req: Request) {
   if (nome.length < 2 || nome.length > 60) return Response.json({ erro: "nome_invalido" }, { status: 400 });
   if (senha.length < 8) return Response.json({ erro: "senha_curta" }, { status: 400 });
   if (papeis.length === 0) return Response.json({ erro: "sem_papel" }, { status: 400 });
+  if (papeis.includes("dev") && !(await ehDev(req))) return Response.json({ erro: "apenas_dev" }, { status: 403 });
   const repasse = c.repasse == null ? null : Number(c.repasse);
   if (repasse != null && (Number.isNaN(repasse) || repasse < 0 || repasse > 100)) return Response.json({ erro: "percentual_invalido" }, { status: 400 });
 

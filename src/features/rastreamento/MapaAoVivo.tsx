@@ -9,6 +9,7 @@ import { corOuro, resolverCor } from "@/lib/mapa/cores";
 import { CabecaPagina } from "@/features/ui/CabecaPagina";
 import { useRastreamento } from "./useRastreamento";
 import { COR_STATUS, ROTULO_STATUS, type Motoboy } from "./tipos";
+import { useConta } from "@/features/conta/conta";
 
 const ORDEM: Record<Motoboy["status"], number> = { em_corrida: 0, disponivel: 1, offline: 2 };
 
@@ -29,7 +30,9 @@ function ha(agora: number, iso: string | null): string {
 }
 
 export function MapaAoVivo() {
-  const { motoboys, nomes, fotos, trilhas, conectado, erro } = useRastreamento();
+  const { motoboys, nomes, fotos, trilhas: todasTrilhas, conectado, erro } = useRastreamento();
+  const conta = useConta();
+  const trilhas = conta.modulo("trilhas_mapa") ? todasTrilhas : {};
   const container = useRef<HTMLDivElement>(null);
   const { mapa, pronto } = useMapa(container);
   const marcadores = useRef<Record<string, maplibregl.Marker>>({});

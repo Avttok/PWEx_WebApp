@@ -11,6 +11,7 @@ import { MapaCorridas } from "./MapaCorridas";
 import { nomeCliente, traduzirErro, useEmpresas, useEquipe } from "./dados";
 import { GestaoPlanejada } from "./GestaoPlanejada";
 import { useConfiguracoes } from "@/features/configuracoes/useConfiguracoes";
+import { useConta } from "@/features/conta/conta";
 import {
   COR_CORRIDA, ROTULO_CORRIDA, ROTULO_PARADA, formatarDuracao, formatarKm, hora, numeroCorrida,
   type Corrida, type Evento, type Oferta,
@@ -18,9 +19,9 @@ import {
 
 const ROTULO_EVENTO: Record<string, string> = {
   criada: "Corrida criada",
-  oferta_enviada: "Oferta enviada",
-  oferta_recusada: "Oferta recusada",
-  oferta_expirada: "Oferta expirou (30 s)",
+  oferta_enviada: "Corrida enviada ao motoboy",
+  oferta_recusada: "Motoboy recusou",
+  oferta_expirada: "Motoboy não respondeu a tempo",
   sem_motoboy: "Nenhum motoboy disponível",
   redespachada: "Novo despacho",
   aceita: "Aceita",
@@ -88,6 +89,7 @@ function Comprovante({ caminho, rotulo }: { caminho: string; rotulo: string }) {
 }
 
 export function DetalheCorrida({ corrida, oferta, onVoltar, onExcluida }: { corrida: Corrida; oferta?: Oferta; onVoltar: () => void; onExcluida?: () => void }) {
+  const conta = useConta();
   const [excluindo, setExcluindo] = useState(false);
   const equipe = useEquipe();
   const { empresas } = useEmpresas();
@@ -139,7 +141,7 @@ export function DetalheCorrida({ corrida, oferta, onVoltar, onExcluida }: { corr
         <section className="bloco">
           <div className="status-grande display" style={{ color: COR_CORRIDA[corrida.status] }}>{ROTULO_CORRIDA[corrida.status]}</div>
           {oferta && (
-            <p className="dica">Oferecida a <strong>{nome(oferta.motoboy_id)}</strong> ({formatarKm(oferta.distancia_m)} da coleta) · responde em {restante}s</p>
+            <p className="dica">Enviada para <strong>{nome(oferta.motoboy_id)}</strong> ({formatarKm(oferta.distancia_m)} da coleta) · responde em {restante}s</p>
           )}
           {!corrida.motoboy_id && corrida.motoboy_nome_arquivado && (
             <p className="pessoa"><span>Motoboy: <strong>{corrida.motoboy_nome_arquivado}</strong> <span className="dica">(conta excluída)</span></span></p>
@@ -254,7 +256,7 @@ export function DetalheCorrida({ corrida, oferta, onVoltar, onExcluida }: { corr
         )}
         {["aceita", "em_andamento"].includes(corrida.status) ? (
           <p className="dica">Para apagar esta corrida, cancele-a primeiro.</p>
-        ) : (
+        ) : conta.modulo("excluir_corridas") && (
           <button className="botao-texto" style={{ justifyContent: "center", color: "var(--vermelho)" }} onClick={() => setExcluindo(true)}>
             <Trash2 size={15} aria-hidden /> Apagar corrida
           </button>

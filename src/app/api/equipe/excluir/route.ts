@@ -1,4 +1,4 @@
-import { adminConfigurado, clienteDoUsuario, gestorDaRequisicao, supabaseAdmin, uuidValido } from "@/lib/supabase/admin";
+import { adminConfigurado, clienteDoUsuario, gestorDaRequisicao, podeGerenciar, supabaseAdmin, uuidValido } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -16,6 +16,7 @@ export async function POST(req: Request) {
   let c: { id?: string; senha?: string; motivo?: string };
   try { c = await req.json(); } catch { return Response.json({ erro: "json_invalido" }, { status: 400 }); }
   if (!uuidValido(c.id)) return Response.json({ erro: "usuario_invalido" }, { status: 400 });
+  if (!(await podeGerenciar(req, c.id))) return Response.json({ erro: "conta_protegida" }, { status: 403 });
   if (c.id === gestor) return Response.json({ erro: "nao_exclua_a_si_mesmo" }, { status: 400 });
 
   const { data, error } = await sb.rpc("preparar_exclusao_conta", { p_usuario: c.id, p_senha: c.senha ?? "", p_motivo: c.motivo ?? null });

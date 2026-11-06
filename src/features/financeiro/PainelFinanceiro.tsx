@@ -56,7 +56,7 @@ export function PainelFinanceiro() {
   return (
     <>
       <aside className="lateral entrar">
-        <CabecaPagina icone={Wallet} titulo="Financeiro" subtitulo={teste ? "Ganhos das corridas de teste" : "Corridas concluídas (sem testes)"} />
+        <CabecaPagina icone={Wallet} titulo="Carteira" subtitulo={teste ? "Ganhos das corridas de teste" : "Corridas concluídas"} />
         <div className="filtro" style={{ alignSelf: "flex-start" }}>
           {(Object.keys(ROTULO) as Periodo[]).map((p) => (
             <button key={p} className={periodo === p ? "ativo" : ""} onClick={() => setPeriodo(p)}>{ROTULO[p]}</button>

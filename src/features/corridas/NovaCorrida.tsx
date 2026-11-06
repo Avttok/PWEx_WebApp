@@ -7,6 +7,7 @@ import {
 import { supabase } from "@/lib/supabase/client";
 import { geo, type Endereco, type Referencia, type Rota } from "@/features/geo";
 import { CampoReferencias } from "./CampoReferencias";
+import { useConta } from "@/features/conta/conta";
 import { DIAS_SEMANA, formatarQuando, gerarDatas, paraCampo, relativo, sugestaoHorario, type Repeticao } from "./planejadas";
 import { moeda, orcar, ROTULO_MODALIDADE, type Modalidade } from "@/features/precos/estrategias";
 import { useModoTeste } from "@/features/teste/modoTeste";
@@ -89,6 +90,7 @@ export function NovaCorrida({ onCriada, onVoltar }: { onCriada: (id: string) => 
   const [avulsosConhecidos, setAvulsosConhecidos] = useState<string[]>([]);
   const [cobrarAcrescimo, setCobrarAcrescimo] = useState(true);
   // quando: agora ou planejada (com repetição)
+  const conta = useConta();
   const [quando, setQuando] = useState<"agora" | "planejar">("agora");
   const [horario, setHorario] = useState(() => paraCampo(sugestaoHorario(Number(cfg.agendada_antecedencia_min) || 30)));
   const [repetir, setRepetir] = useState<Repeticao>("nao");
@@ -285,10 +287,10 @@ export function NovaCorrida({ onCriada, onVoltar }: { onCriada: (id: string) => 
           </section>
         )}
 
-        <section className={`bloco ${planejada ? "bloco-planejada" : ""}`}>
+        {conta.modulo("corridas_planejadas") && <section className={`bloco ${planejada ? "bloco-planejada" : ""}`}>
           <span className="rotulo">Quando</span>
           <div className="segmentado" style={{ gridTemplateColumns: "1fr 1fr" }}>
-            <button type="button" className={!planejada ? "ativo" : ""} onClick={() => setQuando("agora")}><Zap size={15} aria-hidden /> Agora</button>
+            <button type="button" className={!planejada ? "ativo" : ""} onClick={() => setQuando("agora")}><Zap size={15} aria-hidden /> Express</button>
             <button type="button" className={planejada ? "ativo" : ""} onClick={() => setQuando("planejar")}><CalendarClock size={15} aria-hidden /> Planejar</button>
           </div>
           {planejada && (
@@ -332,7 +334,7 @@ export function NovaCorrida({ onCriada, onVoltar }: { onCriada: (id: string) => 
               </p>
             </>
           )}
-        </section>
+        </section>}
 
         <section className="bloco">
           <span className="rotulo">Cliente</span>
@@ -422,7 +424,7 @@ export function NovaCorrida({ onCriada, onVoltar }: { onCriada: (id: string) => 
                   <input placeholder="Nome do contato" value={p.contato_nome} onChange={(e) => atualizar(p.chave, { contato_nome: e.target.value })} />
                   <input placeholder="Telefone" value={p.contato_telefone} onChange={(e) => atualizar(p.chave, { contato_telefone: e.target.value })} />
                   <input placeholder="Instruções (portaria, bloco…)" value={p.instrucoes} onChange={(e) => atualizar(p.chave, { instrucoes: e.target.value })} />
-                  <CampoReferencias valor={p.referencias} lat={p.lat} lng={p.lng} onMudar={(r) => atualizar(p.chave, { referencias: r })} />
+                  {conta.modulo("pontos_referencia") && <CampoReferencias valor={p.referencias} lat={p.lat} lng={p.lng} onMudar={(r) => atualizar(p.chave, { referencias: r })} />}
                 </div>
               )}
             </div>
@@ -460,7 +462,7 @@ export function NovaCorrida({ onCriada, onVoltar }: { onCriada: (id: string) => 
                 {fatorEntrega > 0
                   ? <>Percurso longo: <strong>+{fatorEntrega.toLocaleString("pt-BR")}×</strong> → <strong>{moeda(valorComAcrescimo)}</strong>. </>
                   : <>Sem acréscimo de percurso. </>}
-                Se o motoboy estiver a mais de {Number(cfg.acrescimo_coleta_cada_km)} km da coleta, soma +{Number(cfg.acrescimo_coleta_fator).toLocaleString("pt-BR")}× a cada {Number(cfg.acrescimo_coleta_cada_km)} km na oferta dele.
+                Se o motoboy estiver a mais de {Number(cfg.acrescimo_coleta_cada_km)} km da coleta, soma +{Number(cfg.acrescimo_coleta_fator).toLocaleString("pt-BR")}× a cada {Number(cfg.acrescimo_coleta_cada_km)} km no valor que ele recebe.
               </span>
             </div>
           )}

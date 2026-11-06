@@ -6,6 +6,7 @@ import { ExcluirCorridas } from "./ExcluirCorridas";
 import { CabecaPagina } from "@/features/ui/CabecaPagina";
 import { moeda } from "@/features/precos/estrategias";
 import { MapaCorridas } from "./MapaCorridas";
+import { useConta } from "@/features/conta/conta";
 import { NovaCorrida } from "./NovaCorrida";
 import { DetalheCorrida } from "./DetalheCorrida";
 import { nomeCliente, useCorridas, useEmpresas, useEquipe } from "./dados";
@@ -24,6 +25,7 @@ export function PainelCorridas() {
   const { empresas } = useEmpresas();
   const [visao, setVisao] = useState<Visao>({ tipo: "lista" });
   const [filtro, setFiltro] = useState<"ativas" | "planejadas" | "concluidas" | "canceladas" | "todas">("ativas");
+  const conta = useConta();
   const [selecionando, setSelecionando] = useState(false);
   const [marcadas, setMarcadas] = useState<string[]>([]);
   const [excluindo, setExcluindo] = useState(false);
@@ -81,9 +83,9 @@ export function PainelCorridas() {
         </div>
         <div className="linha-botoes">
           <button className="botao-ouro" style={{ flex: 1 }} onClick={() => setVisao({ tipo: "nova" })}><Plus size={17} aria-hidden /> Nova corrida</button>
-          <button className="botao-texto" onClick={() => (selecionando ? sairSelecao() : setSelecionando(true))} title="Selecionar para apagar">
+          {conta.modulo("excluir_corridas") && <button className="botao-texto" onClick={() => (selecionando ? sairSelecao() : setSelecionando(true))} title="Selecionar para apagar">
             {selecionando ? <X size={16} aria-hidden /> : <CheckSquare size={16} aria-hidden />} {selecionando ? "Cancelar" : "Selecionar"}
-          </button>
+          </button>}
         </div>
         {erro && <p className="erro">{erro}</p>}
         {lista.length === 0 && (filtro === "planejadas"
@@ -123,7 +125,7 @@ export function PainelCorridas() {
                 <span><Ruler size={12} aria-hidden /> {formatarKm(c.distancia_planejada_m)}</span>
                 {c.motoboy_id && !PLANEJADAS.includes(c.status) && <span><Bike size={12} aria-hidden /> {nome(c.motoboy_id)}</span>}
                 {!c.motoboy_id && c.motoboy_nome_arquivado && <span><Bike size={12} aria-hidden /> {c.motoboy_nome_arquivado} (conta excluída)</span>}
-                {oferta && <span>Oferecida a {nome(oferta.motoboy_id)}</span>}
+                {oferta && <span>Enviada para {nome(oferta.motoboy_id)}</span>}
               </div>
             </button>
           );

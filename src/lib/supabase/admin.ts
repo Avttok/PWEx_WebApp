@@ -38,3 +38,19 @@ export async function gestorDaRequisicao(req: Request): Promise<string | null> {
 }
 
 export const uuidValido = (v: unknown): v is string => typeof v === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
+
+/** Quem chamou pode mexer na conta `alvo`? (Dev: todas; gestor: todas menos as Dev.) */
+export async function podeGerenciar(req: Request, alvo: string): Promise<boolean> {
+  const sb = clienteDoUsuario(req);
+  if (!sb) return false;
+  const { data } = await sb.rpc("pode_gerenciar", { p_alvo: alvo });
+  return data === true;
+}
+
+/** Quem chamou é Dev? */
+export async function ehDev(req: Request): Promise<boolean> {
+  const sb = clienteDoUsuario(req);
+  if (!sb) return false;
+  const { data } = await sb.rpc("is_dev");
+  return data === true;
+}

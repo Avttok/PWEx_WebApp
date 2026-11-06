@@ -4,7 +4,8 @@ import { useEffect, useRef, useState, type RefObject } from "react";
 import { maplibregl } from "./maplibre";
 import { useTema } from "@/features/tema/tema";
 import { useModoTeste } from "@/features/teste/modoTeste";
-import { corOuro } from "./cores";
+import { corOuro, resolverCor } from "./cores";
+import { useConta } from "@/features/conta/conta";
 import { aoMudarEstabelecimentos, estabelecimentosVisiveis } from "./estabelecimentos";
 
 export const ESTILOS_MAPA = {
@@ -21,6 +22,7 @@ export function useMapa(container: RefObject<HTMLDivElement | null>) {
   const [pronto, setPronto] = useState(false);
   const { tema } = useTema();
   const { teste } = useModoTeste(); // violeta no modo teste: o mapa é refeito com a cor nova
+  const { corTema } = useConta(); // vermelho do Dev, idem
 
   useEffect(() => {
     if (!container.current) return;
@@ -50,7 +52,7 @@ export function useMapa(container: RefObject<HTMLDivElement | null>) {
       mapa.current = null;
       setPronto(false);
     };
-  }, [container, tema, teste]);
+  }, [container, tema, teste, corTema]);
 
   return { mapa, pronto };
 }
@@ -95,7 +97,8 @@ function adicionarEstabelecimentos(m: maplibregl.Map, escuro: boolean) {
       visibility: visibilidade,
     },
     paint: {
-      "text-color": escuro ? "#e9c766" : "#6b5410",
+      // segue o tema (dourado, violeta no teste, vermelho do Dev)
+      "text-color": resolverCor(escuro ? "var(--ouro-claro)" : "var(--ouro-escuro)"),
       "text-halo-color": escuro ? "#0b0b0d" : "#ffffff",
       "text-halo-width": 1.4,
     },

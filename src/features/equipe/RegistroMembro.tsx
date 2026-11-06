@@ -29,7 +29,7 @@ interface Resumo {
 
 type Filtro = "tudo" | "criadas" | "concluidas" | "canceladas" | "ofertas" | "apagadas";
 const FILTROS: [Filtro, string][] = [
-  ["tudo", "Tudo"], ["criadas", "Criadas"], ["concluidas", "Concluídas"], ["canceladas", "Canceladas"], ["ofertas", "Ofertas"], ["apagadas", "Apagadas"],
+  ["tudo", "Tudo"], ["criadas", "Criadas"], ["concluidas", "Concluídas"], ["canceladas", "Canceladas"], ["ofertas", "Corridas recebidas"], ["apagadas", "Apagadas"],
 ];
 const GRUPO: Record<string, Filtro> = {
   criada: "criadas", concluida: "concluidas", parada_concluida: "concluidas", chegou: "concluidas", cancelada: "canceladas",
@@ -48,9 +48,9 @@ function descrever(i: Item): { icone: LucideIcon; cor: string; texto: string; ex
       ? { icone: Ban, cor: "var(--vermelho)", texto: `Cancelou a corrida ${n}`, extra: motivo }
       : { icone: Ban, cor: "var(--vermelho)", texto: `A corrida ${n} foi cancelada pelo gestor`, extra: motivo };
     case "redespachada": return { icone: Repeat, cor: "var(--texto-2)", texto: i.fez ? `Relançou a corrida ${n}` : `Recebeu a corrida ${n} direto do gestor` };
-    case "oferta_enviada": return { icone: BellRing, cor: "var(--ouro-claro)", texto: `Recebeu a oferta da corrida ${n}`, extra: km };
+    case "oferta_enviada": return { icone: BellRing, cor: "var(--ouro-claro)", texto: `Recebeu a corrida ${n}`, extra: km };
     case "oferta_recusada": return { icone: CircleX, cor: "var(--vermelho)", texto: `Recusou a corrida ${n}` };
-    case "oferta_expirada": return { icone: Clock, cor: "var(--texto-3)", texto: `Deixou a oferta da corrida ${n} expirar` };
+    case "oferta_expirada": return { icone: Clock, cor: "var(--texto-3)", texto: `Não respondeu a corrida ${n} a tempo` };
     case "aceita": {
       const fc = Number(i.dados?.fator_coleta ?? 0);
       return { icone: Hand, cor: "var(--ouro)", texto: `Aceitou a corrida ${n}`, extra: [km, fc > 0 ? `acréscimo +${fc.toLocaleString("pt-BR")}×` : ""].filter(Boolean).join(" · ") || undefined };

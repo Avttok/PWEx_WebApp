@@ -1,5 +1,6 @@
-import { PainelFinanceiro } from "@/features/financeiro/PainelFinanceiro";
+import { redirect } from "next/navigation";
 
+/** "Financeiro" agora se chama Carteira. */
 export default function Pagina() {
-  return <PainelFinanceiro />;
+  redirect("/gestor/carteira");
 }

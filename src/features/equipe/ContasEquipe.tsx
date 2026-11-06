@@ -18,7 +18,7 @@ const ERROS: Record<string, string> = {
   muitas_tentativas: "Muitas senhas erradas. Por segurança, ficou bloqueado por 15 minutos.",
   nao_exclua_a_si_mesmo: "Você não pode excluir a sua própria conta.",
   nao_bloqueie_a_si_mesmo: "Você não pode bloquear a sua própria conta.",
-  membro_em_corrida: "Essa pessoa está com uma corrida ou oferta em andamento. Espere terminar (ou cancele a corrida) antes.",
+  membro_em_corrida: "Essa pessoa está com uma corrida em andamento. Espere terminar (ou cancele a corrida) antes.",
   usuario_nao_encontrado: "Conta não encontrada (talvez já tenha sido excluída).",
 };
 

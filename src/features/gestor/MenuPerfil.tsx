@@ -2,10 +2,14 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Camera, FlaskConical, LogOut, Monitor, Moon, Sun, Trash2, UserRoundPen, X } from "lucide-react";
+import Link from "next/link";
+import { Camera, CodeXml, FlaskConical, Heart, LogOut, Moon, Palette, Sun, Trash2, UserRoundPen, X } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
-import { useTema, type PreferenciaTema } from "@/features/tema/tema";
+import { useTema } from "@/features/tema/tema";
 import { useModoTeste } from "@/features/teste/modoTeste";
+import { useConta } from "@/features/conta/conta";
+import { SelosCargo } from "@/features/conta/Cargos";
+import { toast } from "@/features/ui/toast";
 
 interface Props {
   id: string;
@@ -15,12 +19,6 @@ interface Props {
   onSair: () => void;
   onPerfilSalvo: (nome: string, foto: string | null) => void;
 }
-
-const TEMAS: { valor: PreferenciaTema; rotulo: string; icone: typeof Sun }[] = [
-  { valor: "sistema", rotulo: "Auto", icone: Monitor },
-  { valor: "claro", rotulo: "Claro", icone: Sun },
-  { valor: "escuro", rotulo: "Noturno", icone: Moon },
-];
 
 function Avatar({ nome, foto, classe = "" }: { nome: string; foto: string | null; classe?: string }) {
   return foto
@@ -35,8 +33,16 @@ export function MenuPerfil({ id, email, nome, foto, onSair, onPerfilSalvo }: Pro
   const [editando, setEditando] = useState(false);
   const [erroTeste, setErroTeste] = useState<string | null>(null);
   const caixa = useRef<HTMLDivElement>(null);
-  const { preferencia, definir } = useTema();
+  const { tema, definir } = useTema();
   const { teste, definir: definirTeste } = useModoTeste();
+  const conta = useConta();
+  const noturno = tema === "escuro";
+
+  async function trocarCor() {
+    const nova = conta.corTema === "vermelho" ? "ouro" : "vermelho";
+    const erro = await conta.definirCor(nova);
+    if (erro) toast(erro, "erro");
+  }
 
   useEffect(() => {
     if (!aberto) return;
@@ -58,40 +64,53 @@ export function MenuPerfil({ id, email, nome, foto, onSair, onPerfilSalvo }: Pro
       <button type="button" className="botao-avatar" onClick={() => setAberto((a) => !a)} aria-haspopup="menu" aria-expanded={aberto} title={teste ? "Meu perfil · modo teste ligado" : "Meu perfil"}>
         <Avatar nome={nome} foto={foto} />
         {teste && <span className="selo-teste-avatar" aria-label="modo teste"><FlaskConical size={10} aria-hidden /></span>}
+        {!teste && conta.dev && <span className="selo-teste-avatar" aria-label="Dev"><CodeXml size={10} aria-hidden /></span>}
       </button>
 
       {aberto && (
         <div className="menu-perfil-caixa vidro" role="menu">
           <div className="menu-perfil-cabeca">
             <Avatar nome={nome} foto={foto} classe="avatar-grande" />
-            <span className="menu-perfil-nome"><strong>{nome}</strong><span>{email}</span></span>
+            <span className="menu-perfil-nome"><strong>{nome}</strong><span>{email}</span><SelosCargo papeis={conta.papeis} /></span>
           </div>
 
           <button type="button" role="menuitem" className="menu-item" onClick={() => { setEditando(true); setAberto(false); }}>
             <UserRoundPen size={17} aria-hidden /> Editar perfil
           </button>
 
-          <div className="menu-secao">
-            <span className="rotulo">Tema</span>
-            <div className="segmentado">
-              {TEMAS.map(({ valor, rotulo, icone: Icone }) => (
-                <button key={valor} type="button" className={preferencia === valor ? "ativo" : ""} onClick={() => definir(valor)} aria-pressed={preferencia === valor}>
-                  <Icone size={15} aria-hidden /> {rotulo}
-                </button>
-              ))}
-            </div>
-          </div>
-
           <label className="menu-item menu-teste">
-            <FlaskConical size={17} aria-hidden />
-            <span className="menu-teste-texto"><strong>Modo teste</strong><span>{teste ? "Painel em violeta: só corridas e ganhos de teste" : "Ver e criar só corridas de teste"}</span></span>
-            <input type="checkbox" role="switch" checked={teste} onChange={alternarTeste} />
+            {noturno ? <Moon size={17} aria-hidden /> : <Sun size={17} aria-hidden />}
+            <span className="menu-teste-texto"><strong>{noturno ? "Tema noturno" : "Tema claro"}</strong></span>
+            <input type="checkbox" role="switch" checked={noturno} onChange={() => definir(noturno ? "claro" : "escuro")} />
           </label>
+
+          {conta.dev && (
+            <label className="menu-item menu-teste">
+              <Palette size={17} aria-hidden />
+              <span className="menu-teste-texto"><strong>Tema vermelho</strong><span>{conta.corTema === "vermelho" ? "A cor do Dev" : "Dourado, como todos"}</span></span>
+              <input type="checkbox" role="switch" checked={conta.corTema === "vermelho"} onChange={trocarCor} />
+            </label>
+          )}
+
+          {conta.modulo("modo_teste") && (
+            <label className="menu-item menu-teste">
+              <FlaskConical size={17} aria-hidden />
+              <span className="menu-teste-texto"><strong>Modo teste</strong><span>{teste ? "Tudo violeta: só corridas e ganhos de teste" : "Dourado: tudo vale de verdade"}</span></span>
+              <input type="checkbox" role="switch" checked={teste} onChange={alternarTeste} />
+            </label>
+          )}
           {erroTeste && <p className="erro menu-erro">{erroTeste}</p>}
+
+          {conta.dev && (
+            <Link href="/gestor/dev" role="menuitem" className="menu-item" onClick={() => setAberto(false)}>
+              <CodeXml size={17} aria-hidden /> Console Dev
+            </Link>
+          )}
 
           <button type="button" role="menuitem" className="menu-item menu-sair" onClick={onSair}>
             <LogOut size={17} aria-hidden /> Sair
           </button>
+          <p className="menu-irmao">Um projeto de irmão para irmão! <Heart size={12} aria-label="com amor" fill="currentColor" /></p>
         </div>
       )}
 
@@ -161,6 +180,7 @@ function EditarPerfil({ id, nome, foto, onFechar, onSalvo }: {
     const { error } = await sb.rpc("atualizar_meu_perfil", { p_nome: n, ...(url !== undefined ? { p_foto_url: url } : {}) });
     setSalvando(false);
     if (error) return setErro(error.message.includes("nome_invalido") ? "Nome inválido." : error.message);
+    toast("Nome e foto valem no site e no app.", "ok", { titulo: "Perfil salvo" });
     onSalvo(n, url === undefined ? foto : url || null);
   }
 

@@ -5,6 +5,10 @@ import { Bike, FlaskConical, History, Lock, PencilLine, Save, ShieldCheck, UserP
 import { RegistroMembro } from "./RegistroMembro";
 import { BloquearConta, ExcluirConta, NovaConta, RedefinirSenha } from "./ContasEquipe";
 import { useSessaoGestor } from "@/features/gestor/AreaGestor";
+import { useConta } from "@/features/conta/conta";
+import { SelosCargo } from "@/features/conta/Cargos";
+import { toast } from "@/features/ui/toast";
+import { CodeXml } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
 import { CabecaPagina } from "@/features/ui/CabecaPagina";
 import { useConfiguracoes } from "@/features/configuracoes/useConfiguracoes";
@@ -24,6 +28,8 @@ export function PainelEquipe() {
   const [nome, setNome] = useState("");
   const [gestor, setGestor] = useState(false);
   const [motoboy, setMotoboy] = useState(false);
+  const [devPapel, setDevPapel] = useState(false);
+  const conta = useConta();
   const [repasse, setRepasse] = useState("");
   const [msg, setMsg] = useState<{ ok: boolean; t: string } | null>(null);
   const [aba, setAba] = useState<"registro" | "editar">("registro");
@@ -39,19 +45,21 @@ export function PainelEquipe() {
   const m = lista.find((x) => x.id === sel);
   useEffect(() => {
     if (!m) return;
-    setNome(m.nome); setGestor(m.papeis.includes("gestor")); setMotoboy(m.papeis.includes("motoboy"));
+    setNome(m.nome); setGestor(m.papeis.includes("gestor")); setMotoboy(m.papeis.includes("motoboy")); setDevPapel(m.papeis.includes("dev"));
     setRepasse(m.repasse_pct != null ? String(m.repasse_pct) : ""); setMsg(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sel]);
 
   async function salvar() {
     if (!m) return;
-    const papeis = [gestor && "gestor", motoboy && "motoboy"].filter(Boolean);
+    const papeis = [devPapel && "dev", gestor && "gestor", motoboy && "motoboy"].filter(Boolean);
     const { error } = await supabase().rpc("editar_membro", {
       p_usuario: m.id, p_nome: nome, p_papeis: papeis, p_repasse: repasse.trim() === "" ? null : Number(repasse.replace(",", ".")),
     });
-    if (error) return setMsg({ ok: false, t: error.message === "nao_remova_seu_proprio_acesso" ? "Você não pode tirar seu próprio acesso de gestor." : error.message === "percentual_invalido" ? "Repasse deve ficar entre 0 e 100%." : error.message });
-    setMsg({ ok: true, t: "Salvo." });
+    if (error) return setMsg({ ok: false, t: error.message === "nao_remova_seu_proprio_acesso" ? "Você não pode tirar seu próprio acesso." : error.message === "percentual_invalido" ? "Repasse deve ficar entre 0 e 100%."
+      : error.message === "conta_protegida" ? "Contas Dev só o Dev altera." : error.message === "apenas_dev" ? "Só o Dev dá ou tira o cargo Dev." : error.message });
+    setMsg(null);
+    toast(`${nome || m.email} atualizado.`, "ok", { titulo: "Salvo" });
     carregar();
   }
 
@@ -59,7 +67,7 @@ export function PainelEquipe() {
     <>
       <aside className="lateral entrar">
         <CabecaPagina icone={Users} titulo="Equipe" subtitulo={lista.length === 1 ? "1 pessoa" : `${lista.length} pessoas`} />
-        <button className="botao-ouro" onClick={() => setCriando(true)}><UserPlus size={17} aria-hidden /> Nova conta</button>
+        {conta.modulo("criar_contas") && <button className="botao-ouro" onClick={() => setCriando(true)}><UserPlus size={17} aria-hidden /> Nova conta</button>}
         {criando && (
           <NovaConta padraoRepasse={Number(cfg.repasse_motoboy_pct)} onFechar={() => setCriando(false)}
             onCriada={async (id) => { setCriando(false); await carregar(); setSel(id); setAba("editar"); }} />
@@ -77,9 +85,7 @@ export function PainelEquipe() {
               <strong>{x.nome || x.email}</strong>
             </div>
             <div className="selos">
-              {x.papeis.includes("gestor") && <span className="selo" style={{ color: "var(--ouro)" }}><ShieldCheck size={11} /> Gestor</span>}
-              {x.papeis.includes("motoboy") && <span className="selo" style={{ color: "var(--texto-2)" }}><Bike size={11} /> Motoboy</span>}
-              {x.modo_teste && <span className="selo" style={{ color: "#a78bfa" }}><FlaskConical size={11} /> Teste</span>}
+              <SelosCargo papeis={x.papeis} teste={x.modo_teste} />
               {x.bloqueado && <span className="selo" style={{ color: "var(--vermelho)" }}><Lock size={11} /> Bloqueado</span>}
             </div>
             <div className="detalhes">
@@ -102,9 +108,7 @@ export function PainelEquipe() {
                   <h2 className="display">{m.nome || m.email}</h2>
                   <p className="dica" style={{ margin: "2px 0 6px" }}>{m.email}</p>
                   <div className="selos">
-                    {m.papeis.includes("gestor") && <span className="selo" style={{ color: "var(--ouro)" }}><ShieldCheck size={11} /> Gestor</span>}
-                    {m.papeis.includes("motoboy") && <span className="selo" style={{ color: "var(--texto-2)" }}><Bike size={11} /> Motoboy</span>}
-                    {m.modo_teste && <span className="selo" style={{ color: "#a78bfa" }}><FlaskConical size={11} /> Teste</span>}
+                    <SelosCargo papeis={m.papeis} teste={m.modo_teste} />
                     {m.bloqueado && <span className="selo" style={{ color: "var(--vermelho)" }}><Lock size={11} /> Bloqueado</span>}
                     {m.status && <span className="selo" style={{ color: COR_STATUS[m.status] }}>{ROTULO_STATUS[m.status]}</span>}
                   </div>
@@ -116,10 +120,13 @@ export function PainelEquipe() {
                 <button type="button" className={aba === "editar" ? "ativo" : ""} onClick={() => setAba("editar")}><PencilLine size={15} aria-hidden /> Editar</button>
               </div>
 
-              {aba === "registro" ? <RegistroMembro key={m.id} id={m.id} /> : (
+              {aba === "registro" ? <RegistroMembro key={m.id} id={m.id} /> : (m.papeis.includes("dev") && !conta.dev) ? (
+                <p className="dica" style={{ margin: 0 }}><CodeXml size={14} style={{ verticalAlign: -2 }} /> Conta Dev: só o Dev altera esta conta.</p>
+              ) : (
                 <>
                   <label className="campo"><span>Nome de exibição</span><input value={nome} onChange={(e) => setNome(e.target.value)} /></label>
                   <span className="rotulo">Papéis</span>
+                  {conta.dev && <label className="opcao"><span><CodeXml size={14} style={{ verticalAlign: -2 }} /> Dev (administra o sistema inteiro)</span><input type="checkbox" checked={devPapel} onChange={(e) => setDevPapel(e.target.checked)} /></label>}
                   <label className="opcao"><span><ShieldCheck size={14} style={{ verticalAlign: -2 }} /> Gestor (acessa este painel)</span><input type="checkbox" checked={gestor} onChange={(e) => setGestor(e.target.checked)} /></label>
                   <label className="opcao"><span><Bike size={14} style={{ verticalAlign: -2 }} /> Motoboy (usa o app e recebe corridas)</span><input type="checkbox" checked={motoboy} onChange={(e) => setMotoboy(e.target.checked)} /></label>
                   {gestor && motoboy && <p className="dica">Gestor + motoboy tem as ferramentas de administrador e o modo teste no app.</p>}
