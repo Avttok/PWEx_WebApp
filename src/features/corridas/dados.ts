@@ -13,6 +13,7 @@ export interface MembroEquipe {
   lng: number | null;
   posicao_em: string | null;
   modo_teste: boolean;
+  foto: string | null;
 }
 
 /** Recarrega quando qualquer tabela observada mudar (agrupa rajadas em 300 ms). */
@@ -64,17 +65,17 @@ export function useCorridas() {
 
 export function useEquipe() {
   const [equipe, setEquipe] = useState<MembroEquipe[]>([]);
-  useRecarregarAoMudar(["motoboys"], async () => {
+  useRecarregarAoMudar(["motoboys", "perfis"], async () => {
     const sb = supabase();
     const [m, p] = await Promise.all([
       sb.from("motoboys").select("id,status,lat,lng,posicao_em,modo_teste"),
-      sb.from("perfis").select("id,nome,papeis"),
+      sb.from("perfis").select("id,nome,papeis,foto_url"),
     ]);
     if (m.error || p.error) return;
-    const perfis = new Map((p.data as { id: string; nome: string; papeis: string[] }[]).map((x) => [x.id, x]));
+    const perfis = new Map((p.data as { id: string; nome: string; papeis: string[]; foto_url: string | null }[]).map((x) => [x.id, x]));
     const lista = (m.data as Omit<MembroEquipe, "nome">[])
       .filter((x) => perfis.get(x.id)?.papeis.includes("motoboy"))
-      .map((x) => ({ ...x, nome: perfis.get(x.id)?.nome || "Motoboy" }))
+      .map((x) => ({ ...x, nome: perfis.get(x.id)?.nome || "Motoboy", foto: perfis.get(x.id)?.foto_url ?? null }))
       .sort((a, b) => a.nome.localeCompare(b.nome));
     setEquipe(lista);
   }, "equipe");

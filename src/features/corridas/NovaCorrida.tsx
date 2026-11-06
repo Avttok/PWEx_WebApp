@@ -355,7 +355,7 @@ export function NovaCorrida({ onCriada, onVoltar }: { onCriada: (id: string) => 
         paradas={pinos}
         rotaPlanejada={rota?.polyline}
         motoboys={equipe.filter((m) => m.status !== "offline" && m.lat != null && m.lng != null && m.modo_teste === teste)
-          .map((m) => ({ id: m.id, nome: m.nome, lat: m.lat!, lng: m.lng!, status: m.status }))}
+          .map((m) => ({ id: m.id, nome: m.nome, lat: m.lat!, lng: m.lng!, status: m.status, foto: m.foto }))}
         aoClicar={aoClicarMapa}
         modoEscolha={escolhendo !== null}
         enquadrar={chaveCoords}

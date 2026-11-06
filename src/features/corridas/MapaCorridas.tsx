@@ -21,6 +21,7 @@ export interface PinoMotoboy {
   lat: number;
   lng: number;
   status: StatusMotoboy;
+  foto?: string | null;
 }
 
 interface Props {
@@ -136,7 +137,9 @@ export function MapaCorridas({ paradas = [], rotaPlanejada, trilha = [], motoboy
       const el = pino.getElement();
       el.dataset.status = mb.status;
       el.style.setProperty("--cor", COR_STATUS[mb.status]);
-      el.textContent = mb.nome.trim().charAt(0).toUpperCase();
+      el.textContent = mb.foto ? "" : mb.nome.trim().charAt(0).toUpperCase();
+      el.style.backgroundImage = mb.foto ? `url("${mb.foto}")` : "";
+      el.classList.toggle("com-foto", Boolean(mb.foto));
       el.title = mb.nome;
       pino.setLngLat([mb.lng, mb.lat]);
     }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Lock, Trash2, TriangleAlert, X } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
 import { moeda } from "@/features/precos/estrategias";
@@ -66,7 +67,8 @@ export function ExcluirCorridas({ corridas, onFechar, onExcluidas }: {
 
   const pode = entendi && senha.length > 0 && ativas.length === 0 && !enviando;
 
-  return (
+  // portal: o painel de vidro (backdrop-filter) prenderia uma janela "fixed" dentro dele
+  return createPortal(
     <div className="modal-fundo" onMouseDown={(e) => e.target === e.currentTarget && !enviando && onFechar()}>
       <div className="modal modal-perigo vidro entrar" role="alertdialog" aria-labelledby="titulo-excluir">
         <button className="botao-icone modal-fechar" onClick={onFechar} disabled={enviando} aria-label="Fechar"><X size={17} /></button>
@@ -128,6 +130,7 @@ export function ExcluirCorridas({ corridas, onFechar, onExcluidas }: {
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

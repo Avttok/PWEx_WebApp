@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, FlaskConical, MapPinned, Route, XCircle } from "lucide-react";
+import { ArrowLeft, FlaskConical, MapPinned, Route, Trash2, XCircle } from "lucide-react";
+import { ExcluirCorridas } from "./ExcluirCorridas";
 import { CabecaPagina } from "@/features/ui/CabecaPagina";
 import { supabase } from "@/lib/supabase/client";
 import { decodificarPolyline } from "@/lib/geo/polyline";
@@ -79,7 +80,8 @@ function Comprovante({ caminho, rotulo }: { caminho: string; rotulo: string }) {
   );
 }
 
-export function DetalheCorrida({ corrida, oferta, onVoltar }: { corrida: Corrida; oferta?: Oferta; onVoltar: () => void }) {
+export function DetalheCorrida({ corrida, oferta, onVoltar, onExcluida }: { corrida: Corrida; oferta?: Oferta; onVoltar: () => void; onExcluida?: () => void }) {
+  const [excluindo, setExcluindo] = useState(false);
   const equipe = useEquipe();
   const eventos = useEventos(corrida.id);
   const trilha = useTrilha(corrida);
@@ -130,7 +132,15 @@ export function DetalheCorrida({ corrida, oferta, onVoltar }: { corrida: Corrida
           {oferta && (
             <p className="dica">Oferecida a <strong>{nome(oferta.motoboy_id)}</strong> ({formatarKm(oferta.distancia_m)} da coleta) · responde em {restante}s</p>
           )}
-          {corrida.motoboy_id && <p>Motoboy: <strong>{nome(corrida.motoboy_id)}</strong></p>}
+          {corrida.motoboy_id && (
+            <p className="pessoa">
+              {motoboy?.foto
+                // eslint-disable-next-line @next/next/no-img-element
+                ? <img src={motoboy.foto} alt="" className="foto-mini" style={{ borderColor: "var(--ouro)" }} />
+                : <span className="avatar grad" style={{ width: 26, height: 26, fontSize: 11 }}>{nome(corrida.motoboy_id).charAt(0)}</span>}
+              <span>Motoboy: <strong>{nome(corrida.motoboy_id)}</strong></span>
+            </p>
+          )}
           <div className="numeros">
             <div><span className="rotulo">Valor</span><strong>{moeda(corrida.valor)}</strong></div>
             <div><span className="rotulo">Planejado</span><strong>{formatarKm(corrida.distancia_planejada_m)}</strong><small>{formatarDuracao(corrida.duracao_planejada_s)}</small></div>
@@ -211,6 +221,16 @@ export function DetalheCorrida({ corrida, oferta, onVoltar }: { corrida: Corrida
         {!["concluida", "cancelada"].includes(corrida.status) && (
           <button className="botao-perigo" onClick={cancelar}><XCircle size={16} aria-hidden /> Cancelar corrida</button>
         )}
+        {["aceita", "em_andamento"].includes(corrida.status) ? (
+          <p className="dica">Para apagar esta corrida, cancele-a primeiro.</p>
+        ) : (
+          <button className="botao-texto" style={{ justifyContent: "center", color: "var(--vermelho)" }} onClick={() => setExcluindo(true)}>
+            <Trash2 size={15} aria-hidden /> Apagar corrida
+          </button>
+        )}
+        {excluindo && (
+          <ExcluirCorridas corridas={[corrida]} onFechar={() => setExcluindo(false)} onExcluidas={() => { setExcluindo(false); (onExcluida ?? onVoltar)(); }} />
+        )}
       </aside>
 
       <MapaCorridas
@@ -218,7 +238,7 @@ export function DetalheCorrida({ corrida, oferta, onVoltar }: { corrida: Corrida
         rotaPlanejada={corrida.rota_planejada}
         trilha={trilha}
         motoboys={ativa && motoboy?.lat != null && motoboy.lng != null
-          ? [{ id: motoboy.id, nome: motoboy.nome, lat: motoboy.lat, lng: motoboy.lng, status: motoboy.status }] : []}
+          ? [{ id: motoboy.id, nome: motoboy.nome, lat: motoboy.lat, lng: motoboy.lng, status: motoboy.status, foto: motoboy.foto }] : []}
         enquadrar={corrida.id}
       />
     </>

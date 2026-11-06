@@ -26,6 +26,7 @@ const ABAS = [
 export function AreaGestor({ children }: { children: ReactNode }) {
   const [sessao, setSessao] = useState<Session | null>(null);
   const [nome, setNome] = useState("");
+  const [foto, setFoto] = useState<string | null>(null);
   const [acesso, setAcesso] = useState<Acesso>("carregando");
   const caminho = usePathname();
 
@@ -36,9 +37,11 @@ export function AreaGestor({ children }: { children: ReactNode }) {
       if (!s) return setAcesso("anonimo");
       const [{ data }, perfil] = await Promise.all([
         sb.rpc("is_gestor"),
-        sb.from("perfis").select("nome").eq("id", s.user.id).maybeSingle(),
+        sb.from("perfis").select("nome,foto_url").eq("id", s.user.id).maybeSingle(),
       ]);
-      setNome((perfil.data as { nome?: string } | null)?.nome ?? "");
+      const d = perfil.data as { nome?: string; foto_url?: string | null } | null;
+      setNome(d?.nome ?? "");
+      setFoto(d?.foto_url ?? null);
       setAcesso(data === true ? "gestor" : "negado");
     }
     sb.auth.getSession().then(({ data }) => verificar(data.session));
@@ -47,6 +50,21 @@ export function AreaGestor({ children }: { children: ReactNode }) {
     });
     return () => data.subscription.unsubscribe();
   }, []);
+
+  // nome e foto mudados pelo app aparecem aqui na hora (é a mesma conta)
+  useEffect(() => {
+    const id = sessao?.user.id;
+    if (!id) return;
+    const sb = supabase();
+    const canal = sb.channel(`meu-perfil-${id}`)
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "perfis", filter: `id=eq.${id}` }, (payload) => {
+        const n = payload.new as { nome?: string; foto_url?: string | null };
+        if (n.nome) setNome(n.nome);
+        setFoto(n.foto_url ?? null);
+      })
+      .subscribe();
+    return () => { sb.removeChannel(canal); };
+  }, [sessao?.user.id]);
 
   const sair = () => supabase().auth.signOut();
 
@@ -79,7 +97,10 @@ export function AreaGestor({ children }: { children: ReactNode }) {
           <span className="espaco" />
           <BotaoTema />
           <div className="usuario">
-            <span className="avatar grad">{exibido.trim().charAt(0).toUpperCase()}</span>
+            {foto
+              // eslint-disable-next-line @next/next/no-img-element
+              ? <img src={foto} alt="" className="avatar avatar-foto" />
+              : <span className="avatar grad">{exibido.trim().charAt(0).toUpperCase()}</span>}
             <span className="usuario-texto"><strong>{exibido}</strong><span>{sessao?.user.email}</span></span>
           </div>
           <button className="botao-icone" onClick={sair} title="Sair" aria-label="Sair"><LogOut size={17} aria-hidden /></button>

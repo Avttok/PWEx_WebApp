@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ArrowDownToLine, ArrowUpFromLine, Bike, Clock, FlaskConical, Plus, Route, Ruler } from "lucide-react";
+import { ArrowDownToLine, ArrowUpFromLine, Bike, CheckSquare, Clock, FlaskConical, Plus, Route, Ruler, Trash2, X } from "lucide-react";
+import { ExcluirCorridas } from "./ExcluirCorridas";
 import { CabecaPagina } from "@/features/ui/CabecaPagina";
 import { moeda } from "@/features/precos/estrategias";
 import { MapaCorridas } from "./MapaCorridas";
@@ -17,6 +18,11 @@ export function PainelCorridas() {
   const equipe = useEquipe();
   const [visao, setVisao] = useState<Visao>({ tipo: "lista" });
   const [filtro, setFiltro] = useState<"ativas" | "todas">("ativas");
+  const [selecionando, setSelecionando] = useState(false);
+  const [marcadas, setMarcadas] = useState<string[]>([]);
+  const [excluindo, setExcluindo] = useState(false);
+  const alternar = (id: string) => setMarcadas((m) => (m.includes(id) ? m.filter((x) => x !== id) : [...m, id]));
+  const sairSelecao = () => { setSelecionando(false); setMarcadas([]); };
 
   const lista = filtro === "ativas" ? corridas.filter((c) => ATIVAS.includes(c.status)) : corridas;
   const nome = (id: string | null) => equipe.find((m) => m.id === id)?.nome;
@@ -41,6 +47,7 @@ export function PainelCorridas() {
           corrida={corrida}
           oferta={ofertas.find((o) => o.corrida_id === corrida.id)}
           onVoltar={() => setVisao({ tipo: "lista" })}
+          onExcluida={() => setVisao({ tipo: "lista" })}
         />
       );
     }
@@ -57,7 +64,12 @@ export function PainelCorridas() {
             <button className={filtro === "todas" ? "ativo" : ""} onClick={() => setFiltro("todas")}>Últimos 3 dias</button>
           </div>
         </div>
-        <button className="botao-ouro" onClick={() => setVisao({ tipo: "nova" })}><Plus size={17} aria-hidden /> Nova corrida</button>
+        <div className="linha-botoes">
+          <button className="botao-ouro" style={{ flex: 1 }} onClick={() => setVisao({ tipo: "nova" })}><Plus size={17} aria-hidden /> Nova corrida</button>
+          <button className="botao-texto" onClick={() => (selecionando ? sairSelecao() : setSelecionando(true))} title="Selecionar para apagar">
+            {selecionando ? <X size={16} aria-hidden /> : <CheckSquare size={16} aria-hidden />} {selecionando ? "Cancelar" : "Selecionar"}
+          </button>
+        </div>
         {erro && <p className="erro">{erro}</p>}
         {lista.length === 0 && <p className="vazio">Nenhuma corrida {filtro === "ativas" ? "ativa" : "recente"}.</p>}
         {lista.map((c) => {
@@ -65,8 +77,10 @@ export function PainelCorridas() {
           const coleta = c.paradas[0];
           const entregas = c.paradas.filter((p) => p.tipo === "entrega");
           return (
-            <button key={c.id} className="cartao-motoboy" onClick={() => setVisao({ tipo: "detalhe", id: c.id })}>
+            <button key={c.id} className={`cartao-motoboy ${marcadas.includes(c.id) ? "marcado" : ""}`}
+              onClick={() => (selecionando ? alternar(c.id) : setVisao({ tipo: "detalhe", id: c.id }))}>
               <div className="linha">
+                {selecionando && <input type="checkbox" readOnly checked={marcadas.includes(c.id)} tabIndex={-1} style={{ pointerEvents: "none" }} />}
                 <strong className="figura">#{c.numero}</strong>
                 <span className="selo" style={{ color: COR_CORRIDA[c.status] }}>{ROTULO_CORRIDA[c.status]}</span>
                 {c.teste && <span className="selo" style={{ color: "#a78bfa" }}><FlaskConical size={11} aria-hidden /> teste</span>}
@@ -86,11 +100,25 @@ export function PainelCorridas() {
             </button>
           );
         })}
+        {selecionando && (
+          <div className="barra-selecao vidro">
+            <span style={{ flex: 1, fontSize: 13 }}>{marcadas.length} selecionada{marcadas.length === 1 ? "" : "s"}</span>
+            <button className="botao-texto" onClick={() => setMarcadas(lista.filter((c) => c.status !== "aceita" && c.status !== "em_andamento").map((c) => c.id))}>Todas</button>
+            <button className="botao-excluir" disabled={marcadas.length === 0} onClick={() => setExcluindo(true)}><Trash2 size={15} aria-hidden /> Apagar</button>
+          </div>
+        )}
+        {excluindo && (
+          <ExcluirCorridas
+            corridas={corridas.filter((c) => marcadas.includes(c.id))}
+            onFechar={() => setExcluindo(false)}
+            onExcluidas={() => { setExcluindo(false); sairSelecao(); }}
+          />
+        )}
       </aside>
       <MapaCorridas
         paradas={pinosAtivos}
         motoboys={equipe.filter((m) => m.status !== "offline" && m.lat != null && m.lng != null)
-          .map((m) => ({ id: m.id, nome: m.nome, lat: m.lat!, lng: m.lng!, status: m.status }))}
+          .map((m) => ({ id: m.id, nome: m.nome, lat: m.lat!, lng: m.lng!, status: m.status, foto: m.foto }))}
         enquadrar={String(pinosAtivos.length)}
       />
     </>

@@ -288,7 +288,10 @@ export function PainelEmpresas() {
                   const pos = form.favoritos.indexOf(m.id);
                   return (
                     <button key={m.id} type="button" className={`chip ${pos >= 0 ? "ativo" : ""}`} onClick={() => alternarFavorito(m.id)}>
-                      {pos >= 0 && <span className="ordem grad">{pos + 1}</span>}{m.nome}
+                      {pos >= 0 && <span className="ordem grad">{pos + 1}</span>}
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      {m.foto && <img src={m.foto} alt="" className="foto-chip" />}
+                      {m.nome}
                     </button>
                   );
                 })}
