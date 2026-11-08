@@ -11,7 +11,7 @@ import type { Corrida } from "./tipos";
 export function GestaoPlanejada({ corrida, equipe, cfg, agora }: {
   corrida: Corrida;
   equipe: MembroEquipe[];
-  cfg: Record<string, number | boolean>;
+  cfg: Record<string, number | boolean | string>;
   agora: number;
 }) {
   const [motoboy, setMotoboy] = useState("");

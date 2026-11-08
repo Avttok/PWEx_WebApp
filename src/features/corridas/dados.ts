@@ -17,7 +17,7 @@ export interface MembroEquipe {
 }
 
 /** Recarrega quando qualquer tabela observada mudar (agrupa rajadas em 300 ms). */
-function useRecarregarAoMudar(tabelas: string[], recarregar: () => void, canal: string) {
+export function useRecarregarAoMudar(tabelas: string[], recarregar: () => void, canal: string) {
   const ref = useRef(recarregar);
   ref.current = recarregar;
   const chave = tabelas.join(",");

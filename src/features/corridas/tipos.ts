@@ -1,8 +1,15 @@
 import type { Modalidade } from "@/features/precos/estrategias";
 
-export type StatusCorrida = "aguardando_pagamento" | "agendada" | "reservada" | "aguardando_motoboy" | "sem_motoboy" | "aceita" | "em_andamento" | "concluida" | "cancelada";
+export type StatusCorrida = "montada" | "aguardando_pagamento" | "agendada" | "reservada" | "aguardando_motoboy" | "sem_motoboy" | "aceita" | "em_andamento" | "concluida" | "cancelada";
 export type TipoParada = "coleta" | "entrega";
 export type StatusParada = "pendente" | "a_caminho" | "chegou" | "concluida";
+
+/** Como o pagamento do motoboy foi calculado (privado.calcular_pagamento). */
+export interface CalculoPagamento {
+  modo: "rota" | "percentual"; regra?: string; percentil?: number | null; distancia?: string; distancias_km?: number[]; km_referencia?: number;
+  valor_km?: number; valor_km_total?: number; entregas?: number; entregas_extras?: number; valor_entrega_extra?: number;
+  coletas?: number; coletas_extras?: number; valor_coleta_extra?: number; fixo?: number; minimo?: number; pct?: number; total: number;
+}
 
 export interface Parada {
   id: string;
@@ -24,6 +31,10 @@ export interface Parada {
   assinatura_path: string | null;
   distancia_chegada_m: number | null;
   local_ignorado: boolean;
+  pedido_id?: string | null;
+  pedido_ponto_id?: string | null;
+  dist_rua_m?: number | null;
+  dist_acum_m?: number | null;
 }
 
 export interface Corrida {
@@ -36,7 +47,15 @@ export interface Corrida {
   reservada_em?: string | null;
   serie_id?: string | null;
   atraso_avisado_em?: string | null;
-  modo_despacho: "direto" | "cascata";
+  modo_despacho: "direto" | "cascata" | "quadro" | "melhor_primeiro";
+  origem?: "manual" | "roteirizador";
+  tipo_pedido?: string | null;
+  pag_calculo?: CalculoPagamento | null;
+  pag_ajuste?: number;
+  pag_ajuste_motivo?: string | null;
+  sugerido_motoboy_id?: string | null;
+  quadro_desde?: string | null;
+  tem_perigoso?: boolean;
   teste: boolean;
   exigir_no_local: boolean;
   raio_chegada_m: number;
@@ -121,6 +140,7 @@ export interface Empresa {
 }
 
 export const ROTULO_CORRIDA: Record<StatusCorrida, string> = {
+  montada: "Montada · espera liberar",
   aguardando_pagamento: "Aguardando pagamento",
   agendada: "Planejada · livre",
   reservada: "Planejada · reservada",
@@ -133,6 +153,7 @@ export const ROTULO_CORRIDA: Record<StatusCorrida, string> = {
 };
 
 export const COR_CORRIDA: Record<StatusCorrida, string> = {
+  montada: "#a78bfa",
   aguardando_pagamento: "#f59e0b",
   agendada: "#60a5fa",
   reservada: "#38bdf8",
@@ -151,7 +172,7 @@ export const ROTULO_PARADA: Record<StatusParada, string> = {
   concluida: "Concluída",
 };
 
-export const ATIVAS: StatusCorrida[] = ["aguardando_pagamento", "aguardando_motoboy", "sem_motoboy", "aceita", "em_andamento"];
+export const ATIVAS: StatusCorrida[] = ["montada", "aguardando_pagamento", "aguardando_motoboy", "sem_motoboy", "aceita", "em_andamento"];
 /** Corridas com hora marcada que ainda não começaram. */
 export const PLANEJADAS: StatusCorrida[] = ["agendada", "reservada"];
 

@@ -11,10 +11,12 @@ import { toast } from "@/features/ui/toast";
 import { useConta } from "@/features/conta/conta";
 import { ChavesEquipe, MinhasChavesPix, useChavesPix } from "./ChavesPix";
 import { formatarPix } from "@/lib/pix/identificar";
+import { Faturas } from "./Faturas";
+import { Folha } from "./Folha";
 
 type Periodo = "hoje" | "7d" | "mes" | "30d" | "90d";
 const ROTULO: Record<Periodo, string> = { hoje: "Hoje", "7d": "7 dias", mes: "Este mês", "30d": "30 dias", "90d": "90 dias" };
-type Aba = "resumo" | "motoboys" | "clientes" | "extrato" | "pix";
+type Aba = "resumo" | "faturas" | "folha" | "clientes" | "extrato" | "pix";
 
 interface Linha {
   id: string; numero: number; teste: boolean; valor: number | null; valor_motoboy: number | null; valor_gestao: number | null; valor_dev: number | null;
@@ -50,6 +52,8 @@ export function PainelFinanceiro() {
 
   const soma = (f: (l: Linha) => number | null, ls = linhas) => ls.reduce((s, l) => s + Number(f(l) ?? 0), 0);
   const total = soma((l) => l.valor), motoboys = soma((l) => l.valor_motoboy), gestao = soma((l) => l.valor_gestao), dev = soma((l) => l.valor_dev);
+  // gestão = faturado − Dev; dela saem os motoboys; o que sobra é o lucro da operação
+  const lucro = gestao - motoboys;
   const km = soma((l) => l.distancia_real_m ?? l.distancia_planejada_m) / 1000;
 
   const agrupar = (chave: (l: Linha) => string | null) => {
@@ -88,7 +92,7 @@ export function PainelFinanceiro() {
   return (
     <>
       <aside className="lateral entrar">
-        <CabecaPagina icone={Wallet} titulo="Carteira" subtitulo={teste ? "Ganhos das corridas de teste" : "Corridas concluídas"} />
+        <CabecaPagina icone={Wallet} titulo="Carteira" subtitulo={teste ? "Números das rotas de teste" : "Rotas concluídas no período"} />
         <div className="filtro filtro-rolavel">
           {(Object.keys(ROTULO) as Periodo[]).map((p) => (
             <button key={p} className={periodo === p ? "ativo" : ""} onClick={() => setPeriodo(p)}>{ROTULO[p]}</button>
@@ -96,17 +100,20 @@ export function PainelFinanceiro() {
         </div>
         <div className="bloco"><span className="rotulo"><TrendingUp size={12} /> Faturado</span><strong className="figura texto-grad" style={{ fontSize: 30 }}>{moeda(total)}</strong>
           <span className="dica">{linhas.length} corrida{linhas.length === 1 ? "" : "s"} · {km.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} km{linhas.length ? ` · média ${moeda(total / linhas.length)}` : ""}</span></div>
-        <div className="grade-2">
-          <div className="bloco"><span className="rotulo"><Landmark size={12} /> Gestão</span><strong className="figura" style={{ fontSize: 20 }}>{moeda(gestao)}</strong></div>
-          <div className="bloco"><span className="rotulo"><Bike size={12} /> Motoboys</span><strong className="figura" style={{ fontSize: 20 }}>{moeda(motoboys)}</strong></div>
+        <div className="grade-2 grade-igual">
+          <div className="bloco"><span className="rotulo"><Landmark size={12} /> Gestão</span><strong className="figura" style={{ fontSize: 20 }}>{moeda(gestao)}</strong><span className="dica">faturado − Dev</span></div>
+          <div className="bloco"><span className="rotulo" style={{ color: "var(--cor-dev)" }}><CodeXml size={12} /> Dev</span><strong className="figura" style={{ fontSize: 20 }}>{moeda(dev)}</strong></div>
         </div>
-        <div className="bloco"><span className="rotulo" style={{ color: "var(--cor-dev)" }}><CodeXml size={12} /> Dev</span><strong className="figura" style={{ fontSize: 20 }}>{moeda(dev)}</strong></div>
-        <p className="dica">Recebimento automático (PIX e cartão) e o repasse direto para as chaves de cada um entram quando a intermediadora de pagamento for ligada.</p>
+        <div className="grade-2 grade-igual">
+          <div className="bloco"><span className="rotulo"><Bike size={12} /> Folha</span><strong className="figura" style={{ fontSize: 20 }}>{moeda(motoboys)}</strong><span className="dica">pago aos motoboys</span></div>
+          <div className="bloco"><span className="rotulo"><TrendingUp size={12} /> Lucro</span><strong className="figura texto-grad" style={{ fontSize: 20 }}>{moeda(lucro)}</strong><span className="dica">gestão − folha</span></div>
+        </div>
+        <p className="dica">Faturas (clientes no crédito) e a folha dos motoboys estão nas abas ao lado. O recebimento automático entra quando a intermediadora de pagamento for ligada.</p>
       </aside>
       <main className="conteudo">
         <div className="formulario vidro entrar">
-          <div className="segmentado" style={{ gridTemplateColumns: "repeat(5, 1fr)" }}>
-            {([["resumo", "Resumo"], ["motoboys", "Motoboys"], ["clientes", "Clientes"], ["extrato", "Extrato"], ["pix", "PIX"]] as [Aba, string][]).map(([k, r]) => (
+          <div className="segmentado" style={{ gridTemplateColumns: "repeat(6, 1fr)" }}>
+            {([["resumo", "Resumo"], ["faturas", "Faturas"], ["folha", "Folha"], ["clientes", "Clientes"], ["extrato", "Extrato"], ["pix", "PIX"]] as [Aba, string][]).map(([k, r]) => (
               <button key={k} type="button" className={aba === k ? "ativo" : ""} onClick={() => setAba(k)}>{r}</button>
             ))}
           </div>
@@ -116,27 +123,28 @@ export function PainelFinanceiro() {
               <h3 className="display" style={{ margin: 0 }}>Divisão do período</h3>
               <div className="barra-divisao" aria-hidden>
                 <span style={{ flex: motoboys || 0.0001, background: "var(--texto-2)" }} />
-                <span style={{ flex: gestao || 0.0001, background: "var(--ouro)" }} />
+                <span style={{ flex: Math.max(lucro, 0) || 0.0001, background: "var(--ouro)" }} />
                 <span style={{ flex: dev || 0.0001, background: "var(--cor-dev)" }} />
               </div>
               <div className="dev-grade">
-                <div className="dev-num"><strong>{moeda(motoboys)}</strong><span>Motoboys · {total ? Math.round((motoboys / total) * 1000) / 10 : 0}%</span></div>
-                <div className="dev-num"><strong>{moeda(gestao)}</strong><span>Gestão · {total ? Math.round((gestao / total) * 1000) / 10 : 0}%</span></div>
+                <div className="dev-num"><strong>{moeda(motoboys)}</strong><span>Folha · {total ? Math.round((motoboys / total) * 1000) / 10 : 0}%</span></div>
+                <div className="dev-num"><strong>{moeda(lucro)}</strong><span>Lucro da gestão · {total ? Math.round((lucro / total) * 1000) / 10 : 0}%</span></div>
                 <div className="dev-num"><strong>{moeda(dev)}</strong><span>Dev · {total ? Math.round((dev / total) * 1000) / 10 : 0}%</span></div>
               </div>
+              <h3 className="display" style={{ margin: "6px 0 0" }}>Por motoboy</h3>
+              <table className="tabela"><thead><tr><th>Motoboy</th><th>Rotas</th><th>Folha</th><th>Faturado</th><th>Chave PIX</th></tr></thead>
+                <tbody>{porMotoboy.map(([id, a]) => {
+                  const ch = chaves.find((c) => c.usuario_id === id && c.principal);
+                  return (
+                    <tr key={id}><td>{nomeM(id)}</td><td>{a.n}</td><td>{moeda(a.motoboy)}</td><td>{moeda(a.valor)}</td>
+                      <td>{ch ? <button className="botao-texto" onClick={() => copiar(ch.chave)} title={`${ch.titular} · ${ch.tipo_chave}`}><Copy size={13} aria-hidden /> {formatarPix(ch.chave, ch.tipo_chave)}</button> : <span className="dica">não cadastrada</span>}</td></tr>
+                  );
+                })}</tbody></table>
             </>
           )}
 
-          {aba === "motoboys" && (
-            <table className="tabela"><thead><tr><th>Motoboy</th><th>Corridas</th><th>A receber</th><th>Chave PIX</th></tr></thead>
-              <tbody>{porMotoboy.map(([id, a]) => {
-                const ch = chaves.find((c) => c.usuario_id === id && c.principal);
-                return (
-                  <tr key={id}><td>{nomeM(id)}</td><td>{a.n}</td><td>{moeda(a.motoboy)}</td>
-                    <td>{ch ? <button className="botao-texto" onClick={() => copiar(ch.chave)} title={`${ch.titular} · ${ch.tipo_chave}`}><Copy size={13} aria-hidden /> {formatarPix(ch.chave, ch.tipo_chave)}</button> : <span className="dica">não cadastrada</span>}</td></tr>
-                );
-              })}</tbody></table>
-          )}
+          {aba === "faturas" && <Faturas />}
+          {aba === "folha" && <Folha />}
 
           {aba === "clientes" && (
             <table className="tabela"><thead><tr><th>Cliente</th><th>Corridas</th><th>Faturado</th><th>Gestão</th><th>Dev</th></tr></thead>
@@ -167,7 +175,7 @@ export function PainelFinanceiro() {
               <ChavesEquipe chaves={chaves} nome={nomeM} />
             </>
           )}
-          {aba !== "pix" && linhas.length === 0 && <p className="vazio">Nenhuma corrida concluída neste período.</p>}
+          {["resumo", "clientes", "extrato"].includes(aba) && linhas.length === 0 && <p className="vazio">Nenhuma rota concluída neste período.</p>}
         </div>
       </main>
     </>

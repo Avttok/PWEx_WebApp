@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { ArrowDownToLine, ArrowUpFromLine, Bike, Building2, CalendarClock, TriangleAlert, CheckSquare, Clock, FlaskConical, History, Plus, Route, Ruler, Trash2, X, Zap } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { ArrowDownToLine, ArrowUpFromLine, Bike, Building2, CalendarClock, TriangleAlert, CheckSquare, Clock, FlaskConical, History, Megaphone, Plus, Route, Ruler, Sparkles, Trash2, Users, X, Zap } from "lucide-react";
 import { ExcluirCorridas } from "./ExcluirCorridas";
 import { ApagarHistorico } from "./ApagarHistorico";
 import { CabecaPagina } from "@/features/ui/CabecaPagina";
@@ -25,7 +25,12 @@ export function PainelCorridas() {
   const equipe = useEquipe();
   const { empresas } = useEmpresas();
   const [visao, setVisao] = useState<Visao>({ tipo: "lista" });
-  const [filtro, setFiltro] = useState<"ativas" | "planejadas" | "concluidas" | "canceladas" | "todas">("ativas");
+  // /gestor/corridas?c=<id> abre direto a rota (links vindos de Pedidos)
+  useEffect(() => {
+    const c = new URLSearchParams(window.location.search).get("c");
+    if (c) setVisao({ tipo: "detalhe", id: c });
+  }, []);
+  const [filtro, setFiltro] = useState<"ativas" | "montadas" | "planejadas" | "concluidas" | "canceladas" | "todas">("ativas");
   const conta = useConta();
   const [selecionando, setSelecionando] = useState(false);
   const [marcadas, setMarcadas] = useState<string[]>([]);
@@ -36,7 +41,9 @@ export function PainelCorridas() {
 
   const planejadas = corridas.filter((c) => PLANEJADAS.includes(c.status))
     .sort((a, b) => new Date(a.agendada_para ?? 0).getTime() - new Date(b.agendada_para ?? 0).getTime());
+  const montadas = corridas.filter((c) => c.status === "montada" || (c.status === "sem_motoboy"));
   const lista = filtro === "ativas" ? corridas.filter((c) => ATIVAS.includes(c.status))
+    : filtro === "montadas" ? montadas
     : filtro === "planejadas" ? planejadas
     : filtro === "concluidas" ? corridas.filter((c) => c.status === "concluida")
     : filtro === "canceladas" ? corridas.filter((c) => c.status === "cancelada")
@@ -72,19 +79,20 @@ export function PainelCorridas() {
   return (
     <>
       <aside className="lateral lateral-larga entrar">
-        <CabecaPagina icone={Route} titulo="Corridas" subtitulo={(() => { const n = corridas.filter((c) => ATIVAS.includes(c.status)).length; return `${n === 0 ? "Nenhuma ativa" : n === 1 ? "1 ativa" : `${n} ativas`} agora${teste ? " · modo teste" : ""}`; })()} />
+        <CabecaPagina icone={Route} titulo="Rotas" subtitulo={(() => { const n = corridas.filter((c) => ATIVAS.includes(c.status)).length; return `${n === 0 ? "Nenhuma ativa" : n === 1 ? "1 ativa" : `${n} ativas`} agora${teste ? " · modo teste" : ""}`; })()} />
         <div className="lateral-cabecalho">
           <span className="rotulo">Mostrar</span>
           <div className="filtro">
-            {([["ativas", "Ativas"], ["planejadas", "Planejadas"], ["concluidas", "Concluídas"], ["canceladas", "Canceladas"], ["todas", "Todas"]] as const).map(([v, r]) => (
+            {([["ativas", "Ativas"], ["montadas", "Esperando você"], ["planejadas", "Planejadas"], ["concluidas", "Concluídas"], ["canceladas", "Canceladas"], ["todas", "Todas"]] as const).map(([v, r]) => (
               <button key={v} className={filtro === v ? "ativo" : ""} onClick={() => setFiltro(v)}>
                 {r}{v === "planejadas" && planejadas.length > 0 && <span className="contador">{planejadas.length}</span>}
+                {v === "montadas" && montadas.length > 0 && <span className="contador">{montadas.length}</span>}
               </button>
             ))}
           </div>
         </div>
         <div className="linha-botoes">
-          <button className="botao-ouro" style={{ flex: 1 }} onClick={() => setVisao({ tipo: "nova" })}><Plus size={17} aria-hidden /> Nova corrida</button>
+          <button className="botao-ouro" style={{ flex: 1 }} onClick={() => setVisao({ tipo: "nova" })}><Plus size={17} aria-hidden /> Corrida avulsa</button>
           {conta.modulo("excluir_corridas") && <button className="botao-texto" onClick={() => (selecionando ? sairSelecao() : setSelecionando(true))} title="Selecionar para apagar">
             {selecionando ? <X size={16} aria-hidden /> : <CheckSquare size={16} aria-hidden />} {selecionando ? "Cancelar" : "Selecionar"}
           </button>}
@@ -95,7 +103,8 @@ export function PainelCorridas() {
         {erro && <p className="erro">{erro}</p>}
         {lista.length === 0 && (filtro === "planejadas"
           ? <p className="vazio">Nenhuma corrida planejada. Em “Nova corrida”, escolha “Planejar” para marcar data e hora.</p>
-          : <p className="vazio">Nenhuma corrida {filtro === "ativas" ? "ativa" : filtro === "concluidas" ? "concluída" : filtro === "canceladas" ? "cancelada" : ""} nos últimos 30 dias.</p>)}
+          : filtro === "montadas" ? <p className="vazio">Nenhuma rota esperando você. As rotas montadas saem sozinhas, a não ser que a regra peça a sua revisão.</p>
+          : <p className="vazio">Nenhuma rota {filtro === "ativas" ? "ativa" : filtro === "concluidas" ? "concluída" : filtro === "canceladas" ? "cancelada" : ""} nos últimos 30 dias.</p>)}
         {lista.map((c) => {
           const oferta = ofertas.find((o) => o.corrida_id === c.id);
           const coleta = c.paradas[0];
@@ -109,6 +118,10 @@ export function PainelCorridas() {
                 <span className="selo" style={{ color: COR_CORRIDA[c.status] }}>{ROTULO_CORRIDA[c.status]}</span>
                 {c.teste && <span className="selo" style={{ color: "var(--ouro)" }}><FlaskConical size={11} aria-hidden /> teste</span>}
                 {c.urgente && <span className="selo" style={{ color: "var(--vermelho)" }}><Zap size={11} aria-hidden /> urgente</span>}
+                {c.origem === "roteirizador" && <span className="selo" style={{ color: "#a78bfa" }}><Sparkles size={11} aria-hidden /> auto</span>}
+                {c.modo_despacho === "quadro" && !c.motoboy_id && c.status === "aguardando_motoboy" && <span className="selo" style={{ color: "var(--ouro-claro)" }}><Users size={11} aria-hidden /> quadro</span>}
+                {c.status === "montada" && <span className="selo" style={{ color: "#a78bfa" }}><Megaphone size={11} aria-hidden /> liberar</span>}
+                {c.tem_perigoso && <span className="selo" style={{ color: "var(--vermelho)" }}><FlaskConical size={11} aria-hidden /> perigoso</span>}
                 <span className="espaco" />
                 <span className="valor-lista">{moeda(c.valor)}</span>
               </div>
@@ -129,6 +142,7 @@ export function PainelCorridas() {
                 <span><Building2 size={12} aria-hidden /> {nomeCliente(c, empresas)}</span>
                 <span><Clock size={12} aria-hidden /> {hora(c.criada_em)}</span>
                 <span><Ruler size={12} aria-hidden /> {formatarKm(c.distancia_planejada_m)}</span>
+                {entregas.length > 1 && <span><ArrowDownToLine size={12} aria-hidden /> {entregas.length} entregas</span>}
                 {c.motoboy_id && !PLANEJADAS.includes(c.status) && <span><Bike size={12} aria-hidden /> {nome(c.motoboy_id)}</span>}
                 {!c.motoboy_id && c.motoboy_nome_arquivado && <span><Bike size={12} aria-hidden /> {c.motoboy_nome_arquivado} (conta excluída)</span>}
                 {oferta && <span>Enviada para {nome(oferta.motoboy_id)}</span>}

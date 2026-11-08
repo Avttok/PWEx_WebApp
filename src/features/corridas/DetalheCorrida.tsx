@@ -10,6 +10,7 @@ import { moeda } from "@/features/precos/estrategias";
 import { MapaCorridas } from "./MapaCorridas";
 import { nomeCliente, traduzirErro, useEmpresas, useEquipe } from "./dados";
 import { GestaoPlanejada } from "./GestaoPlanejada";
+import { BlocoRota } from "./BlocoRota";
 import { useConfiguracoes } from "@/features/configuracoes/useConfiguracoes";
 import { useConta } from "@/features/conta/conta";
 import { toast } from "@/features/ui/toast";
@@ -35,6 +36,12 @@ const ROTULO_EVENTO: Record<string, string> = {
   reagendada: "Horário mudado",
   planejada_despachada: "Planejada foi para o despacho",
   planejada_atrasada: "Atrasada: não iniciada no horário",
+  rota_montada: "Rota montada pelo sistema",
+  rota_atualizada: "Entrega nova encaixada na rota",
+  liberada: "Liberada para os motoboys",
+  foi_para_o_quadro: "Foi para o quadro (todos veem)",
+  entrega_movida: "Entrega movida para esta rota",
+  pagamento_ajustado: "Pagamento do motoboy ajustado",
 };
 
 function useEventos(corridaId: string) {
@@ -140,10 +147,10 @@ export function DetalheCorrida({ corrida, oferta, onVoltar, onExcluida }: { corr
     <>
       <aside className="lateral lateral-larga entrar">
         <div className="lateral-cabecalho">
-          <button className="botao-texto" onClick={onVoltar}><ArrowLeft size={15} aria-hidden /> Corridas</button>
+          <button className="botao-texto" onClick={onVoltar}><ArrowLeft size={15} aria-hidden /> Rotas</button>
           {corrida.teste && <span className="selo" style={{ color: "#a78bfa" }}><FlaskConical size={11} aria-hidden /> TESTE</span>}
         </div>
-        <CabecaPagina icone={Route} titulo={`Corrida ${numeroCorrida(corrida)}`} subtitulo={`${nomeCliente(corrida, empresas)} · criada às ${hora(corrida.criada_em)}`} />
+        <CabecaPagina icone={Route} titulo={`${corrida.origem === "roteirizador" ? "Rota" : "Corrida"} ${numeroCorrida(corrida)}`} subtitulo={`${nomeCliente(corrida, empresas)} · criada às ${hora(corrida.criada_em)}`} />
 
         <section className="bloco">
           <div className="status-grande display" style={{ color: COR_CORRIDA[corrida.status] }}>{ROTULO_CORRIDA[corrida.status]}</div>
@@ -178,7 +185,7 @@ export function DetalheCorrida({ corrida, oferta, onVoltar, onExcluida }: { corr
           )}
           {corrida.valor_motoboy != null && (
             <div className="numeros">
-              <div><span className="rotulo">Motoboy ({Number(corrida.repasse_pct)}%)</span><strong>{moeda(corrida.valor_motoboy)}</strong></div>
+              <div><span className="rotulo">Motoboy{corrida.pag_calculo?.modo === "percentual" ? ` (${Number(corrida.repasse_pct)}%)` : ""}</span><strong>{moeda(corrida.valor_motoboy)}</strong></div>
               <div><span className="rotulo">Gestão</span><strong className="texto-grad">{moeda(corrida.valor_gestao)}</strong></div>
               {Number(corrida.valor_dev) > 0 && <div><span className="rotulo">Dev ({Number(corrida.dev_pct)}%)</span><strong>{moeda(corrida.valor_dev ?? 0)}</strong></div>}
             </div>
@@ -198,6 +205,8 @@ export function DetalheCorrida({ corrida, oferta, onVoltar, onExcluida }: { corr
             <p className="codigo">Código de entrega: <strong className="texto-grad">{corrida.codigo_entrega}</strong> <span className="dica">(passe para quem vai receber)</span></p>
           )}
         </section>
+
+        <BlocoRota corrida={corrida} equipe={equipe} />
 
         {(corrida.status === "agendada" || corrida.status === "reservada") && (
           <GestaoPlanejada corrida={corrida} equipe={equipe} cfg={cfg} agora={agora} />
@@ -220,7 +229,7 @@ export function DetalheCorrida({ corrida, oferta, onVoltar, onExcluida }: { corr
             <div key={p.id} className={`parada-detalhe ${p.status}`}>
               <span className={`pino-mini ${p.tipo}`}>{p.ordem + 1}</span>
               <div className="parada-texto">
-                <strong>{p.tipo === "coleta" ? "Coleta" : "Entrega"} · {ROTULO_PARADA[p.status]}</strong>
+                <strong>{p.tipo === "coleta" ? "Coleta" : "Entrega"} · {ROTULO_PARADA[p.status]}{p.dist_rua_m != null && p.tipo === "entrega" ? <span className="dica"> · {formatarKm(p.dist_rua_m)} da coleta</span> : null}</strong>
                 <span>{p.endereco}</span>
                 {(p.contato_nome || p.contato_telefone) && <span className="dica">{p.contato_nome} {p.contato_telefone}</span>}
                 {p.instrucoes && <span className="dica">{p.instrucoes}</span>}

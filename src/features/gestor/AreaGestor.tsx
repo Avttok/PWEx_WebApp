@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { Session } from "@supabase/supabase-js";
-import { Building2, ChevronDown, Heart, List, Map, Route, Settings2, Store, Users, Wallet } from "lucide-react";
+import { Building2, ChevronDown, ClipboardList, Heart, List, Map, Route, Settings2, Store, Users, Wallet } from "lucide-react";
 import { sair as sairDaConta, supabase } from "@/lib/supabase/client";
 import { contas } from "@/lib/supabase/contas";
 import { LoginForm } from "@/features/auth/LoginForm";
@@ -22,7 +22,8 @@ export const useSessaoGestor = () => useContext(ContextoSessao);
 
 const ABAS = [
   { href: "/gestor/mapa", rotulo: "Mapa", icone: Map },
-  { href: "/gestor/corridas", rotulo: "Corridas", icone: Route },
+  { href: "/gestor/pedidos", rotulo: "Pedidos", icone: ClipboardList },
+  { href: "/gestor/corridas", rotulo: "Rotas", icone: Route },
   { href: "/gestor/clientes", rotulo: "Clientes", icone: Building2 },
   { href: "/gestor/equipe", rotulo: "Equipe", icone: Users },
   { href: "/gestor/carteira", rotulo: "Carteira", icone: Wallet },
@@ -64,7 +65,7 @@ export function AreaGestor({ children }: { children: ReactNode }) {
       setFoto(d?.foto_url ?? null);
       if (s.user.email) contas.atualizarPerfil(s.user.email, d?.nome ?? null, d?.foto_url ?? null);
       // conta só de cliente: vai para a área de pedidos
-      if (data !== true && (d?.papeis ?? []).includes("cliente")) { window.location.replace("/cliente"); return; }
+      if (data !== true && (d?.papeis ?? []).includes("cliente")) { window.location.replace(process.env.NEXT_PUBLIC_SITE_CLIENTE_URL || "/cliente"); return; }
       setAcesso(data === true ? "gestor" : "negado");
     }
     sb.auth.getSession().then(({ data }) => verificar(data.session));
@@ -137,6 +138,26 @@ export function AreaGestor({ children }: { children: ReactNode }) {
     const t = setInterval(conferir, 60_000);
     return () => clearInterval(t);
   }, [acesso]);
+  // pedidos esperando revisão: contador na aba e aviso quando chega um novo
+  const [paraRevisar, setParaRevisar] = useState(0);
+  useEffect(() => {
+    if (acesso !== "gestor") return;
+    const sb = supabase();
+    const contar = () => sb.from("pedidos").select("id", { count: "exact", head: true }).eq("status", "recebido").eq("teste", teste)
+      .then(({ count }) => setParaRevisar(count ?? 0));
+    void contar();
+    const canal = sb.channel(`pedidos-novos-${Math.random().toString(36).slice(2)}`)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "pedidos" }, (payload) => {
+        const p = payload.new as { numero: number; teste: boolean; origem: string; status: string };
+        if (p.teste === teste && p.origem === "cliente") {
+          toast(p.status === "recebido" ? "Revise e aprove para virar rota." : "Já foi para o roteirizador.", "info", { titulo: `Pedido novo #${p.numero}` });
+        }
+        void contar();
+      })
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "pedidos" }, () => void contar())
+      .subscribe();
+    return () => { sb.removeChannel(canal); };
+  }, [acesso, teste]);
   // estabelecimentos desligados pelo Dev: some de todos os mapas
   useEffect(() => { if (!dev && modulos.estabelecimentos === false) setEstabelecimentos(false); }, [dev, modulos.estabelecimentos, setEstabelecimentos]);
   const contextoConta = useMemo<ContextoConta>(() => ({
@@ -178,6 +199,7 @@ export function AreaGestor({ children }: { children: ReactNode }) {
             {ABAS.filter((a) => a.href !== "/gestor/carteira" || contextoConta.modulo("carteira")).map(({ href, rotulo, icone: Icone }) => (
               <Link key={href} href={href} className={caminho?.startsWith(href) ? "ativa" : ""}>
                 <Icone size={17} aria-hidden /> {rotulo}
+                {href === "/gestor/pedidos" && paraRevisar > 0 && <span className="aba-n" aria-label={`${paraRevisar} para revisar`}>{paraRevisar}</span>}
               </Link>
             ))}
           </nav>
