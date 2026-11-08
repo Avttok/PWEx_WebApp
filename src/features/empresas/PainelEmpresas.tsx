@@ -1,7 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AlertTriangle, Building2, CalendarClock, CheckCircle2, CreditCard, KeyRound, MapPin, Plus, Save, Search, Star, Trash2, UserPlus, UserRound, Wallet } from "lucide-react";
+import { AlertTriangle, Building2, CalendarClock, CheckCircle2, CircleDot, CreditCard, ExternalLink, FlaskConical, Inbox, KeyRound, Layers, MapPin, Plus, Save, Search, Star, Trash2, UserPlus, UserRound, Wallet, X } from "lucide-react";
+import { Icone, SeletorIcone } from "@/features/ui/icones";
+import { RegrasDoAlvo } from "@/features/configuracoes/Excecoes";
+import { CatalogoZonas } from "@/features/configuracoes/Catalogos";
+import { CadastrosPendentes } from "./CadastrosPendentes";
 import { toast } from "@/features/ui/toast";
 import { useConfiguracoes } from "@/features/configuracoes/useConfiguracoes";
 import { supabase } from "@/lib/supabase/client";
@@ -38,6 +42,8 @@ interface Formulario {
   repasse_pct: string;
   dev_pct: string;
   metodos: string[];
+  icone: string | null;
+  modo_teste: boolean;
 }
 
 const vazio: Formulario = {
@@ -45,7 +51,7 @@ const vazio: Formulario = {
   endereco: "", lat: null, lng: null, instrucoes_coleta: "",
   modalidade_preco: "por_km", valor_km: String(VALOR_KM_PADRAO), valor_fixo: "", cliente_ve_ao_vivo: false,
   observacoes: "", favoritos: [], dados_receita: null,
-  tipo: "pj", cpf: "", pode_express: false, repasse_pct: "", dev_pct: "", metodos: ["pix", "cartao"],
+  tipo: "pj", cpf: "", pode_express: false, repasse_pct: "", dev_pct: "", metodos: ["pix", "cartao"], icone: null, modo_teste: false,
 };
 
 function formatarCpf(s: string) {
@@ -98,7 +104,7 @@ function AcessosCliente({ empresaId, nome }: { empresaId: string; nome: string }
       body: JSON.stringify({ nome, email, senha, papeis: ["cliente"], empresa_id: empresaId }) });
     const j = await r.json().catch(() => ({}));
     if (!r.ok) return setErro(j.erro === "email_existe" ? "Esse e-mail já tem conta." : j.erro === "senha_curta" ? "Senha com pelo menos 8 caracteres." : j.erro === "email_invalido" ? "E-mail inválido." : `Não deu certo (${j.erro ?? r.status}).`);
-    setCriada(`PW Express · pwexpress.vercel.app/cliente\nE-mail: ${email.trim().toLowerCase()}\nSenha: ${senha}`);
+    setCriada(`PW Express · ${(process.env.NEXT_PUBLIC_SITE_CLIENTE_URL ?? "site do cliente").replace(/^https?:\/\//, "")}\nE-mail: ${email.trim().toLowerCase()}\nSenha: ${senha}`);
     toast("O cliente já pode entrar e fazer pedidos.", "ok", { titulo: "Acesso criado" });
     setEmail("");
     carregar();
@@ -131,6 +137,17 @@ export function PainelEmpresas() {
   const [consultando, setConsultando] = useState(false);
   const [localizando, setLocalizando] = useState(false);
   const [msg, setMsg] = useState<{ tipo: "ok" | "erro"; texto: string } | null>(null);
+  const [aba, setAba] = useState<"cadastro" | "regras" | "zonas">("cadastro");
+
+  async function abrirComoCliente() {
+    if (!selecionada || selecionada === "nova") return;
+    const { error } = await supabase().rpc("entrar_como_cliente", { p_empresa: selecionada });
+    if (error) return toast(error.message, "erro");
+    const url = process.env.NEXT_PUBLIC_SITE_CLIENTE_URL;
+    if (!url) return toast("Configure NEXT_PUBLIC_SITE_CLIENTE_URL na Vercel para abrir o site do cliente.", "aviso");
+    window.open(url, "_blank", "noopener");
+    toast(`No site do cliente você está como ${form.nome}${form.modo_teste ? " (modo teste)" : ""}.`, "ok");
+  }
 
   useEffect(() => {
     if (selecionada === "nova" || selecionada === null) { setForm(vazio); setMsg(null); return; }
@@ -149,7 +166,9 @@ export function PainelEmpresas() {
       tipo: e.tipo === "pf" ? "pf" : "pj", cpf: e.cpf ? formatarCpf(e.cpf) : "", pode_express: Boolean(e.pode_express),
       repasse_pct: e.repasse_pct != null ? String(e.repasse_pct) : "", dev_pct: e.dev_pct != null ? String(e.dev_pct) : "",
       metodos: e.pagamento_metodos ?? ["pix", "cartao"],
+      icone: (e as Empresa & { icone?: string | null }).icone ?? null, modo_teste: Boolean((e as Empresa & { modo_teste?: boolean }).modo_teste),
     });
+    setAba("cadastro");
     setMsg(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selecionada]);
@@ -233,6 +252,8 @@ export function PainelEmpresas() {
       valor_fixo: numero(form.valor_fixo),
       cliente_ve_ao_vivo: form.cliente_ve_ao_vivo,
       observacoes: form.observacoes.trim() || null,
+      icone: form.icone,
+      modo_teste: form.modo_teste,
     };
     if (form.dados_receita) { linha.dados_receita = form.dados_receita; linha.consultado_em = new Date().toISOString(); }
     const r = selecionada && selecionada !== "nova"
@@ -271,10 +292,13 @@ export function PainelEmpresas() {
       <aside className="lateral entrar">
         <CabecaPagina icone={Building2} titulo="Clientes" subtitulo={empresas.length === 1 ? "1 cliente cadastrado" : `${empresas.length} clientes cadastrados`} />
         <button className="botao-ouro" onClick={() => setSelecionada("nova")}><Plus size={17} aria-hidden /> Novo cliente</button>
+        <CadastrosPendentes onAprovado={(id) => { recarregar(); if (id) setSelecionada(id); }} />
         {empresas.map((e) => (
           <button key={e.id} className={`cartao-motoboy ${selecionada === e.id ? "selecionado" : ""}`} onClick={() => setSelecionada(e.id)}>
             <div className="linha">
+              <Icone nome={(e as Empresa & { icone?: string | null }).icone} padrao={e.tipo === "pf" ? UserRound : Building2} size={15} style={{ color: "var(--ouro)" }} />
               <strong>{e.nome}</strong>
+              {(e as Empresa & { modo_teste?: boolean }).modo_teste && <FlaskConical size={13} aria-label="cliente de teste" style={{ color: "#a78bfa" }} />}
               <span className="espaco" />
               <span className="selo" style={{ color: "var(--ouro)" }}>{descricaoPreco(e)}</span>
             </div>
@@ -294,7 +318,21 @@ export function PainelEmpresas() {
           <div className="formulario vidro entrar"><p className="vazio">Selecione um cliente ou cadastre um novo.</p></div>
         ) : (
           <div className="formulario vidro entrar" key={selecionada}>
-            <h2 className="display">{selecionada === "nova" ? "Novo cliente" : form.nome}</h2>
+            <div className="titulo-linha">
+              <SeletorIcone valor={form.icone} onMudar={(v) => set({ icone: v })} padrao={form.tipo === "pf" ? UserRound : Building2} rotulo="Ícone do cliente" />
+              <h2 className="display" style={{ margin: 0, flex: 1 }}>{selecionada === "nova" ? "Novo cliente" : form.nome}</h2>
+              {selecionada !== "nova" && <button className="botao-texto" onClick={abrirComoCliente} title="Abre o site do cliente como se fosse ele"><ExternalLink size={15} aria-hidden /> Ver como cliente</button>}
+            </div>
+            {selecionada !== "nova" && (
+              <div className="segmentado segmentado-rolavel" style={{ maxWidth: 520 }}>
+                <button type="button" className={aba === "cadastro" ? "ativo" : ""} onClick={() => setAba("cadastro")}><Building2 size={14} aria-hidden /> Cadastro</button>
+                <button type="button" className={aba === "regras" ? "ativo" : ""} onClick={() => setAba("regras")}><Layers size={14} aria-hidden /> Regras</button>
+                <button type="button" className={aba === "zonas" ? "ativo" : ""} onClick={() => setAba("zonas")}><CircleDot size={14} aria-hidden /> Zonas</button>
+              </div>
+            )}
+            {aba === "regras" && selecionada !== "nova" && <RegrasDoAlvo escopo="cliente" alvo={selecionada} nome={form.nome} />}
+            {aba === "zonas" && selecionada !== "nova" && <CatalogoZonas clienteId={selecionada} />}
+            {(aba === "cadastro" || selecionada === "nova") && <>
 
             <section className="secao">
               <div className="secao-titulo"><span className="cabeca-icone grad-suave" style={{ width: 34, height: 34, borderRadius: 11 }}><Search size={17} /></span><h3>Identificação</h3></div>
@@ -382,6 +420,8 @@ export function PainelEmpresas() {
             <section className="secao">
               <div className="secao-titulo"><span className="cabeca-icone grad-suave" style={{ width: 34, height: 34, borderRadius: 11 }}><CreditCard size={17} /></span>
                 <div><h3>Pedidos e pagamento</h3><p className="dica">Pedido do cliente só é despachado depois de pago. Não há pagamento em dinheiro nem na entrega.</p></div></div>
+              <label className="opcao"><span><strong><FlaskConical size={14} aria-hidden style={{ color: "#a78bfa" }} /> Cliente de teste</strong><br /><span className="dica">{form.modo_teste ? "Os pedidos dele são de teste (T): só motoboys em modo teste, fora das faturas reais." : "Pedidos reais."}</span></span>
+                <input type="checkbox" role="switch" checked={form.modo_teste} onChange={(e) => set({ modo_teste: e.target.checked })} /></label>
               <label className="opcao"><span><strong>Pode pedir Express</strong><br /><span className="dica">{form.pode_express ? "Pede para agora ou agenda." : "Só pedidos agendados (padrão para cliente novo)."}</span></span>
                 <input type="checkbox" role="switch" checked={form.pode_express} onChange={(e) => set({ pode_express: e.target.checked })} /></label>
               <div className="checks">
@@ -426,6 +466,7 @@ export function PainelEmpresas() {
               <button className="botao-ouro" disabled={salvando} onClick={salvar}><Save size={16} aria-hidden /> {salvando ? "Salvando…" : "Salvar"}</button>
               {selecionada !== "nova" && <button className="botao-perigo" onClick={excluir}><Trash2 size={16} aria-hidden /> Excluir</button>}
             </div>
+            </>}
           </div>
         )}
       </main>

@@ -28,9 +28,11 @@ export interface DefParametro {
   soDev?: boolean;
 }
 
-export type GrupoParametro = "pedidos" | "rotas" | "pagamento" | "precocliente" | "faturas" | "despacho" | "planejadas" | "local" | "preco" | "distancia" | "comprovantes" | "rastreamento" | "teste";
+export type GrupoParametro = "cliente" | "mapa" | "pedidos" | "rotas" | "pagamento" | "precocliente" | "faturas" | "despacho" | "planejadas" | "local" | "preco" | "distancia" | "comprovantes" | "rastreamento" | "teste";
 
 export const GRUPOS: Record<GrupoParametro, { titulo: string; descricao: string }> = {
+  cliente: { titulo: "Site do cliente", descricao: "Cadastro de empresas, o que o cliente vê e o que ele pode fazer." },
+  mapa: { titulo: "Mapa, veículo e simulador", descricao: "Motoboys offline no mapa, dados do veículo e o GPS simulado do modo teste." },
   pedidos: { titulo: "Pedidos", descricao: "O que acontece quando um pedido chega: revisão, Express, cobrança." },
   rotas: { titulo: "Rotas automáticas", descricao: "Como o sistema junta e separa pedidos em rotas e solta para os motoboys." },
   pagamento: { titulo: "Pagamento do motoboy", descricao: "Cálculo por rota, o que o motoboy enxerga e o período do holerite." },
@@ -47,7 +49,31 @@ export const GRUPOS: Record<GrupoParametro, { titulo: string; descricao: string 
 };
 
 export const PARAMETROS: DefParametro[] = [
+  // ---------------------------------------------------------------- site do cliente
+  { chave: "cadastro_cliente_modo", grupo: "cliente", rotulo: "Empresas se cadastram pelo site", descricao: "Como fica o “Criar conta” do site do cliente.", tipo: "escolha", padrao: "aprovacao",
+    opcoes: [{ valor: "aprovacao", rotulo: "Com aprovação", dica: "A conta espera você aprovar em Clientes → Cadastros." }, { valor: "instantaneo", rotulo: "Na hora", dica: "Já pode pedir assim que criar a conta." },
+             { valor: "desligado", rotulo: "Desligado", dica: "Só você cria contas de cliente." }] },
+  { chave: "cadastro_express_liberado", grupo: "cliente", rotulo: "Cadastro novo já pede Express", descricao: "Ligado: quem se cadastra sozinho já pode pedir para agora.", descricaoDesligado: "Desligado: começa só com agendados até você liberar no cadastro.", tipo: "booleano", padrao: false },
+  { chave: "cadastro_cobranca", grupo: "cliente", rotulo: "Cobrança de quem se cadastra", descricao: "Como começa a cobrança de quem criou a conta sozinho.", tipo: "escolha", padrao: "pre_pago",
+    opcoes: [{ valor: "pre_pago", rotulo: "Paga antes", dica: "PIX ou cartão antes do pedido sair." }, { valor: "credito", rotulo: "Crédito", dica: "Entra na fatura do ciclo." }] },
+  { chave: "cliente_pode_modelos", grupo: "cliente", rotulo: "Cliente salva modelos de pedido", descricao: "Ligado: o cliente guarda pedidos que se repetem e reusa (pode mudar tudo antes de enviar).", tipo: "booleano", padrao: true, escopos: ["cliente"] },
+  { chave: "cliente_pode_cancelar", grupo: "cliente", rotulo: "Cliente cancela o pedido", descricao: "Ligado: o cliente cancela enquanto nenhum motoboy pegou.", descricaoDesligado: "Desligado: para cancelar ele fala com você.", tipo: "booleano", padrao: true, escopos: ["cliente"] },
+  { chave: "cliente_ve_motoboy", grupo: "cliente", rotulo: "Cliente vê o nome do motoboy", descricao: "Só o primeiro nome.", tipo: "booleano", padrao: true, escopos: ["cliente"] },
+  { chave: "cliente_ve_codigo", grupo: "cliente", rotulo: "Cliente vê o código de entrega", descricao: "Para passar a quem recebe.", tipo: "booleano", padrao: true, escopos: ["cliente"] },
+  { chave: "cliente_troca_senha", grupo: "cliente", rotulo: "Cliente troca a própria senha", descricao: "Em Minha conta.", tipo: "booleano", padrao: true, escopos: ["cliente"] },
+  { chave: "item_categoria_obrigatoria", grupo: "cliente", rotulo: "Todo item precisa de tipo", descricao: "Ligado: o cliente não consegue mandar item “Outro” (sem tipo).", tipo: "booleano", padrao: false },
+  { chave: "zona_cliente_exclusiva", grupo: "cliente", rotulo: "Zona exclusiva do cliente", descricao: "Ligado: cliente com zonas próprias usa só as dele (ignora as gerais).", descricaoDesligado: "Desligado: as zonas dele somam com as gerais.", tipo: "booleano", padrao: false, escopos: ["cliente"] },
+  // ---------------------------------------------------------------- mapa, veículo e simulador
+  { chave: "mapa_offline_some_h", grupo: "mapa", rotulo: "Offline some do mapa após", descricao: "Motoboy offline há mais tempo que isso sai do mapa (continua na lista). 0 = nunca some.", tipo: "numero", padrao: 24, unidade: "h", min: 0, max: 720, passo: 1 },
+  { chave: "mapa_offline_esmaecer", grupo: "mapa", rotulo: "Offline vai apagando", descricao: "Ligado: quanto mais tempo sem sinal, mais transparente ele fica no mapa.", tipo: "booleano", padrao: true },
+  { chave: "motoboy_edita_veiculo", grupo: "mapa", rotulo: "Motoboy edita o próprio veículo", descricao: "Ligado: placa, cor e CNH no perfil do app.", descricaoDesligado: "Desligado: só você muda (Equipe → motoboy).", tipo: "booleano", padrao: false },
+  { chave: "veiculo_obrigatorio", grupo: "mapa", rotulo: "Só pega rota com placa cadastrada", descricao: "Vale para pegar rota no quadro (corridas de teste não contam).", tipo: "booleano", padrao: false },
+  { chave: "quadro_mostra_enderecos", grupo: "mapa", rotulo: "Quadro mostra os endereços", descricao: "Ligado: o motoboy vê bairro e endereço de cada parada antes de pegar a rota.", descricaoDesligado: "Desligado: vê só a distância e a quantidade de paradas.", tipo: "booleano", padrao: true },
+  { chave: "quadro_mostra_itens", grupo: "mapa", rotulo: "Quadro mostra os itens", descricao: "O que vai em cada entrega, antes de pegar.", tipo: "booleano", padrao: true },
+  { chave: "simulador_ligado", grupo: "mapa", rotulo: "Simulador de GPS (modo teste)", descricao: "Ligado: motoboys de teste podem andar sozinhos pela rota (no app e no Mapa do site) para testar o rastreamento.", tipo: "booleano", padrao: true },
+  { chave: "simulador_velocidade_kmh", grupo: "mapa", rotulo: "Velocidade do simulador", descricao: "Velocidade inicial (dá para mudar na hora).", tipo: "numero", padrao: 35, unidade: "km/h", min: 5, max: 120, passo: 5 },
   // ---------------------------------------------------------------- pedidos
+  { chave: "voltar_revisao_aceitas", grupo: "pedidos", rotulo: "Voltar à revisão com rota aceita", descricao: "Ligado: dá para voltar o pedido à revisão mesmo se o motoboy já aceitou a rota (se nenhuma parada foi feita).", tipo: "booleano", padrao: true },
   { chave: "pedido_revisao_gestor", grupo: "pedidos", rotulo: "Pedido novo passa pelo gestor", descricao: "Ligado: o pedido do cliente espera você aprovar (e ajustar o valor) antes de virar rota.", descricaoDesligado: "Desligado: o pedido vai direto para o roteirizador.", tipo: "booleano", padrao: true, escopos: ["tipo", "cliente"] },
   { chave: "cliente_pode_express", grupo: "pedidos", rotulo: "Cliente pode pedir Express", descricao: "Além do \u201cExpress liberado\u201d do cadastro. Desligado: só pedidos agendados.", tipo: "booleano", padrao: true, escopos: ["tipo", "cliente"] },
   { chave: "agendada_antecedencia_cliente_min", grupo: "pedidos", rotulo: "Antecedência do agendado", descricao: "O cliente só agenda para pelo menos esse tempo depois de agora.", tipo: "numero", padrao: 60, unidade: "min", min: 0, max: 2880, passo: 15, escopos: ["tipo", "cliente"] },

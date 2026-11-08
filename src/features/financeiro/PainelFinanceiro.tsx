@@ -111,8 +111,8 @@ export function PainelFinanceiro() {
         <p className="dica">Faturas (clientes no crédito) e a folha dos motoboys estão nas abas ao lado. O recebimento automático entra quando a intermediadora de pagamento for ligada.</p>
       </aside>
       <main className="conteudo">
-        <div className="formulario vidro entrar">
-          <div className="segmentado" style={{ gridTemplateColumns: "repeat(6, 1fr)" }}>
+        <div className="formulario larga vidro entrar">
+          <div className="segmentado segmentado-rolavel">
             {([["resumo", "Resumo"], ["faturas", "Faturas"], ["folha", "Folha"], ["clientes", "Clientes"], ["extrato", "Extrato"], ["pix", "PIX"]] as [Aba, string][]).map(([k, r]) => (
               <button key={k} type="button" className={aba === k ? "ativo" : ""} onClick={() => setAba(k)}>{r}</button>
             ))}
@@ -132,14 +132,14 @@ export function PainelFinanceiro() {
                 <div className="dev-num"><strong>{moeda(dev)}</strong><span>Dev · {total ? Math.round((dev / total) * 1000) / 10 : 0}%</span></div>
               </div>
               <h3 className="display" style={{ margin: "6px 0 0" }}>Por motoboy</h3>
-              <table className="tabela"><thead><tr><th>Motoboy</th><th>Rotas</th><th>Folha</th><th>Faturado</th><th>Chave PIX</th></tr></thead>
+              <div className="dev-rolagem"><table className="tabela"><thead><tr><th>Motoboy</th><th>Rotas</th><th>Folha</th><th>Faturado</th><th>Chave PIX</th></tr></thead>
                 <tbody>{porMotoboy.map(([id, a]) => {
                   const ch = chaves.find((c) => c.usuario_id === id && c.principal);
                   return (
                     <tr key={id}><td>{nomeM(id)}</td><td>{a.n}</td><td>{moeda(a.motoboy)}</td><td>{moeda(a.valor)}</td>
-                      <td>{ch ? <button className="botao-texto" onClick={() => copiar(ch.chave)} title={`${ch.titular} · ${ch.tipo_chave}`}><Copy size={13} aria-hidden /> {formatarPix(ch.chave, ch.tipo_chave)}</button> : <span className="dica">não cadastrada</span>}</td></tr>
+                      <td>{ch ? <button className="botao-texto celula-pix" onClick={() => copiar(ch.chave)} title={`${ch.titular} · ${ch.tipo_chave}`}><Copy size={13} aria-hidden /> {formatarPix(ch.chave, ch.tipo_chave)}</button> : <span className="dica">não cadastrada</span>}</td></tr>
                   );
-                })}</tbody></table>
+                })}</tbody></table></div>
             </>
           )}
 
@@ -147,8 +147,8 @@ export function PainelFinanceiro() {
           {aba === "folha" && <Folha />}
 
           {aba === "clientes" && (
-            <table className="tabela"><thead><tr><th>Cliente</th><th>Corridas</th><th>Faturado</th><th>Gestão</th><th>Dev</th></tr></thead>
-              <tbody>{porCliente.map(([id, a]) => <tr key={id}><td>{nomeC(id)}</td><td>{a.n}</td><td>{moeda(a.valor)}</td><td>{moeda(a.gestao)}</td><td>{moeda(a.dev)}</td></tr>)}</tbody></table>
+            <div className="dev-rolagem"><table className="tabela"><thead><tr><th>Cliente</th><th>Rotas</th><th>Faturado</th><th>Gestão</th><th>Dev</th></tr></thead>
+              <tbody>{porCliente.map(([id, a]) => <tr key={id}><td>{nomeC(id)}</td><td>{a.n}</td><td>{moeda(a.valor)}</td><td>{moeda(a.gestao)}</td><td>{moeda(a.dev)}</td></tr>)}</tbody></table></div>
           )}
 
           {aba === "extrato" && (

@@ -2,7 +2,7 @@
 
 import { useMemo, useRef, useState, type ReactNode } from "react";
 import {
-  Bike, Boxes, CalendarClock, Check, CircleDot, Clock, FileText, FlaskConical, Layers, Lock, MapPinned, Minus, Plus, Radar, Receipt, Route, Ruler, Search, Settings2,
+  Bike, Boxes, Building2, CalendarClock, Check, CircleDot, Clock, FileText, Map as MapIcon, FlaskConical, Layers, Lock, MapPinned, Minus, Plus, Radar, Receipt, Route, Ruler, Search, Settings2,
   ShieldCheck, Tags, TriangleAlert, Wallet, X, type LucideIcon,
 } from "lucide-react";
 import { useConta } from "@/features/conta/conta";
@@ -14,7 +14,7 @@ import { GRUPOS, PARAMETROS, type DefParametro, type GrupoParametro, type ValorP
 import { useConfiguracoes } from "./useConfiguracoes";
 
 const ICONES: Record<GrupoParametro, LucideIcon> = {
-  pedidos: FileText, rotas: Route, pagamento: Bike, precocliente: Tags, faturas: Receipt,
+  cliente: Building2, mapa: MapIcon, pedidos: FileText, rotas: Route, pagamento: Bike, precocliente: Tags, faturas: Receipt,
   despacho: Radar, planejadas: CalendarClock, local: MapPinned, preco: Wallet, distancia: Ruler, comprovantes: Receipt, rastreamento: ShieldCheck, teste: FlaskConical,
 };
 
@@ -93,7 +93,7 @@ export function PainelConfiguracoes() {
       </aside>
 
       <main className="conteudo">
-        <div className="config-pagina entrar" key={termo ? "busca" : grupo}>
+        <div className={`config-pagina entrar ${!termo && grupo === "zonas" ? "larga" : ""}`} key={termo ? "busca" : grupo}>
           <header className="config-titulo">
             {termo ? (
               <><span className="cabeca-icone grad-suave"><Search size={18} aria-hidden /></span>

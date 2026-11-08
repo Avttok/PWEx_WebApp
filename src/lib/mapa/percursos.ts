@@ -36,10 +36,10 @@ export function separarRegistros(pings: Ping[]): Registro[] {
 
 /**
  * Cores do percurso, do início ao mais recente.
- * Normal: vermelho → amarelo → verde → dourado. Teste: cinza → roxo → azul → violeta.
+ * Normal: vermelho → amarelo → verde (o mais recente). Teste: cinza → roxo → azul.
  */
 export function coresPercurso(teste: boolean): string[] {
-  return teste ? ["#8a8a93", "#9333ea", "#3b82f6", "#a78bfa"] : ["#ef4444", "#facc15", "#22c55e", "#d4af37"];
+  return teste ? ["#8a8a93", "#9333ea", "#3b82f6"] : ["#ef4444", "#facc15", "#22c55e"];
 }
 
 function misturar(cores: string[], t: number): string {
@@ -63,7 +63,7 @@ export function criarCamadasPercurso(m: Mapa, teste: boolean) {
     paint: {
       "line-width": ["case", ["get", "destaque"], 5, 3.5],
       "line-opacity": ["case", ["get", "apagado"], 0.35, 1],
-      "line-gradient": ["interpolate", ["linear"], ["line-progress"], 0, cores[0], 0.33, cores[1], 0.66, cores[2], 1, cores[3]],
+      "line-gradient": ["interpolate", ["linear"], ["line-progress"], ...cores.flatMap((c, i) => [i / (cores.length - 1), c])] as never,
     } });
   m.addLayer({ id: "pings", type: "circle", source: "pings",
     paint: { "circle-radius": ["case", ["get", "ponta"], 6, 3.4], "circle-color": ["get", "cor"], "circle-stroke-color": "#0a0a0a", "circle-stroke-width": 1,

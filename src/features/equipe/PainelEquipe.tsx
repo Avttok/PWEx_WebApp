@@ -1,7 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Bike, FlaskConical, History, Lock, PencilLine, Route, Save, ShieldCheck, UserPlus, Users } from "lucide-react";
+import { Bike, Building2, FlaskConical, History, Layers, Lock, PencilLine, Route, Save, ShieldCheck, UserPlus, UserRound, Users } from "lucide-react";
+import { VeiculoMembro } from "./VeiculoMembro";
+import { RegrasDoAlvo } from "@/features/configuracoes/Excecoes";
+import { SeletorIcone } from "@/features/ui/icones";
+import { useEmpresas } from "@/features/corridas/dados";
 import { RegistroMembro } from "./RegistroMembro";
 import { PercursosMembro } from "./PercursosMembro";
 import { BloquearConta, ExcluirConta, NovaConta, RedefinirSenha } from "./ContasEquipe";
@@ -33,7 +37,9 @@ export function PainelEquipe() {
   const conta = useConta();
   const [repasse, setRepasse] = useState("");
   const [msg, setMsg] = useState<{ ok: boolean; t: string } | null>(null);
-  const [aba, setAba] = useState<"registro" | "percursos" | "editar">("registro");
+  const [aba, setAba] = useState<"registro" | "percursos" | "veiculo" | "regras" | "editar">("registro");
+  const { empresas } = useEmpresas();
+  const [extra, setExtra] = useState<{ icone: string | null; empresa_id: string | null }>({ icone: null, empresa_id: null });
   const [criando, setCriando] = useState(false);
   const detalhe = useRef<HTMLDivElement>(null);
 
@@ -49,12 +55,15 @@ export function PainelEquipe() {
     if (!m) return;
     setNome(m.nome); setGestor(m.papeis.includes("gestor")); setMotoboy(m.papeis.includes("motoboy")); setDevPapel(m.papeis.includes("dev"));
     setRepasse(m.repasse_pct != null ? String(m.repasse_pct) : ""); setMsg(null);
+    supabase().from("perfis").select("icone,empresa_id").eq("id", m.id).maybeSingle()
+      .then(({ data }) => setExtra({ icone: (data?.icone as string | null) ?? null, empresa_id: (data?.empresa_id as string | null) ?? null }));
+    if ((aba === "veiculo" || aba === "regras") && !m.papeis.includes("motoboy")) setAba("registro");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sel]);
 
   async function salvar() {
     if (!m) return;
-    const papeis = [devPapel && "dev", gestor && "gestor", motoboy && "motoboy"].filter(Boolean);
+    const papeis = [devPapel && "dev", gestor && "gestor", motoboy && "motoboy", m.papeis.includes("cliente") && "cliente"].filter(Boolean);
     const { error } = await supabase().rpc("editar_membro", {
       p_usuario: m.id, p_nome: nome, p_papeis: papeis, p_repasse: repasse.trim() === "" ? null : Number(repasse.replace(",", ".")),
     });
@@ -117,22 +126,47 @@ export function PainelEquipe() {
                 </div>
               </div>
 
-              <div className="segmentado" style={{ gridTemplateColumns: m.papeis.includes("motoboy") && conta.modulo("trilhas_mapa") ? "1fr 1fr 1fr" : "1fr 1fr" }}>
+              <div className="segmentado segmentado-rolavel">
                 <button type="button" className={aba === "registro" ? "ativo" : ""} onClick={() => setAba("registro")}><History size={15} aria-hidden /> Registro</button>
                 {m.papeis.includes("motoboy") && conta.modulo("trilhas_mapa") && <button type="button" className={aba === "percursos" ? "ativo" : ""} onClick={() => setAba("percursos")}><Route size={15} aria-hidden /> Percursos</button>}
+                {m.papeis.includes("motoboy") && <button type="button" className={aba === "veiculo" ? "ativo" : ""} onClick={() => setAba("veiculo")}><Bike size={15} aria-hidden /> Veículo</button>}
+                {m.papeis.includes("motoboy") && <button type="button" className={aba === "regras" ? "ativo" : ""} onClick={() => setAba("regras")}><Layers size={15} aria-hidden /> Regras</button>}
                 <button type="button" className={aba === "editar" ? "ativo" : ""} onClick={() => setAba("editar")}><PencilLine size={15} aria-hidden /> Editar</button>
               </div>
 
-              {aba === "registro" ? <RegistroMembro key={m.id} id={m.id} /> : aba === "percursos" ? <PercursosMembro key={m.id} id={m.id} teste={Boolean(m.modo_teste)} /> : (m.papeis.includes("dev") && !conta.dev) ? (
+              {aba === "registro" ? <RegistroMembro key={m.id} id={m.id} /> : aba === "percursos" ? <PercursosMembro key={m.id} id={m.id} teste={Boolean(m.modo_teste)} />
+                : aba === "veiculo" ? <VeiculoMembro key={m.id} id={m.id} />
+                : aba === "regras" ? <RegrasDoAlvo key={m.id} escopo="motoboy" alvo={m.id} nome={m.nome || m.email} />
+                : (m.papeis.includes("dev") && !conta.dev) ? (
                 <p className="dica" style={{ margin: 0 }}><CodeXml size={14} style={{ verticalAlign: -2 }} /> Conta Dev: só o Dev altera esta conta.</p>
               ) : (
                 <>
-                  <label className="campo"><span>Nome de exibição</span><input value={nome} onChange={(e) => setNome(e.target.value)} /></label>
+                  <div className="linha-icone">
+                    <SeletorIcone valor={extra.icone} padrao={UserRound} rotulo="Ícone no mapa (sem foto)" onMudar={async (v) => {
+                      setExtra((x) => ({ ...x, icone: v }));
+                      const { error } = await supabase().rpc("definir_icone", { p_tipo: "perfil", p_id: m.id, p_icone: v });
+                      if (error) toast(error.message, "erro");
+                    }} />
+                    <label className="campo" style={{ flex: 1 }}><span>Nome de exibição</span><input value={nome} onChange={(e) => setNome(e.target.value)} /></label>
+                  </div>
                   <span className="rotulo">Papéis</span>
                   {conta.dev && <label className="opcao"><span><CodeXml size={14} style={{ verticalAlign: -2 }} /> Dev (administra o sistema inteiro)</span><input type="checkbox" checked={devPapel} onChange={(e) => setDevPapel(e.target.checked)} /></label>}
                   <label className="opcao"><span><ShieldCheck size={14} style={{ verticalAlign: -2 }} /> Gestor (acessa este painel)</span><input type="checkbox" checked={gestor} onChange={(e) => setGestor(e.target.checked)} /></label>
                   <label className="opcao"><span><Bike size={14} style={{ verticalAlign: -2 }} /> Motoboy (usa o app e recebe corridas)</span><input type="checkbox" checked={motoboy} onChange={(e) => setMotoboy(e.target.checked)} /></label>
                   {gestor && motoboy && <p className="dica">Gestor + motoboy tem as ferramentas de administrador e o modo teste no app.</p>}
+                  {(gestor || devPapel) && (
+                    <label className="campo"><span><Building2 size={13} style={{ verticalAlign: -2 }} /> Também é cliente (entra no site do cliente como este cadastro)</span>
+                      <select value={extra.empresa_id ?? ""} onChange={async (e) => {
+                        const v = e.target.value || null;
+                        const { error } = await supabase().rpc("vincular_cliente", { p_usuario: m.id, p_empresa: v });
+                        if (error) return toast(error.message, "erro");
+                        setExtra((x) => ({ ...x, empresa_id: v }));
+                        toast(v ? `Agora ${nome || m.email} também é cliente de ${empresas.find((x) => x.id === v)?.nome ?? ""}.` : "Não é mais cliente.", "ok");
+                        carregar();
+                      }}>
+                        <option value="">Não</option>{empresas.map((x) => <option key={x.id} value={x.id}>{x.nome}</option>)}
+                      </select></label>
+                  )}
                   {motoboy && (
                     <label className="campo curto"><span>Repasse individual (%)</span>
                       <input inputMode="decimal" placeholder={`padrão: ${cfg.repasse_motoboy_pct}%`} value={repasse} onChange={(e) => setRepasse(e.target.value)} />

@@ -25,7 +25,7 @@ export async function POST(req: Request) {
   if (papeis.includes("dev") && !(await ehDev(req))) return Response.json({ erro: "apenas_dev" }, { status: 403 });
   // conta de cliente: só esse papel, ligada a um cliente cadastrado
   const empresaId = papeis.includes("cliente") ? String(c.empresa_id ?? "") : "";
-  if (papeis.includes("cliente") && (papeis.length > 1 || !/^[0-9a-f-]{36}$/i.test(empresaId))) return Response.json({ erro: "cliente_sem_cadastro" }, { status: 400 });
+  if (papeis.includes("cliente") && !/^[0-9a-f-]{36}$/i.test(empresaId)) return Response.json({ erro: "cliente_sem_cadastro" }, { status: 400 });
   const repasse = c.repasse == null ? null : Number(c.repasse);
   if (repasse != null && (Number.isNaN(repasse) || repasse < 0 || repasse > 100)) return Response.json({ erro: "percentual_invalido" }, { status: 400 });
 

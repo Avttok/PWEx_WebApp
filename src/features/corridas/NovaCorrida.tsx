@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
 import { geo, type Endereco, type Referencia, type Rota } from "@/features/geo";
+import { ListaOrdenavel } from "@/features/ui/ListaOrdenavel";
 import { CampoReferencias } from "./CampoReferencias";
 import { useConta } from "@/features/conta/conta";
 import { DIAS_SEMANA, formatarQuando, gerarDatas, paraCampo, relativo, sugestaoHorario, type Repeticao } from "./planejadas";
@@ -396,17 +397,16 @@ export function NovaCorrida({ onCriada, onVoltar }: { onCriada: (id: string) => 
 
         <section className="bloco">
           <span className="rotulo">Paradas</span>
-          {paradas.map((p, i) => (
-            <div key={p.chave} className={`parada-form ${p.tipo}`}>
+          <ListaOrdenavel itens={paradas} chave={(p) => p.chave} onMudar={setParadas} render={(p, i, alca) => (
+            <div className={`parada-form ${p.tipo}`}>
               <div className="parada-topo">
+                {alca}
                 <span className={`pino-mini ${p.tipo}`}>{i + 1}</span>
                 <select value={p.tipo} onChange={(e) => atualizar(p.chave, { tipo: e.target.value as TipoParada })}>
                   <option value="coleta">Coleta</option>
                   <option value="entrega">Entrega</option>
                 </select>
                 <span className="espaco" />
-                <button type="button" className="icone" title="Subir" onClick={() => mover(i, -1)}><ArrowUp size={14} /></button>
-                <button type="button" className="icone" title="Descer" onClick={() => mover(i, 1)}><ArrowDown size={14} /></button>
                 {paradas.length > 2 && (
                   <button type="button" className="icone" title="Remover" onClick={() => setParadas((l) => l.filter((x) => x.chave !== p.chave))}><X size={14} /></button>
                 )}
@@ -434,7 +434,7 @@ export function NovaCorrida({ onCriada, onVoltar }: { onCriada: (id: string) => 
                 </div>
               )}
             </div>
-          ))}
+          )} />
           <div className="linha-botoes">
             <button type="button" className="botao-texto" onClick={() => setParadas((l) => [...l, novaParada("coleta")])}><Plus size={15} /> Coleta</button>
             <button type="button" className="botao-texto" onClick={() => setParadas((l) => [...l, novaParada("entrega")])}><Plus size={15} /> Entrega</button>

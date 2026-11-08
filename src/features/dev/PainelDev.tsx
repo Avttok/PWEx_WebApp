@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { BatteryMedium, Bike, CodeXml, FlaskConical, History, LayoutDashboard, ShieldCheck, Smartphone, ToggleRight, UserRound } from "lucide-react";
+import { BatteryMedium, Bike, CodeXml, FlaskConical, History, LayoutDashboard, Rocket, ShieldCheck, Smartphone, ToggleRight, UserRound } from "lucide-react";
+import { VersaoApp } from "./VersaoApp";
 import { supabase } from "@/lib/supabase/client";
 import { CabecaPagina } from "@/features/ui/CabecaPagina";
 import { useConta, type Papel } from "@/features/conta/conta";
@@ -32,7 +33,7 @@ function ha(iso: string | null) {
 /** Console do Dev: o sistema inteiro à vista, módulos liga/desliga e quem vê cada um. */
 export function PainelDev() {
   const conta = useConta();
-  const [aba, setAba] = useState<"modulos" | "sistema" | "aparelhos" | "registro">("modulos");
+  const [aba, setAba] = useState<"modulos" | "versao" | "sistema" | "aparelhos" | "registro">("modulos");
   const [modulos, setModulos] = useState<ModuloLinha[]>([]);
   const [painel, setPainel] = useState<Painel | null>(null);
   const [erro, setErro] = useState<string | null>(null);
@@ -65,6 +66,7 @@ export function PainelDev() {
         <CabecaPagina icone={CodeXml} titulo="Console Dev" subtitulo="O sistema inteiro, sem filtro" />
         <div className="filtro" style={{ alignSelf: "flex-start", flexWrap: "wrap" }}>
           <button className={aba === "modulos" ? "ativo" : ""} onClick={() => setAba("modulos")}><ToggleRight size={14} aria-hidden /> Módulos</button>
+          <button className={aba === "versao" ? "ativo" : ""} onClick={() => setAba("versao")}><Rocket size={14} aria-hidden /> Versão do app</button>
           <button className={aba === "sistema" ? "ativo" : ""} onClick={() => setAba("sistema")}><LayoutDashboard size={14} aria-hidden /> Sistema</button>
           <button className={aba === "aparelhos" ? "ativo" : ""} onClick={() => setAba("aparelhos")}><Smartphone size={14} aria-hidden /> Aparelhos</button>
           <button className={aba === "registro" ? "ativo" : ""} onClick={() => setAba("registro")}><History size={14} aria-hidden /> Registro</button>
@@ -102,6 +104,7 @@ export function PainelDev() {
               ))}
             </section>
           ))}
+          {aba === "versao" && <VersaoApp />}
           {aba === "sistema" && painel && (
             <div className="dev-grade">
               {CONTAGENS.map(([k, r]) => <div key={k} className="dev-num"><strong>{(painel.contagens[k] ?? 0).toLocaleString("pt-BR")}</strong><span>{r}</span></div>)}
@@ -132,7 +135,7 @@ export function PainelDev() {
               </table>
             )
           )}
-          {!painel && !erro && <p className="dica">Carregando…</p>}
+          {!painel && !erro && aba !== "versao" && <p className="dica">Carregando…</p>}
         </div>
       </main>
     </>

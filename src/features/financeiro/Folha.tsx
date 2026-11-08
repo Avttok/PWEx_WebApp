@@ -68,7 +68,7 @@ export function Folha() {
   return (
     <div className="folha">
       <div className="folha-topo">
-        <div className="segmentado" style={{ gridTemplateColumns: "repeat(4, 1fr)", maxWidth: 420 }}>
+        <div className="segmentado segmentado-rolavel" style={{ maxWidth: 460 }}>
           {(["diario", "semanal", "quinzenal", "mensal"] as Periodo[]).map((p) => (
             <button key={p} type="button" className={tipo === p ? "ativo" : ""} onClick={() => { setTipo(p); setPasso(0); }}>{{ diario: "Dia", semanal: "Semana", quinzenal: "Quinzena", mensal: "Mês" }[p]}</button>
           ))}

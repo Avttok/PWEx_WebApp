@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import {
-  Ban, CalendarClock, Check, CheckCircle2, CircleDollarSign, ClipboardList, FlaskConical, Package, PackagePlus, RefreshCw, Route, Search, Wallet, X, Zap,
+  Ban, CalendarClock, Check, CheckCircle2, CircleDollarSign, ClipboardList, FlaskConical, Package, PackagePlus, RefreshCw, Route, Search, Undo2, Wallet, X, Zap,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
 import { useEmpresas, useRecarregarAoMudar } from "@/features/corridas/dados";
@@ -13,6 +13,8 @@ import { useModoTeste } from "@/features/teste/modoTeste";
 import { CabecaPagina } from "@/features/ui/CabecaPagina";
 import { toast } from "@/features/ui/toast";
 import { FormPedido, OrcamentoDetalhe } from "./FormPedido";
+import { RegrasPedido } from "./RegrasPedido";
+import { Icone } from "@/features/ui/icones";
 import { COR_PEDIDO, ROTULO_PEDIDO, moedaBr, quando, traduzir, type Categoria, type Pedido, type StatusPedido } from "./tipos";
 
 type Filtro = "revisar" | "andamento" | "entregues" | "fora" | "todos";
@@ -117,19 +119,22 @@ function DetalhePedido({ p, cliente, categorias, rotas, onFechar }: {
   const [valor, setValor] = useState(String(p.valor ?? "").replace(".", ","));
   const [motivo, setMotivo] = useState(p.ajuste_motivo ?? "");
   const [ocupado, setOcupado] = useState(false);
+  const [regras, setRegras] = useState<Record<string, unknown>>((p as Pedido & { regras?: Record<string, unknown> }).regras ?? {});
   const pontos = [...(p.pedido_pontos ?? [])].sort((a, b) => a.ordem - b.ordem);
   const pinos: PinoParada[] = pontos.map((x, i) => ({ chave: x.id, lat: x.lat, lng: x.lng, tipo: x.tipo, rotulo: String(i + 1), concluida: x.status === "concluido" }));
   const unicas = [...new Map(rotas.map((r) => [r.corrida_id, r])).values()];
   const valorNum = Number(valor.replace(",", "."));
   const mudouValor = Number.isFinite(valorNum) && valor.trim() !== "" && valorNum !== Number(p.valor);
 
-  async function acao(a: "aprovar" | "ajustar" | "recusar" | "recalcular") {
+  async function acao(a: "aprovar" | "ajustar" | "recusar" | "recalcular" | "voltar_revisao") {
     if (a === "recusar" && !confirm(`Recusar o pedido #${p.numero}?`)) return;
+    if (a === "voltar_revisao" && !confirm(`Voltar o pedido #${p.numero} para a revisão? Ele sai das rotas (as que ficarem vazias são canceladas) e espera você aprovar de novo.`)) return;
     setOcupado(true);
     const { error } = await supabase().rpc("revisar_pedido", { p_pedido: p.id, p_acao: a, p_valor: (a === "aprovar" || a === "ajustar") && mudouValor ? valorNum : null, p_motivo: motivo || null });
     setOcupado(false);
     if (error) return toast(traduzir(error.message), "erro");
-    toast(a === "aprovar" ? "Aprovado: o roteirizador já está montando a rota." : a === "recusar" ? "Pedido recusado." : a === "recalcular" ? "Orçamento refeito com as regras de agora." : "Valor ajustado.", "ok");
+    toast(a === "aprovar" ? "Aprovado: o roteirizador já está montando a rota." : a === "recusar" ? "Pedido recusado." : a === "recalcular" ? "Orçamento refeito com as regras de agora."
+      : a === "voltar_revisao" ? "Pedido de volta à revisão: ajuste as regras e aprove de novo." : "Valor ajustado.", "ok");
   }
   async function cancelar() {
     const m = prompt(`Cancelar o pedido #${p.numero}? Motivo (opcional):`);
@@ -180,7 +185,7 @@ function DetalhePedido({ p, cliente, categorias, rotas, onFechar }: {
               <tbody>{p.pedido_itens!.map((it) => {
                 const k = categorias.find((c) => c.id === it.categoria_id);
                 return (
-                  <tr key={it.id}><td>{it.descricao}</td><td>{k ? <>{k.perigoso && <FlaskConical size={12} style={{ color: "var(--vermelho)" }} aria-label="Perigoso" />} {k.nome}</> : "—"}</td>
+                  <tr key={it.id}><td>{it.descricao}</td><td>{k ? <span className="pessoa"><Icone nome={k.icone} size={13} style={{ color: k.perigoso ? "var(--vermelho)" : "var(--ouro)" }} /> {k.nome}</span> : "—"}</td>
                     <td>{it.quantidade}</td><td>{it.peso_kg != null ? `${it.peso_kg} kg` : "—"}</td>
                     <td>{it.comprimento_cm ? `${it.comprimento_cm}×${it.largura_cm}×${it.altura_cm} cm` : "—"}</td><td>{moedaBr(it.valor_declarado)}</td></tr>
                 );
@@ -212,6 +217,8 @@ function DetalhePedido({ p, cliente, categorias, rotas, onFechar }: {
           {p.status === "recebido" && <button className="botao-ouro" disabled={ocupado} onClick={() => acao("aprovar")}><Check size={16} aria-hidden /> Aprovar{mudouValor ? " com o valor novo" : ""}</button>}
           {p.status !== "recebido" && p.status !== "cancelado" && p.status !== "recusado" && mudouValor && <button className="botao-ouro" disabled={ocupado} onClick={() => acao("ajustar")}><CircleDollarSign size={16} aria-hidden /> Salvar valor</button>}
           {!finalizado && <button className="botao-texto" disabled={ocupado} onClick={() => acao("recalcular")}><RefreshCw size={15} aria-hidden /> Recalcular</button>}
+          {["aprovado", "roteirizado", "em_rota"].includes(p.status) && !pontos.some((x) => x.status === "concluido") &&
+            <button className="botao-texto" disabled={ocupado} onClick={() => acao("voltar_revisao")} title="Desfaz a rota enquanto nenhuma coleta/entrega foi feita"><Undo2 size={15} aria-hidden /> Voltar à revisão</button>}
           {p.cobranca === "pre_pago" && p.pagamento_status === "pendente" && !finalizado && <>
             <button className="botao-texto" onClick={() => pago("pix")}><Package size={15} aria-hidden /> PIX recebido</button>
             <button className="botao-texto" onClick={() => pago("cartao")}><Package size={15} aria-hidden /> Cartão recebido</button>
@@ -222,6 +229,7 @@ function DetalhePedido({ p, cliente, categorias, rotas, onFechar }: {
         </div>
         <p className="dica" style={{ margin: 0 }}>{formatarKm(p.distancia_estimada_m)} estimados · {(p.pedido_pontos ?? []).filter((x) => x.tipo === "entrega").length} entrega(s)</p>
       </div>
+      {!finalizado && <RegrasPedido pedidoId={p.id} valor={regras} onMudar={setRegras} aberto={Object.keys(regras).length > 0} />}
     </div>
   );
 }

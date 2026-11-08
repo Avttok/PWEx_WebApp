@@ -119,14 +119,19 @@ export function ChavesEquipe({ chaves, nome }: { chaves: ChavePix[]; nome: (id: 
   }, [chaves, eu, nome]);
   if (porPessoa.length === 0) return <p className="dica">Ninguém da equipe cadastrou chave PIX ainda.</p>;
   return (
-    <table className="tabela"><thead><tr><th>Pessoa</th><th>Chaves</th></tr></thead>
-      <tbody>{porPessoa.map(([id, cs]) => (
-        <tr key={id}><td>{nome(id)}</td>
-          <td><div style={{ display: "flex", flexDirection: "column", gap: 4 }}>{cs.map((c) => (
-            <button key={c.id} className="botao-texto" onClick={() => copiar(c.chave)} title={`${c.titular} · ${ROTULO_PIX[c.tipo_chave as TipoPix] ?? c.tipo_chave}`} style={{ justifyContent: "flex-start" }}>
-              <IconePix tipo={c.tipo_chave} size={13} /> {formatarPix(c.chave, c.tipo_chave)}{c.principal && <Star size={11} aria-label="principal" style={{ color: "var(--ouro)" }} />}
+    <div className="pix-equipe">
+      {porPessoa.map(([id, cs]) => (
+        <div key={id} className="pix-pessoa">
+          <span className="pix-nome">{nome(id)}</span>
+          <div className="pix-chaves">{cs.map((c) => (
+            <button key={c.id} type="button" className={`pix-chave ${c.principal ? "principal" : ""}`} onClick={() => copiar(c.chave)} title={`${c.titular} · ${ROTULO_PIX[c.tipo_chave as TipoPix] ?? c.tipo_chave} · toque para copiar`}>
+              <IconePix tipo={c.tipo_chave} size={14} />
+              <span className="pix-texto"><strong>{formatarPix(c.chave, c.tipo_chave)}</strong><small>{ROTULO_PIX[c.tipo_chave as TipoPix] ?? c.tipo_chave} · {c.titular}</small></span>
+              {c.principal ? <Star size={13} aria-label="principal" fill="currentColor" /> : <Copy size={13} aria-hidden />}
             </button>
-          ))}</div></td></tr>
-      ))}</tbody></table>
+          ))}</div>
+        </div>
+      ))}
+    </div>
   );
 }

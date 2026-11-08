@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Bike, Building2, Layers, RotateCcw, Tags } from "lucide-react";
+import { Bike, Building2, Layers, RotateCcw, Search, Tags } from "lucide-react";
+import { useConfiguracoes } from "./useConfiguracoes";
 import { supabase } from "@/lib/supabase/client";
 import { useEmpresas, useEquipe } from "@/features/corridas/dados";
 import { useConta } from "@/features/conta/conta";
@@ -13,6 +14,85 @@ interface Politica { escopo: Escopo; alvo: string; chave: string; valor: ValorPa
 interface Tipo { chave: string; nome: string }
 
 const ICONE = { cliente: Building2, motoboy: Bike, tipo: Tags };
+
+export const fmtRegra = (v: ValorParametro, chave: string) => {
+  const p = PARAMETROS.find((x) => x.chave === chave);
+  if (typeof v === "boolean") return v ? "ligado" : "desligado";
+  const op = p?.opcoes?.find((o) => o.valor === v);
+  if (op) return op.rotulo;
+  return `${p?.unidade === "R$" ? "R$ " : ""}${String(v).replace(".", ",")}${p?.unidade && p.unidade !== "R$" ? ` ${p.unidade}` : ""}`;
+};
+const fmt = fmtRegra;
+
+/** Lista de regras com o valor da exceção (ou o padrão), por grupo. Serve para cliente, motoboy, tipo e pedido. */
+export function EditorRegras({ params, valores, cfg, estado, onDefinir, filtro }: {
+  params: typeof PARAMETROS;
+  valores: Record<string, ValorParametro>;
+  cfg: Configuracoes;
+  estado: Record<string, "salvando" | "salvo" | "erro" | undefined>;
+  onDefinir: (chave: string, valor: ValorParametro | null) => void;
+  filtro?: string;
+}) {
+  const conta = useConta();
+  const termo = (filtro ?? "").trim().toLowerCase();
+  const lista = termo ? params.filter((p) => `${p.rotulo} ${p.descricao}`.toLowerCase().includes(termo)) : params;
+  return (
+    <div className="config-lista">
+      {Object.keys(GRUPOS).map((g) => {
+        const doGrupo = lista.filter((p) => p.grupo === g);
+        if (!doGrupo.length) return null;
+        return (
+          <section key={g} className="excecoes-grupo">
+            <h3 className="rotulo">{GRUPOS[g as keyof typeof GRUPOS].titulo}</h3>
+            {doGrupo.map((p) => {
+              const tem = p.chave in valores;
+              const bloqueado = p.soDev && !conta.dev;
+              return (
+                <div key={p.chave} className={`excecao ${tem ? "com" : "sem"}`}>
+                  <Parametro p={p} valor={tem ? valores[p.chave] : cfg[p.chave]} estado={estado[p.chave]} mostrarGrupo={false} bloqueado={bloqueado}
+                    onSalvar={(v) => onDefinir(p.chave, v)}
+                    extra={tem
+                      ? <span className="excecao-tag">Exceção · padrão: {fmt(cfg[p.chave], p.chave)}
+                          {!bloqueado && <button type="button" className="link" onClick={() => onDefinir(p.chave, null)}><RotateCcw size={11} aria-hidden /> usar o padrão</button>}</span>
+                      : <span className="excecao-tag padrao">Usando o padrão · mude para criar a exceção</span>} />
+                </div>
+              );
+            })}
+          </section>
+        );
+      })}
+    </div>
+  );
+}
+
+/** Peças do lego de um cliente ou motoboy, direto no perfil dele. */
+export function RegrasDoAlvo({ escopo, alvo, nome }: { escopo: Escopo; alvo: string; nome: string }) {
+  const cfg = useConfiguracoes();
+  const [valores, setValores] = useState<Record<string, ValorParametro>>({});
+  const [estado, setEstado] = useState<Record<string, "salvando" | "salvo" | "erro" | undefined>>({});
+  const [busca, setBusca] = useState("");
+  const carregar = useCallback(() => {
+    supabase().from("politicas").select("chave,valor").eq("escopo", escopo).eq("alvo", alvo)
+      .then(({ data }) => setValores(Object.fromEntries(((data ?? []) as { chave: string; valor: ValorParametro }[]).map((x) => [x.chave, x.valor]))));
+  }, [escopo, alvo]);
+  useEffect(() => { carregar(); }, [carregar]);
+  async function definir(chave: string, valor: ValorParametro | null) {
+    setEstado((e) => ({ ...e, [chave]: "salvando" }));
+    const { error } = await supabase().rpc("definir_politica", { p_escopo: escopo, p_alvo: alvo, p_chave: chave, p_valor: valor });
+    if (error) { setEstado((e) => ({ ...e, [chave]: "erro" })); toast(error.message.includes("apenas_dev") ? "Só o Dev altera a parte do Dev." : error.message, "erro"); return; }
+    setEstado((e) => ({ ...e, [chave]: "salvo" }));
+    setTimeout(() => setEstado((e) => ({ ...e, [chave]: undefined })), 1500);
+    carregar();
+  }
+  const n = Object.keys(valores).length;
+  return (
+    <div className="excecoes">
+      <p className="dica" style={{ margin: 0 }}><Layers size={12} aria-hidden /> Regras só de <strong>{nome}</strong>{n ? ` · ${n} diferente${n === 1 ? "" : "s"} do padrão` : " · tudo no padrão"}. {escopo === "cliente" ? "Valem para todos os pedidos dele (um pedido pode ter regras próprias)." : "Valem para todas as rotas dele."}</p>
+      <label className="busca-mini"><Search size={14} aria-hidden /><input placeholder="Buscar regra" value={busca} onChange={(e) => setBusca(e.target.value)} /></label>
+      <EditorRegras params={PARAMETROS.filter((p) => p.escopos?.includes(escopo))} valores={valores} cfg={cfg} estado={estado} onDefinir={definir} filtro={busca} />
+    </div>
+  );
+}
 
 /** Regras diferentes do padrão para um cliente, um motoboy ou um tipo de pedido. Vence: motoboy > cliente > tipo > padrão. */
 export function Excecoes({ cfg }: { cfg: Configuracoes }) {
@@ -55,13 +135,6 @@ export function Excecoes({ cfg }: { cfg: Configuracoes }) {
   }
 
   const Icone = ICONE[escopo];
-  const fmt = (v: ValorParametro, chave: string) => {
-    const p = PARAMETROS.find((x) => x.chave === chave);
-    if (typeof v === "boolean") return v ? "ligado" : "desligado";
-    const op = p?.opcoes?.find((o) => o.valor === v);
-    if (op) return op.rotulo;
-    return `${p?.unidade === "R$" ? "R$ " : ""}${String(v).replace(".", ",")}${p?.unidade && p.unidade !== "R$" ? ` ${p.unidade}` : ""}`;
-  };
 
   return (
     <div className="excecoes">
@@ -97,31 +170,7 @@ export function Excecoes({ cfg }: { cfg: Configuracoes }) {
               </div>
             </div>
           )}
-          <div className="config-lista">
-            {Object.keys(GRUPOS).map((g) => {
-              const doGrupo = params.filter((p) => p.grupo === g);
-              if (!doGrupo.length) return null;
-              return (
-                <section key={g} className="excecoes-grupo">
-                  <h3 className="rotulo">{GRUPOS[g as keyof typeof GRUPOS].titulo}</h3>
-                  {doGrupo.map((p) => {
-                    const pol = minhas.find((x) => x.chave === p.chave);
-                    const bloqueado = p.soDev && !conta.dev;
-                    return (
-                      <div key={p.chave} className={`excecao ${pol ? "com" : "sem"}`}>
-                        <Parametro p={p} valor={pol ? pol.valor : cfg[p.chave]} estado={estado[p.chave]} mostrarGrupo={false} bloqueado={bloqueado}
-                          onSalvar={(v) => definir(p.chave, v)}
-                          extra={pol
-                            ? <span className="excecao-tag">Exceção · padrão: {fmt(cfg[p.chave], p.chave)}
-                                {!bloqueado && <button type="button" className="link" onClick={() => definir(p.chave, null)}><RotateCcw size={11} aria-hidden /> usar o padrão</button>}</span>
-                            : <span className="excecao-tag padrao">Usando o padrão · mude para criar a exceção</span>} />
-                      </div>
-                    );
-                  })}
-                </section>
-              );
-            })}
-          </div>
+          <EditorRegras params={params} valores={Object.fromEntries(minhas.map((x) => [x.chave, x.valor]))} cfg={cfg} estado={estado} onDefinir={definir} />
         </>
       )}
     </div>

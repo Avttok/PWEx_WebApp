@@ -13,6 +13,23 @@ import { useConta } from "@/features/conta/conta";
 import { useRastreamento } from "./useRastreamento";
 import { carregarCalor, ROTULO_CALOR, type TipoCalor } from "./calor";
 import { COR_STATUS, ROTULO_STATUS, type Motoboy } from "./tipos";
+import { SimuladorGps } from "./Simulador";
+import { useConfiguracoes } from "@/features/configuracoes/useConfiguracoes";
+
+const MOTO = `<svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="18.5" cy="17.5" r="3.5"/><circle cx="5.5" cy="17.5" r="3.5"/><circle cx="15" cy="5" r="1"/><path d="M12 17.5V14l-3-3 4-3 2 3h2"/></svg>`;
+const FRASCO = `<svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2v7.31"/><path d="M14 9.3V1.99"/><path d="M8.5 2h7"/><path d="M14 9.3a6.5 6.5 0 1 1-4 0"/><path d="M5.52 16h12.96"/></svg>`;
+/** Cores do motoboy em modo teste (seguem o violeta do tema de teste). */
+const COR_TESTE: Record<Motoboy["status"], string> = { offline: "#8a8a8a", disponivel: "#a78bfa", em_corrida: "#8b5cf6" };
+export const corMotoboy = (m: Motoboy) => (m.modo_teste ? COR_TESTE : COR_STATUS)[m.status];
+
+/** Offline vai esmaecendo com o tempo sem sinal; passou do limite, some do mapa (null). */
+function opacidade(m: Motoboy, agora: number, someH: number, esmaecer: boolean): number | null {
+  if (m.status !== "offline") return 1;
+  const h = m.posicao_em ? (agora - new Date(m.posicao_em).getTime()) / 3_600_000 : Infinity;
+  if (someH > 0 && h > someH) return null;
+  if (!esmaecer) return 0.6;
+  return Math.max(0.15, 0.7 - 0.55 * Math.min(1, h / Math.max(someH || 24, 1)));
+}
 
 const ORDEM: Record<Motoboy["status"], number> = { em_corrida: 0, disponivel: 1, offline: 2 };
 type Filtro = "todos" | Motoboy["status"];
@@ -53,6 +70,9 @@ export function MapaAoVivo() {
   const [ruas, setRuas] = useModoRuas();
   const [rotulos, setRotulos] = useRotulos();
   const comIcones = conta.modulo("estabelecimentos");
+  const cfg = useConfiguracoes() as unknown as Record<string, unknown>;
+  const someH = Number(cfg.mapa_offline_some_h ?? 24);
+  const esmaecer = cfg.mapa_offline_esmaecer !== false;
 
   useEffect(() => {
     const t = setInterval(() => setAgora(Date.now()), 1000);
@@ -100,6 +120,8 @@ export function MapaAoVivo() {
     const limites = new maplibregl.LngLatBounds();
     for (const mb of Object.values(motoboys)) {
       if (mb.lat == null || mb.lng == null) continue;
+      const op = opacidade(mb, Date.now(), someH, esmaecer);
+      if (op == null && seguindo !== mb.id) continue; // sumido há tempo demais
       vistos.add(mb.id);
       limites.extend([mb.lng, mb.lat]);
       const nome = nomes[mb.id] || "Motoboy";
@@ -107,7 +129,7 @@ export function MapaAoVivo() {
       if (!marcador) {
         const el = document.createElement("button");
         el.className = "pino";
-        el.innerHTML = `<span class="pino-foto"></span><span class="pino-moto"><svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="18.5" cy="17.5" r="3.5"/><circle cx="5.5" cy="17.5" r="3.5"/><circle cx="15" cy="5" r="1"/><path d="M12 17.5V14l-3-3 4-3 2 3h2"/></svg></span><span class="pino-nome"></span>`;
+        el.innerHTML = `<span class="pino-foto"></span><span class="pino-moto"></span><span class="pino-nome"></span>`;
         el.addEventListener("click", () => setSeguindo((s) => (s === mb.id ? null : mb.id)));
         marcador = new maplibregl.Marker({ element: el, anchor: "bottom" }).setLngLat([mb.lng, mb.lat]).addTo(m);
         marcadores.current[mb.id] = marcador;
@@ -119,8 +141,13 @@ export function MapaAoVivo() {
       caixa.style.backgroundImage = foto ? `url("${foto}")` : "";
       el.querySelector<HTMLElement>(".pino-nome")!.textContent = nome.split(" ")[0];
       el.title = `${nome} · ${ROTULO_STATUS[mb.status]}`;
-      el.style.setProperty("--cor", COR_STATUS[mb.status]);
+      el.style.setProperty("--cor", corMotoboy(mb));
+      el.style.opacity = String(op ?? 0.5);
       el.dataset.status = mb.status;
+      el.classList.toggle("teste", Boolean(mb.modo_teste));
+      const icone = el.querySelector<HTMLElement>(".pino-moto")!;
+      const queria = mb.modo_teste ? "frasco" : "moto";
+      if (icone.dataset.icone !== queria) { icone.innerHTML = mb.modo_teste ? FRASCO : MOTO; icone.dataset.icone = queria; }
       el.classList.toggle("seguindo", seguindo === mb.id);
       el.classList.toggle("escondido", filtro !== "todos" && mb.status !== filtro);
       marcador.setLngLat([mb.lng, mb.lat]);
@@ -132,7 +159,7 @@ export function MapaAoVivo() {
       m.fitBounds(limites, { padding: { top: 80, bottom: 80, left: window.innerWidth > 860 ? 420 : 40, right: 80 }, maxZoom: 15, duration: 0 });
       enquadrado.current = true;
     }
-  }, [mapa, motoboys, nomes, fotos, pronto, seguindo, filtro]);
+  }, [mapa, motoboys, nomes, fotos, pronto, seguindo, filtro, someH, esmaecer, Math.floor(agora / 60_000)]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // seguir motoboy
   const alvo = seguindo ? motoboys[seguindo] : null;
@@ -199,20 +226,24 @@ export function MapaAoVivo() {
               <button className="linha-motoboy-topo" onClick={() => setSeguindo((s) => (s === mb.id ? null : mb.id))}>
                 {fotos[mb.id]
                   // eslint-disable-next-line @next/next/no-img-element
-                  ? <img src={fotos[mb.id]} alt="" className="foto-mini" style={{ borderColor: COR_STATUS[mb.status] }} />
-                  : <span className="foto-mini inicial" style={{ borderColor: COR_STATUS[mb.status] }}>{(nomes[mb.id] || "M").charAt(0)}</span>}
+                  ? <img src={fotos[mb.id]} alt="" className="foto-mini" style={{ borderColor: corMotoboy(mb) }} />
+                  : <span className="foto-mini inicial" style={{ borderColor: corMotoboy(mb) }}>{(nomes[mb.id] || "M").charAt(0)}</span>}
                 <span className="linha-motoboy-texto">
                   <strong>{nomes[mb.id] || "Motoboy"}{mb.modo_teste && <FlaskConical size={12} aria-label="teste" style={{ color: "#a78bfa", marginLeft: 5 }} />}</strong>
                   <span><Timer size={11} aria-hidden /> {ha(agora, mb.posicao_em)}
                     {mb.precisao_m != null && <> · <Crosshair size={11} aria-hidden /> ±{Math.round(mb.precisao_m)} m</>}
                     {mb.bateria != null && <> · <BatteryMedium size={11} aria-hidden /> {mb.bateria}%</>}</span>
                 </span>
-                <span className="selo" style={{ color: COR_STATUS[mb.status] }}>{ROTULO_STATUS[mb.status]}</span>
+                <span className="selo" style={{ color: corMotoboy(mb) }}>{ROTULO_STATUS[mb.status]}</span>
               </button>
               {semSinal && <div className="alerta"><AlertTriangle size={13} aria-hidden /> Sem sinal recente</div>}
               {sel && (
                 <div className="registros">
                   <span className="seguindo"><LocateFixed size={13} aria-hidden /> Seguindo no mapa · clique de novo para soltar</span>
+                  {mb.modo_teste && cfg.simulador_ligado !== false && (
+                    <SimuladorGps motoboyId={mb.id} mapa={mapa} posicao={mb.lat != null && mb.lng != null ? { lat: mb.lat, lng: mb.lng } : null}
+                      velocidadePadrao={Number(cfg.simulador_velocidade_kmh ?? 35)} />
+                  )}
                   {regsSeguindo.length === 0 ? <span className="dica">Sem percursos nas últimas 12 h.</span> : regsSeguindo.map((r, i) => (
                     <button key={i} className={`registro ${destaque === i ? "ativo" : ""}`} onClick={() => setDestaque((d) => (d === i ? null : i))}>
                       {r.tipo === "corrida" ? <Bike size={13} aria-hidden /> : <Search size={13} aria-hidden />}

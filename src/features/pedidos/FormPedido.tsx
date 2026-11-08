@@ -14,14 +14,14 @@ import { useModoTeste } from "@/features/teste/modoTeste";
 import { CabecaPagina } from "@/features/ui/CabecaPagina";
 import { toast } from "@/features/ui/toast";
 import { moedaBr, traduzir, type Categoria, type Orcamento, type TipoPedido } from "./tipos";
+import { ItensPedido, faltandoItens, itensParaEnvio, type ItemForm } from "./ItensPedido";
+import { ListaOrdenavel } from "@/features/ui/ListaOrdenavel";
+import { RegrasPedido } from "./RegrasPedido";
 
 interface Ponto { chave: string; tipo: "coleta" | "entrega"; endereco: string; lat: number | null; lng: number | null; contato_nome: string; contato_telefone: string; instrucoes: string; referencias: Referencia[] }
-interface Item { chave: string; descricao: string; categoria_id: string; quantidade: string; peso_kg: string; comprimento_cm: string; largura_cm: string; altura_cm: string; valor_declarado: string; coleta: string; entrega: string }
 
 let seq = 0;
 const ponto = (tipo: Ponto["tipo"], base: Partial<Ponto> = {}): Ponto => ({ chave: `p${++seq}`, tipo, endereco: "", lat: null, lng: null, contato_nome: "", contato_telefone: "", instrucoes: "", referencias: [], ...base });
-const item = (): Item => ({ chave: `i${++seq}`, descricao: "", categoria_id: "", quantidade: "1", peso_kg: "", comprimento_cm: "", largura_cm: "", altura_cm: "", valor_declarado: "", coleta: "", entrega: "" });
-const n = (s: string) => (s.trim() === "" ? null : Number(s.replace(",", ".")));
 
 /** Lançar um pedido em nome de um cliente (ou avulso). Vira rota pelo roteirizador. */
 export function FormPedido({ onCriado, onVoltar }: { onCriado: (id: string) => void; onVoltar: () => void }) {
@@ -36,7 +36,8 @@ export function FormPedido({ onCriado, onVoltar }: { onCriado: (id: string) => v
   const [tipoPedido, setTipoPedido] = useState("padrao");
   const [urgente, setUrgente] = useState(false);
   const [pontos, setPontos] = useState<Ponto[]>(() => [ponto("coleta"), ponto("entrega")]);
-  const [itens, setItens] = useState<Item[]>([]);
+  const [itens, setItens] = useState<ItemForm[]>([]);
+  const [regras, setRegras] = useState<Record<string, unknown>>({});
   const [obs, setObs] = useState("");
   const [rota, setRota] = useState<Rota | null>(null);
   const [orc, setOrc] = useState<Orcamento | null>(null);
@@ -58,9 +59,6 @@ export function FormPedido({ onCriado, onVoltar }: { onCriado: (id: string) => v
   }, [cliente]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const atualizar = (k: string, d: Partial<Ponto>) => setPontos((l) => l.map((p) => (p.chave === k ? { ...p, ...d } : p)));
-  const mudarItem = (k: string, d: Partial<Item>) => setItens((l) => l.map((x) => (x.chave === k ? { ...x, ...d } : x)));
-  const coletas = pontos.map((p, i) => ({ p, i })).filter((x) => x.p.tipo === "coleta");
-  const entregas = pontos.map((p, i) => ({ p, i })).filter((x) => x.p.tipo === "entrega");
 
   // rota pelas ruas (coletas e depois entregas, na ordem digitada)
   const ordenados = useMemo(() => [...pontos.filter((p) => p.tipo === "coleta"), ...pontos.filter((p) => p.tipo === "entrega")], [pontos]);
@@ -72,19 +70,15 @@ export function FormPedido({ onCriado, onVoltar }: { onCriado: (id: string) => v
     return () => clearTimeout(t);
   }, [chaveRota]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const dadosItens = itens.filter((x) => x.descricao.trim()).map((x) => ({
-    descricao: x.descricao.trim(), categoria_id: x.categoria_id || null, quantidade: Math.max(1, Math.round(n(x.quantidade) ?? 1)), peso_kg: n(x.peso_kg),
-    comprimento_cm: n(x.comprimento_cm), largura_cm: n(x.largura_cm), altura_cm: n(x.altura_cm), valor_declarado: n(x.valor_declarado),
-    coleta: x.coleta === "" ? null : Number(x.coleta), entrega: x.entrega === "" ? null : Number(x.entrega),
-  }));
+  const dadosItens = itensParaEnvio(itens, pontos.map((p) => p.chave));
   const quandoIso = agendar && horario ? new Date(horario).toISOString() : null;
-  const chaveOrc = JSON.stringify([cliente, tipoPedido, urgente, quandoIso, rota?.distanciaM, pontos.map((p) => [p.tipo, p.lat, p.lng]), dadosItens]);
+  const chaveOrc = JSON.stringify([cliente, tipoPedido, urgente, quandoIso, rota?.distanciaM, pontos.map((p) => [p.tipo, p.lat, p.lng]), dadosItens, regras]);
   useEffect(() => {
     if (pontos.some((p) => p.lat == null)) { setOrc(null); return; }
     const t = setTimeout(async () => {
       const { data } = await supabase().rpc("orcar_previa", { dados: {
         empresa_id: cliente || null, tipo: agendar ? "planejado" : "express", tipo_pedido: tipoPedido, quando: quandoIso, urgente,
-        distancia_m: rota?.distanciaM ?? null, pontos: pontos.map((p) => ({ tipo: p.tipo, lat: p.lat, lng: p.lng })), itens: dadosItens } });
+        distancia_m: rota?.distanciaM ?? null, pontos: pontos.map((p) => ({ tipo: p.tipo, lat: p.lat, lng: p.lng })), itens: dadosItens, regras } });
       setOrc((data as Orcamento) ?? null);
     }, 400);
     return () => clearTimeout(t);
@@ -92,11 +86,13 @@ export function FormPedido({ onCriado, onVoltar }: { onCriado: (id: string) => v
 
   async function criar() {
     if (pontos.some((p) => p.lat == null)) return toast("Localize todos os endereços.", "aviso");
+    const falta = faltandoItens(itens, categorias);
+    if (falta) return toast(falta, "aviso");
     setEnviando(true);
     const { data, error } = await supabase().rpc("criar_pedido", { dados: {
       empresa_id: cliente || null, cliente_nome: cliente ? null : avulso.trim() || null, quando: quandoIso, urgente, tipo_pedido: tipoPedido, teste,
       observacoes: obs.trim() || null, distancia_m: rota?.distanciaM ?? null,
-      pontos: pontos.map(({ chave, ...p }) => { void chave; return p; }), itens: dadosItens } });
+      pontos: pontos.map(({ chave, ...p }) => { void chave; return p; }), itens: dadosItens, regras } });
     setEnviando(false);
     if (error) return toast(traduzir(error.message), "erro");
     toast("O roteirizador já está montando a rota.", "ok", { titulo: "Pedido criado" });
@@ -132,9 +128,10 @@ export function FormPedido({ onCriado, onVoltar }: { onCriado: (id: string) => v
         </section>
         <section className="bloco">
           <span className="rotulo">Endereços</span>
-          {pontos.map((p, i) => (
-            <div key={p.chave} className={`parada-form ${p.tipo}`}>
+          <ListaOrdenavel itens={pontos} chave={(p) => p.chave} onMudar={setPontos} render={(p, i, alca) => (
+            <div className={`parada-form ${p.tipo}`}>
               <div className="parada-topo">
+                {alca}
                 <span className={`pino-mini ${p.tipo}`}>{i + 1}</span>
                 <select value={p.tipo} onChange={(e) => atualizar(p.chave, { tipo: e.target.value as Ponto["tipo"] })}>
                   <option value="coleta">Coleta</option><option value="entrega">Entrega</option>
@@ -159,7 +156,7 @@ export function FormPedido({ onCriado, onVoltar }: { onCriado: (id: string) => v
                 </div>
               )}
             </div>
-          ))}
+          )} />
           <div className="linha-botoes">
             <button type="button" className="botao-texto" onClick={() => setPontos((l) => [...l, ponto("coleta")])}><Plus size={15} /> Coleta</button>
             <button type="button" className="botao-texto" onClick={() => setPontos((l) => [...l, ponto("entrega")])}><Plus size={15} /> Entrega</button>
@@ -173,39 +170,13 @@ export function FormPedido({ onCriado, onVoltar }: { onCriado: (id: string) => v
               aoClicar={async (lat, lng) => { const k = escolhendo; if (!k) return; setEscolhendo(null); atualizar(k, { lat, lng }); atualizar(k, { endereco: await geo.enderecoDoPonto(lat, lng) }); }} />
           </div>
           <section className="formulario vidro">
-            <div className="titulo-linha"><h3 className="display" style={{ margin: 0 }}><Boxes size={18} aria-hidden /> Itens</h3>
-              <button type="button" className="botao-texto" onClick={() => setItens((l) => [...l, item()])}><Plus size={15} /> Item</button></div>
-            {itens.length === 0 && <p className="dica" style={{ margin: 0 }}>Sem itens, o pedido conta como 1 volume sem peso. Adicione os volumes para cobrar peso, medidas e categoria.</p>}
-            {itens.map((x) => (
-              <div key={x.chave} className="item-form">
-                <div className="item-linha">
-                  <input placeholder="O que é (ex.: Caixa de som grande)" value={x.descricao} onChange={(e) => mudarItem(x.chave, { descricao: e.target.value })} />
-                  <select value={x.categoria_id} onChange={(e) => mudarItem(x.chave, { categoria_id: e.target.value })}>
-                    <option value="">Categoria…</option>{categorias.map((k) => <option key={k.id} value={k.id}>{k.perigoso ? "⚠ " : ""}{k.nome}</option>)}
-                  </select>
-                  <button type="button" className="icone" aria-label="Remover item" onClick={() => setItens((l) => l.filter((y) => y.chave !== x.chave))}><Trash2 size={14} /></button>
-                </div>
-                <div className="item-numeros">
-                  <label><span>Qtd.</span><input inputMode="numeric" value={x.quantidade} onChange={(e) => mudarItem(x.chave, { quantidade: e.target.value })} /></label>
-                  <label><span>Peso (kg)</span><input inputMode="decimal" value={x.peso_kg} onChange={(e) => mudarItem(x.chave, { peso_kg: e.target.value })} /></label>
-                  <label><span>C (cm)</span><input inputMode="decimal" value={x.comprimento_cm} onChange={(e) => mudarItem(x.chave, { comprimento_cm: e.target.value })} /></label>
-                  <label><span>L (cm)</span><input inputMode="decimal" value={x.largura_cm} onChange={(e) => mudarItem(x.chave, { largura_cm: e.target.value })} /></label>
-                  <label><span>A (cm)</span><input inputMode="decimal" value={x.altura_cm} onChange={(e) => mudarItem(x.chave, { altura_cm: e.target.value })} /></label>
-                  <label><span>Valor (R$)</span><input inputMode="decimal" value={x.valor_declarado} onChange={(e) => mudarItem(x.chave, { valor_declarado: e.target.value })} /></label>
-                </div>
-                {(coletas.length > 1 || entregas.length > 1) && (
-                  <div className="item-numeros">
-                    <label><span>Sai de</span><select value={x.coleta} onChange={(e) => mudarItem(x.chave, { coleta: e.target.value })}>
-                      <option value="">Qualquer coleta</option>{coletas.map(({ p, i }) => <option key={p.chave} value={i}>{i + 1}. {p.endereco || "Coleta"}</option>)}</select></label>
-                    <label><span>Vai para</span><select value={x.entrega} onChange={(e) => mudarItem(x.chave, { entrega: e.target.value })}>
-                      <option value="">Todas as entregas</option>{entregas.map(({ p, i }) => <option key={p.chave} value={i}>{i + 1}. {p.endereco || "Entrega"}</option>)}</select></label>
-                  </div>
-                )}
-              </div>
-            ))}
+            <h3 className="display" style={{ margin: 0 }}><Boxes size={18} aria-hidden /> Itens</h3>
+            {itens.length === 0 && <p className="dica" style={{ margin: 0 }}>Toque no tipo do que vai ser levado. Sem itens, o pedido conta como 1 volume sem peso.</p>}
+            <ItensPedido itens={itens} onMudar={setItens} categorias={categorias} pontos={pontos} />
             {perigoso && <p className="alerta-perigo"><FlaskConical size={14} aria-hidden /> Produto perigoso: vai com cuidado especial e, se a regra estiver ligada, em rota própria.</p>}
             <textarea placeholder="Observações para o motoboy" value={obs} onChange={(e) => setObs(e.target.value)} />
           </section>
+          <RegrasPedido valor={regras} onMudar={setRegras} />
           <section className="formulario vidro">
             <h3 className="display" style={{ margin: 0 }}><Receipt size={18} aria-hidden /> Orçamento</h3>
             <div className="resumo-rota">
