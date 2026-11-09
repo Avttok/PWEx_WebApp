@@ -7,6 +7,7 @@ import { CabecaPagina } from "@/features/ui/CabecaPagina";
 import { supabase } from "@/lib/supabase/client";
 import { decodificarPolyline } from "@/lib/geo/polyline";
 import { buscarPercursos } from "@/lib/mapa/percursos";
+import { SelosPonto, type OpcoesDoPonto } from "@/features/pedidos/OpcoesPonto";
 import { moeda } from "@/features/precos/estrategias";
 import { MapaCorridas } from "./MapaCorridas";
 import { nomeCliente, traduzirErro, useEmpresas, useEquipe } from "./dados";
@@ -244,6 +245,14 @@ export function DetalheCorrida({ corrida, oferta, onVoltar, onExcluida }: { corr
                 <span>{p.endereco}</span>
                 {(p.contato_nome || p.contato_telefone) && <span className="dica">{p.contato_nome} {p.contato_telefone}</span>}
                 {p.instrucoes && <span className="dica">{p.instrucoes}</span>}
+                {(() => {
+                  // o que esta parada exige: o que o cliente pediu no ponto ou, vazio, o padrão da rota (só nas entregas)
+                  const x = p as typeof p & OpcoesDoPonto & { codigo?: string | null };
+                  const ent = p.tipo === "entrega";
+                  const ef = (v: boolean | null | undefined, r: boolean) => (v ?? (ent && r)) || null;
+                  return <SelosPonto p={{ exige_foto: ef(x.exige_foto, corrida.exige_foto), exige_nome: ef(x.exige_nome, corrida.exige_nome), exige_assinatura: ef(x.exige_assinatura, corrida.exige_assinatura),
+                    exige_codigo: ef(x.exige_codigo, corrida.exige_codigo), codigo: x.codigo ?? (ent ? corrida.codigo_entrega : null), janela_de: x.janela_de ?? undefined, janela_ate: x.janela_ate ?? undefined }} />;
+                })()}
                 {(p.referencias?.length ?? 0) > 0 && (
                   <span className="referencias-detalhe">
                     <Landmark size={12} aria-hidden /> {p.referencias!.map((r) => r.relacao ?? (r.nome + (r.distancia_m != null ? ` (${r.distancia_m} m)` : ""))).join(" · ")}

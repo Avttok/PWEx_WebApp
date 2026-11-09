@@ -14,11 +14,13 @@ import { useModoTeste } from "@/features/teste/modoTeste";
 import { CabecaPagina } from "@/features/ui/CabecaPagina";
 import { toast } from "@/features/ui/toast";
 import { moedaBr, traduzir, type Categoria, type Orcamento, type TipoPedido } from "./tipos";
-import { ItensPedido, faltandoItens, itensParaEnvio, type ItemForm } from "./ItensPedido";
+import { ItensPedido, faltandoItens, itensParaEnvio, type ItemForm, type ObjetoSalvo } from "./ItensPedido";
+import { OpcoesPonto, type Confirmacao, type OpcoesDoPonto } from "./OpcoesPonto";
+import { useConfiguracoes } from "@/features/configuracoes/useConfiguracoes";
 import { ListaOrdenavel } from "@/features/ui/ListaOrdenavel";
 import { RegrasPedido } from "./RegrasPedido";
 
-interface Ponto { chave: string; tipo: "coleta" | "entrega"; endereco: string; lat: number | null; lng: number | null; contato_nome: string; contato_telefone: string; instrucoes: string; referencias: Referencia[] }
+interface Ponto extends OpcoesDoPonto { chave: string; tipo: "coleta" | "entrega"; endereco: string; lat: number | null; lng: number | null; contato_nome: string; contato_telefone: string; instrucoes: string; referencias: Referencia[] }
 
 let seq = 0;
 const ponto = (tipo: Ponto["tipo"], base: Partial<Ponto> = {}): Ponto => ({ chave: `p${++seq}`, tipo, endereco: "", lat: null, lng: null, contato_nome: "", contato_telefone: "", instrucoes: "", referencias: [], ...base });
@@ -44,6 +46,16 @@ export function FormPedido({ onCriado, onVoltar }: { onCriado: (id: string) => v
   const [escolhendo, setEscolhendo] = useState<string | null>(null);
   const [aberto, setAberto] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
+  // o gestor pode pedir qualquer confirmação em qualquer ponto; o padrão da rota aparece fixo nas entregas
+  const cfg = useConfiguracoes();
+  const padraoConf: Partial<Record<Confirmacao, boolean>> = { foto: cfg.padrao_exige_foto === true, nome: cfg.padrao_exige_nome !== false, assinatura: cfg.padrao_exige_assinatura === true, codigo: cfg.padrao_exige_codigo === true };
+  const todasConf = { foto: true, nome: true, assinatura: true, codigo: true };
+  // objetos que o cliente escolhido salvou
+  const [objetos, setObjetos] = useState<ObjetoSalvo[]>([]);
+  useEffect(() => {
+    if (!cliente) { setObjetos([]); return; }
+    supabase().from("cliente_objetos").select("id,nome,dados,usos").eq("empresa_id", cliente).order("usos", { ascending: false }).then(({ data }) => setObjetos((data ?? []) as ObjetoSalvo[]));
+  }, [cliente]);
 
   useEffect(() => {
     const sb = supabase();
@@ -155,6 +167,7 @@ export function FormPedido({ onCriado, onVoltar }: { onCriado: (id: string) => v
                   <CampoReferencias valor={p.referencias} lat={p.lat} lng={p.lng} onMudar={(r) => atualizar(p.chave, { referencias: r })} />
                 </div>
               )}
+              <OpcoesPonto tipo={p.tipo} valor={p} onMudar={(d) => atualizar(p.chave, d)} liberadas={todasConf} padrao={padraoConf} comJanela />
             </div>
           )} />
           <div className="linha-botoes">
@@ -172,7 +185,7 @@ export function FormPedido({ onCriado, onVoltar }: { onCriado: (id: string) => v
           <section className="formulario vidro">
             <h3 className="display" style={{ margin: 0 }}><Boxes size={18} aria-hidden /> Itens</h3>
             {itens.length === 0 && <p className="dica" style={{ margin: 0 }}>Toque no tipo do que vai ser levado. Sem itens, o pedido conta como 1 volume sem peso.</p>}
-            <ItensPedido itens={itens} onMudar={setItens} categorias={categorias} pontos={pontos} />
+            <ItensPedido itens={itens} onMudar={setItens} categorias={categorias} pontos={pontos} objetos={objetos} />
             {perigoso && <p className="alerta-perigo"><FlaskConical size={14} aria-hidden /> Produto perigoso: vai com cuidado especial e, se a regra estiver ligada, em rota própria.</p>}
             <textarea placeholder="Observações para o motoboy" value={obs} onChange={(e) => setObs(e.target.value)} />
           </section>

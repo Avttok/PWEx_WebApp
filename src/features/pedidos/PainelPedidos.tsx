@@ -9,6 +9,7 @@ import { supabase } from "@/lib/supabase/client";
 import { useEmpresas, useEquipe, useRecarregarAoMudar } from "@/features/corridas/dados";
 import { MapaCorridas, type PinoParada } from "@/features/corridas/MapaCorridas";
 import { buscarPercursos } from "@/lib/mapa/percursos";
+import { SelosPonto, type OpcoesDoPonto } from "./OpcoesPonto";
 import { formatarKm } from "@/features/corridas/tipos";
 import { useModoTeste } from "@/features/teste/modoTeste";
 import { CabecaPagina } from "@/features/ui/CabecaPagina";
@@ -212,6 +213,7 @@ function DetalhePedido({ p, cliente, categorias, rotas, onFechar }: {
                   <div className="dica">{[x.contato_nome, x.contato_telefone, x.instrucoes].filter(Boolean).join(" · ")}</div>
                   {itens.length > 0 && <div className="dica">{itens.map((it) => `${it.quantidade}× ${it.descricao}`).join(" · ")}</div>}
                   {x.concluido_em && <div className="dica"><CheckCircle2 size={12} aria-hidden /> {quando(x.concluido_em)}{x.recebedor_nome ? ` · ${x.recebedor_nome}` : ""}</div>}
+                  <SelosPonto p={x as unknown as OpcoesDoPonto} />
                 </div>
               </li>
             );
