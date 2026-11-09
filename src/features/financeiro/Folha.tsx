@@ -166,7 +166,7 @@ function DetalheHolerite({ l, ini, fim, teste, onMudou, onFechar }: { l: LinhaFo
         <div className="pedido-valor">
           <label className="campo" style={{ flex: 2 }}><span>Descrição</span><input placeholder="Ex.: bônus, vale, desconto de avaria" value={desc} onChange={(e) => setDesc(e.target.value)} /></label>
           <label className="campo"><span>Valor (+/−)</span><span className="passo-campo"><span className="unidade">R$</span><input inputMode="decimal" value={valor} onChange={(e) => setValor(e.target.value)} /></span></label>
-          <button className="botao-texto" disabled={!desc.trim() || !valor} onClick={async () => { await rpc("ajuste_holerite", { p_motoboy: l.motoboy_id, p_inicio: ini, p_fim: fim, p_descricao: desc, p_valor: Number(valor.replace(",", ".")), p_teste: teste }, "Ajuste lançado."); setDesc(""); setValor(""); }}><Plus size={14} aria-hidden /> Lançar</button>
+          <button className="botao-texto" disabled={!desc.trim() || !valor} onClick={async () => { await rpc("ajuste_holerite", { p_motoboy: l.motoboy_id, p_inicio: ini, p_fim: fim, p_descricao: desc, p_valor: Number(valor.replace(/[−–]/g, "-").replace(/R\$|\s/g, "").replace(",", ".")), p_teste: teste }, "Ajuste lançado."); setDesc(""); setValor(""); }}><Plus size={14} aria-hidden /> Lançar</button>
         </div>
       )}
       <div className="linha-botoes">
