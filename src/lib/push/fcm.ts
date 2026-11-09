@@ -51,7 +51,8 @@ export async function enviarFcm(token: string, dados: Record<string, string>) {
     method: "POST",
     headers: { Authorization: `Bearer ${await tokenGoogle()}`, "Content-Type": "application/json" },
     body: JSON.stringify({
-      message: { token, data: dados, android: { priority: "HIGH", ttl: "40s" } },
+      // oferta vale poucos segundos; o resto (cancelamento, planejadas) precisa chegar mesmo se o celular estiver sem sinal um tempo
+      message: { token, data: dados, android: { priority: "HIGH", ttl: dados.tipo === "oferta" ? "40s" : "3600s" } },
     }),
   });
   return { ok: r.ok, status: r.status, corpo: r.ok ? undefined : await r.text() };
