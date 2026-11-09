@@ -88,13 +88,12 @@ function Janela({ titulo, onFechar, travado, children }: { titulo: string; onFec
 
 // ------------------------------------------------------------------ nova conta
 
-export function NovaConta({ padraoRepasse, onFechar, onCriada }: { padraoRepasse: number; onFechar: () => void; onCriada: (id: string) => void }) {
+export function NovaConta({ onFechar, onCriada }: { padraoRepasse?: number; onFechar: () => void; onCriada: (id: string) => void }) {
   const [nome, setNome] = useState("");
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState(gerarSenha);
   const [motoboy, setMotoboy] = useState(true);
   const [gestor, setGestor] = useState(false);
-  const [repasse, setRepasse] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [criada, setCriada] = useState<{ id: string } | null>(null);
@@ -104,7 +103,7 @@ export function NovaConta({ padraoRepasse, onFechar, onCriada }: { padraoRepasse
     setEnviando(true);
     const r = await chamar("/api/equipe/criar", {
       nome, email, senha, papeis: [motoboy && "motoboy", gestor && "gestor"].filter(Boolean),
-      repasse: repasse.trim() === "" ? null : Number(repasse.replace(",", ".")),
+      repasse: null,
     });
     setEnviando(false);
     if (!r.ok) return setErro(r.erro ?? "Não foi possível criar.");
@@ -136,11 +135,6 @@ export function NovaConta({ padraoRepasse, onFechar, onCriada }: { padraoRepasse
         <span className="rotulo">Papéis</span>
         <label className="opcao"><span><Bike size={14} style={{ verticalAlign: -2 }} /> Motoboy (usa o app e recebe corridas)</span><input type="checkbox" checked={motoboy} onChange={(e) => setMotoboy(e.target.checked)} /></label>
         <label className="opcao"><span><ShieldCheck size={14} style={{ verticalAlign: -2 }} /> Gestor (acessa este painel)</span><input type="checkbox" checked={gestor} onChange={(e) => setGestor(e.target.checked)} /></label>
-        {motoboy && (
-          <label className="campo curto"><span>Repasse individual (%)</span>
-            <input inputMode="decimal" placeholder={`padrão: ${padraoRepasse}%`} value={repasse} onChange={(e) => setRepasse(e.target.value)} />
-          </label>
-        )}
       </div>
       {erro && <p className="erro">{erro}</p>}
       <div className="linha-botoes" style={{ marginTop: 18 }}>

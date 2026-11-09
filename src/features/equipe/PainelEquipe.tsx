@@ -35,7 +35,6 @@ export function PainelEquipe() {
   const [motoboy, setMotoboy] = useState(false);
   const [devPapel, setDevPapel] = useState(false);
   const conta = useConta();
-  const [repasse, setRepasse] = useState("");
   const [msg, setMsg] = useState<{ ok: boolean; t: string } | null>(null);
   const [aba, setAba] = useState<"registro" | "percursos" | "veiculo" | "regras" | "editar">("registro");
   const { empresas } = useEmpresas();
@@ -54,7 +53,7 @@ export function PainelEquipe() {
   useEffect(() => {
     if (!m) return;
     setNome(m.nome); setGestor(m.papeis.includes("gestor")); setMotoboy(m.papeis.includes("motoboy")); setDevPapel(m.papeis.includes("dev"));
-    setRepasse(m.repasse_pct != null ? String(m.repasse_pct) : ""); setMsg(null);
+    setMsg(null);
     supabase().from("perfis").select("icone,empresa_id").eq("id", m.id).maybeSingle()
       .then(({ data }) => setExtra({ icone: (data?.icone as string | null) ?? null, empresa_id: (data?.empresa_id as string | null) ?? null }));
     if ((aba === "veiculo" || aba === "regras") && !m.papeis.includes("motoboy")) setAba("registro");
@@ -65,7 +64,7 @@ export function PainelEquipe() {
     if (!m) return;
     const papeis = [devPapel && "dev", gestor && "gestor", motoboy && "motoboy", m.papeis.includes("cliente") && "cliente"].filter(Boolean);
     const { error } = await supabase().rpc("editar_membro", {
-      p_usuario: m.id, p_nome: nome, p_papeis: papeis, p_repasse: repasse.trim() === "" ? null : Number(repasse.replace(",", ".")),
+      p_usuario: m.id, p_nome: nome, p_papeis: papeis, p_repasse: null,
     });
     if (error) return setMsg({ ok: false, t: error.message === "nao_remova_seu_proprio_acesso" ? "Você não pode tirar seu próprio acesso." : error.message === "percentual_invalido" ? "Repasse deve ficar entre 0 e 100%."
       : error.message === "conta_protegida" ? "Contas Dev só o Dev altera." : error.message === "apenas_dev" ? "Só o Dev dá ou tira o cargo Dev." : error.message });
@@ -102,7 +101,6 @@ export function PainelEquipe() {
             <div className="detalhes">
               <span>{x.email}</span>
               {x.status && <span style={{ color: COR_STATUS[x.status] }}>{ROTULO_STATUS[x.status]}</span>}
-              {x.repasse_pct != null && <span>repasse {Number(x.repasse_pct)}%</span>}
             </div>
           </button>
         ))}
@@ -166,12 +164,6 @@ export function PainelEquipe() {
                       }}>
                         <option value="">Não</option>{empresas.map((x) => <option key={x.id} value={x.id}>{x.nome}</option>)}
                       </select></label>
-                  )}
-                  {motoboy && (
-                    <label className="campo curto"><span>Repasse individual (%)</span>
-                      <input inputMode="decimal" placeholder={`padrão: ${cfg.repasse_motoboy_pct}%`} value={repasse} onChange={(e) => setRepasse(e.target.value)} />
-                      <span className="dica">Vazio = usa o padrão das Configurações. Vale para corridas aceitas daqui em diante.</span>
-                    </label>
                   )}
                   {msg && <p className={msg.ok ? "sucesso" : "erro"}>{msg.t}</p>}
                   <div className="linha-botoes">
