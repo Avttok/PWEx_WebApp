@@ -602,6 +602,17 @@ html, body { overscroll-behavior: none; }
   background: linear-gradient(135deg, var(--ouro-claro), var(--ouro) 55%, var(--ouro-escuro)); color: var(--sobre-ouro); border: 2px solid var(--fundo-2); }
 .editor-foto-acoes { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
 
+/* ---------------------------------------------------------------- cores escolhidas pelo usuário (o vermelho do Dev e o modo teste, abaixo, vencem) */
+[data-estilo="azul"][data-tema="escuro"] { --ouro: #60a5fa; --ouro-claro: #bfdbfe; --ouro-escuro: #1d4ed8; --sobre-ouro: #06101f; --brilho-1: rgb(96 165 250 / 0.16); --brilho-2: rgb(96 165 250 / 0.07); }
+[data-estilo="azul"][data-tema="claro"] { --ouro: #2563eb; --ouro-claro: #60a5fa; --ouro-escuro: #1e3a8a; --sobre-ouro: #ffffff; --brilho-1: rgb(37 99 235 / 0.22); --brilho-2: rgb(37 99 235 / 0.10); }
+[data-estilo="verde"][data-tema="escuro"] { --ouro: #34d399; --ouro-claro: #a7f3d0; --ouro-escuro: #047857; --sobre-ouro: #03140d; --brilho-1: rgb(52 211 153 / 0.16); --brilho-2: rgb(52 211 153 / 0.07); }
+[data-estilo="verde"][data-tema="claro"] { --ouro: #059669; --ouro-claro: #34d399; --ouro-escuro: #065f46; --sobre-ouro: #ffffff; --brilho-1: rgb(5 150 105 / 0.22); --brilho-2: rgb(5 150 105 / 0.10); }
+[data-estilo="bnp"][data-tema] { --fundo: #000000; --fundo-2: #0a0a0a; --vidro: rgb(12 12 12 / 0.88); --vidro-forte: rgb(20 20 20 / 0.95); --texto: #ffffff; --texto-2: #b8b8b8; --texto-3: #7c7c7c;
+  --ouro: #f2f2f2; --ouro-claro: #ffffff; --ouro-escuro: #9a9a9a; --sobre-ouro: #000000; --brilho-1: rgb(255 255 255 / 0.10); --brilho-2: rgb(255 255 255 / 0.04); }
+[data-estilo="pnb"][data-tema] { --fundo: #ffffff; --fundo-2: #f4f4f5; --vidro: rgb(255 255 255 / 0.9); --vidro-forte: rgb(255 255 255 / 0.97); --vidro-sutil: rgb(0 0 0 / 0.03);
+  --borda: rgb(0 0 0 / 0.10); --borda-forte: rgb(0 0 0 / 0.20); --texto: #0a0a0a; --texto-2: #52525b; --texto-3: #8a8a8e;
+  --ouro: #111111; --ouro-claro: #52525b; --ouro-escuro: #000000; --sobre-ouro: #ffffff; --brilho-1: rgb(0 0 0 / 0.08); --brilho-2: rgb(0 0 0 / 0.03); }
+
 /* ---------------------------------------------------------------- tema vermelho (Dev). O modo teste, abaixo, vence. */
 [data-acento="vermelho"][data-tema="escuro"], [data-acento="vermelho"]:not([data-tema]) {
   --ouro: #ef4444; --ouro-claro: #fca5a5; --ouro-escuro: #991b1b; --sobre-ouro: #ffffff;
@@ -830,7 +841,11 @@ html, body { overscroll-behavior: none; }
 .marca-v { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; opacity: 0; transition: opacity 0.25s;
   filter: drop-shadow(0 4px 12px color-mix(in srgb, var(--ouro) 40%, transparent)); }
 .marca-ouro { position: static; display: block; }
-:root:not([data-teste]):not([data-acento="vermelho"]) .marca-ouro,
+:root:not([data-teste]):not([data-acento="vermelho"]):not([data-estilo]) .marca-ouro,
+:root:not([data-teste]):not([data-acento="vermelho"])[data-estilo="azul"] .marca-azul,
+:root:not([data-teste]):not([data-acento="vermelho"])[data-estilo="verde"] .marca-verde,
+:root:not([data-teste]):not([data-acento="vermelho"])[data-estilo="bnp"] .marca-branco,
+:root:not([data-teste]):not([data-acento="vermelho"])[data-estilo="pnb"] .marca-preto,
 :root:not([data-teste])[data-acento="vermelho"] .marca-vermelho,
 :root[data-teste] .marca-violeta { opacity: 1; }
 .marca-topo { width: 58px; height: 43px; }
@@ -1181,3 +1196,33 @@ a.chip { text-decoration: none; }
 .zerar-pedidos .abas-mini button { padding: 8px 14px; border-radius: 99px; border: 1px solid var(--borda, rgba(255,255,255,.12)); background: transparent; color: inherit; cursor: pointer; }
 .zerar-pedidos .abas-mini button.ativo { border-color: #f87171; color: #f87171; background: rgba(248, 113, 113, .1); }
 .zerar-pedidos input { flex: 1; min-width: 200px; }
+
+/* fichas de filtro (listas laterais) */
+.fichas-filtro { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; }
+.fichas-filtro::-webkit-scrollbar { display: none; }
+.fichas-filtro button { flex: none; padding: 6px 12px; border-radius: 99px; border: 1px solid var(--borda); background: var(--vidro-forte, transparent); color: var(--texto-2, inherit); font: inherit; font-size: .82rem; cursor: pointer; display: inline-flex; gap: 6px; align-items: center; }
+.fichas-filtro button small { opacity: .7; font-size: .75rem; }
+.fichas-filtro button.ativo { background: var(--grad-ouro, var(--ouro)); color: var(--sobre-ouro, #120f06); border-color: transparent; font-weight: 600; }
+
+/* conquistas */
+.conquistas { display: flex; flex-direction: column; gap: 10px; }
+.conquistas-topo { display: flex; align-items: center; gap: 8px; }
+.conquistas-topo strong { display: inline-flex; gap: 6px; align-items: center; }
+.conquistas-grade { display: grid; grid-template-columns: repeat(auto-fill, minmax(86px, 1fr)); gap: 10px; }
+.medalha { display: flex; flex-direction: column; align-items: center; gap: 6px; background: none; border: 0; padding: 6px 2px; border-radius: 14px; cursor: pointer; color: var(--texto-3); font: inherit; transition: transform .2s; }
+.medalha:hover { transform: translateY(-2px) scale(1.04); }
+.medalha-disco { position: relative; width: 56px; height: 56px; border-radius: 50%; display: grid; place-items: center; background: rgba(255,255,255,.04); border: 2px solid var(--borda); color: var(--texto-3); }
+.medalha.ganha .medalha-disco { color: #fff; border-color: var(--cor); background: radial-gradient(circle, color-mix(in srgb, var(--cor) 55%, transparent), color-mix(in srgb, var(--cor) 18%, transparent)); box-shadow: 0 0 18px color-mix(in srgb, var(--cor) 35%, transparent); }
+.medalha-cadeado { position: absolute; right: -3px; bottom: -3px; width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; background: var(--fundo-2, #0f0f12); border: 1px solid var(--borda); }
+.medalha-nome { font-size: .72rem; line-height: 1.15; text-align: center; font-weight: 600; }
+.medalha.ganha .medalha-nome { color: var(--texto); }
+.medalha-editor { padding: 14px; border-radius: 16px; display: flex; flex-direction: column; gap: 8px; border: 1px solid var(--dev, #f87171); }
+
+/* escolher as cores do site (menu da foto) */
+.menu-cores { display: flex; flex-direction: column; gap: 8px; padding: 8px 10px; }
+.menu-cores-topo { display: flex; align-items: center; gap: 10px; font-weight: 600; }
+.menu-cores-topo small { margin-left: auto; color: var(--texto-3); font-weight: 500; }
+.menu-cores-bolas { display: flex; justify-content: space-between; gap: 6px; }
+.menu-cor { width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--borda-forte); padding: 4px; cursor: pointer; background: none; display: grid; place-items: center; }
+.menu-cor.ativo { border: 3px solid var(--ouro); padding: 2px; }
+.menu-cor span { width: 100%; height: 100%; border-radius: 50%; display: block; }

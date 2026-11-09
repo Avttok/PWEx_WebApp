@@ -13,6 +13,7 @@ import { geo } from "@/features/geo";
 import { useEmpresas, useEquipe } from "@/features/corridas/dados";
 import { ROTULO_MODALIDADE, VALOR_KM_PADRAO, moeda, type Modalidade } from "@/features/precos/estrategias";
 import { CabecaPagina } from "@/features/ui/CabecaPagina";
+import { combina } from "@/features/ui/busca";
 import { MapaCorridas } from "@/features/corridas/MapaCorridas";
 import type { Empresa } from "@/features/corridas/tipos";
 import type { DadosCnpj } from "@/lib/cnpj/consulta";
@@ -138,6 +139,12 @@ export function PainelEmpresas() {
   const [localizando, setLocalizando] = useState(false);
   const [msg, setMsg] = useState<{ tipo: "ok" | "erro"; texto: string } | null>(null);
   const [aba, setAba] = useState<"cadastro" | "regras" | "zonas">("cadastro");
+
+  const [buscaCli, setBuscaCli] = useState("");
+  const [filtroCli, setFiltroCli] = useState("todos");
+  const clientesVisiveis = empresas.filter((e) => (FILTROS_CLIENTE.find(([k]) => k === filtroCli)?.[2] ?? (() => true))(e)
+    && combina(buscaCli, e.nome, e.cnpj, e.cpf, (e as Empresa & { email?: string | null }).email, (e as Empresa & { telefone?: string | null }).telefone, (e as Empresa & { endereco?: string | null }).endereco,
+      (e as Empresa & { razao_social?: string | null }).razao_social, (e as Empresa & { nome_fantasia?: string | null }).nome_fantasia));
 
   async function abrirComoCliente() {
     if (!selecionada || selecionada === "nova") return;
@@ -293,7 +300,14 @@ export function PainelEmpresas() {
         <CabecaPagina icone={Building2} titulo="Clientes" subtitulo={empresas.length === 1 ? "1 cliente cadastrado" : `${empresas.length} clientes cadastrados`} />
         <button className="botao-ouro" onClick={() => setSelecionada("nova")}><Plus size={17} aria-hidden /> Novo cliente</button>
         <CadastrosPendentes onAprovado={(id) => { recarregar(); if (id) setSelecionada(id); }} />
-        {empresas.map((e) => (
+        {empresas.length > 0 && <>
+          <label className="busca-mini"><Search size={14} aria-hidden /><input placeholder="Nome, CNPJ/CPF, e-mail, telefone…" value={buscaCli} onChange={(e) => setBuscaCli(e.target.value)} /></label>
+          <div className="fichas-filtro">
+            {FILTROS_CLIENTE.map(([k, r, f]) => <button key={k} type="button" className={filtroCli === k ? "ativo" : ""} onClick={() => setFiltroCli(k)}>{r}{k !== "todos" && <small>{empresas.filter(f).length}</small>}</button>)}
+          </div>
+        </>}
+        {empresas.length > 0 && clientesVisiveis.length === 0 && <p className="vazio">Nenhum cliente encontrado.</p>}
+        {clientesVisiveis.map((e) => (
           <button key={e.id} className={`cartao-motoboy ${selecionada === e.id ? "selecionado" : ""}`} onClick={() => setSelecionada(e.id)}>
             <div className="linha">
               <Icone nome={(e as Empresa & { icone?: string | null }).icone} padrao={e.tipo === "pf" ? UserRound : Building2} size={15} style={{ color: "var(--ouro)" }} />
@@ -473,3 +487,9 @@ export function PainelEmpresas() {
     </>
   );
 }
+
+const FILTROS_CLIENTE: [string, string, (e: Empresa) => boolean][] = [
+  ["todos", "Todos", () => true], ["pj", "Empresas", (e) => e.tipo !== "pf"], ["pf", "Pessoas", (e) => e.tipo === "pf"],
+  ["express", "Express", (e) => e.pode_express !== false], ["agendados", "Só agendados", (e) => e.pode_express === false],
+  ["teste", "Teste", (e) => Boolean((e as Empresa & { modo_teste?: boolean }).modo_teste)],
+];

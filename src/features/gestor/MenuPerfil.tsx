@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import { Camera, CodeXml, FlaskConical, Heart, LogOut, Moon, Palette, Sun, Trash2, UserRoundPen, X } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
-import { useTema } from "@/features/tema/tema";
+import { ESTILOS, useTema } from "@/features/tema/tema";
 import { useModoTeste } from "@/features/teste/modoTeste";
 import { useConta } from "@/features/conta/conta";
 import { SelosCargo } from "@/features/conta/Cargos";
@@ -33,7 +33,7 @@ export function MenuPerfil({ id, email, nome, foto, onSair, onPerfilSalvo }: Pro
   const [editando, setEditando] = useState(false);
   const [erroTeste, setErroTeste] = useState<string | null>(null);
   const caixa = useRef<HTMLDivElement>(null);
-  const { tema, definir } = useTema();
+  const { tema, definir, estilo, definirEstilo } = useTema();
   const { teste, definir: definirTeste } = useModoTeste();
   const conta = useConta();
   const noturno = tema === "escuro";
@@ -78,11 +78,21 @@ export function MenuPerfil({ id, email, nome, foto, onSair, onPerfilSalvo }: Pro
             <UserRoundPen size={17} aria-hidden /> Editar perfil
           </button>
 
-          <label className="menu-item menu-teste">
+          {estilo !== "pnb" && estilo !== "bnp" && <label className="menu-item menu-teste">
             {noturno ? <Moon size={17} aria-hidden /> : <Sun size={17} aria-hidden />}
             <span className="menu-teste-texto"><strong>{noturno ? "Tema noturno" : "Tema claro"}</strong></span>
             <input type="checkbox" role="switch" checked={noturno} onChange={() => definir(noturno ? "claro" : "escuro")} />
-          </label>
+          </label>}
+          <div className="menu-cores">
+            <div className="menu-cores-topo"><Palette size={17} aria-hidden /> Cores do site<small>{ESTILOS.find((e) => e.k === estilo)?.rotulo}</small></div>
+            <div className="menu-cores-bolas">
+              {ESTILOS.map((e) => (
+                <button key={e.k} type="button" title={e.rotulo} aria-label={e.rotulo} className={`menu-cor${estilo === e.k ? " ativo" : ""}`} onClick={() => definirEstilo(e.k)}>
+                  <span style={{ background: `linear-gradient(135deg, ${e.fundo} 50%, ${e.cor} 50%)` }} />
+                </button>
+              ))}
+            </div>
+          </div>
 
           {conta.dev && (
             <label className="menu-item menu-teste">

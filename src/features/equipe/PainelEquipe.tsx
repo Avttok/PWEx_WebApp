@@ -1,7 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Bike, Building2, FlaskConical, History, Layers, Lock, PencilLine, Route, Save, ShieldCheck, UserPlus, UserRound, Users } from "lucide-react";
+import { Bike, Building2, FlaskConical, History, Layers, Lock, PencilLine, Route, Save, Search, ShieldCheck, Trophy, UserPlus, UserRound, Users } from "lucide-react";
+import { ConquistasMembro } from "./Conquistas";
+import { combina } from "@/features/ui/busca";
 import { VeiculoMembro } from "./VeiculoMembro";
 import { RegrasDoAlvo } from "@/features/configuracoes/Excecoes";
 import { SeletorIcone } from "@/features/ui/icones";
@@ -36,7 +38,9 @@ export function PainelEquipe() {
   const [devPapel, setDevPapel] = useState(false);
   const conta = useConta();
   const [msg, setMsg] = useState<{ ok: boolean; t: string } | null>(null);
-  const [aba, setAba] = useState<"registro" | "percursos" | "veiculo" | "regras" | "editar">("registro");
+  const [aba, setAba] = useState<"registro" | "percursos" | "veiculo" | "medalhas" | "regras" | "editar">("registro");
+  const [busca, setBusca] = useState("");
+  const [filtro, setFiltro] = useState("todos");
   const { empresas } = useEmpresas();
   const [extra, setExtra] = useState<{ icone: string | null; empresa_id: string | null }>({ icone: null, empresa_id: null });
   const [criando, setCriando] = useState(false);
@@ -50,13 +54,15 @@ export function PainelEquipe() {
   useEffect(() => { carregar(); }, [carregar]);
 
   const m = lista.find((x) => x.id === sel);
+  const fil = FILTROS_EQUIPE.find(([k]) => k === filtro)?.[2] ?? (() => true);
+  const visiveis = lista.filter((x) => fil(x) && combina(busca, x.nome, x.email));
   useEffect(() => {
     if (!m) return;
     setNome(m.nome); setGestor(m.papeis.includes("gestor")); setMotoboy(m.papeis.includes("motoboy")); setDevPapel(m.papeis.includes("dev"));
     setMsg(null);
     supabase().from("perfis").select("icone,empresa_id").eq("id", m.id).maybeSingle()
       .then(({ data }) => setExtra({ icone: (data?.icone as string | null) ?? null, empresa_id: (data?.empresa_id as string | null) ?? null }));
-    if ((aba === "veiculo" || aba === "regras") && !m.papeis.includes("motoboy")) setAba("registro");
+    if ((aba === "veiculo" || aba === "regras" || aba === "medalhas") && !m.papeis.includes("motoboy")) setAba("registro");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sel]);
 
@@ -82,7 +88,14 @@ export function PainelEquipe() {
           <NovaConta padraoRepasse={Number(cfg.repasse_motoboy_pct)} onFechar={() => setCriando(false)}
             onCriada={async (id) => { setCriando(false); await carregar(); setSel(id); setAba("editar"); }} />
         )}
-        {lista.map((x) => (
+        <label className="busca-mini"><Search size={14} aria-hidden /><input placeholder="Buscar por nome ou e-mail" value={busca} onChange={(e) => setBusca(e.target.value)} /></label>
+        <div className="fichas-filtro">
+          {FILTROS_EQUIPE.map(([k, r, f]) => (
+            <button key={k} type="button" className={filtro === k ? "ativo" : ""} onClick={() => setFiltro(k)}>{r}{k !== "todos" && <small>{lista.filter(f).length}</small>}</button>
+          ))}
+        </div>
+        {visiveis.length === 0 && <p className="vazio">Ninguém encontrado.</p>}
+        {visiveis.map((x) => (
           <button key={x.id} className={`cartao-motoboy ${sel === x.id ? "selecionado" : ""}`} onClick={() => {
             setSel(x.id);
             // no celular o detalhe fica embaixo da lista: leva até ele
@@ -128,12 +141,14 @@ export function PainelEquipe() {
                 <button type="button" className={aba === "registro" ? "ativo" : ""} onClick={() => setAba("registro")}><History size={15} aria-hidden /> Registro</button>
                 {m.papeis.includes("motoboy") && conta.modulo("trilhas_mapa") && <button type="button" className={aba === "percursos" ? "ativo" : ""} onClick={() => setAba("percursos")}><Route size={15} aria-hidden /> Percursos</button>}
                 {m.papeis.includes("motoboy") && <button type="button" className={aba === "veiculo" ? "ativo" : ""} onClick={() => setAba("veiculo")}><Bike size={15} aria-hidden /> Veículo</button>}
+                {m.papeis.includes("motoboy") && <button type="button" className={aba === "medalhas" ? "ativo" : ""} onClick={() => setAba("medalhas")}><Trophy size={15} aria-hidden /> Medalhas</button>}
                 {m.papeis.includes("motoboy") && <button type="button" className={aba === "regras" ? "ativo" : ""} onClick={() => setAba("regras")}><Layers size={15} aria-hidden /> Regras</button>}
                 <button type="button" className={aba === "editar" ? "ativo" : ""} onClick={() => setAba("editar")}><PencilLine size={15} aria-hidden /> Editar</button>
               </div>
 
               {aba === "registro" ? <RegistroMembro key={m.id} id={m.id} /> : aba === "percursos" ? <PercursosMembro key={m.id} id={m.id} teste={Boolean(m.modo_teste)} />
                 : aba === "veiculo" ? <VeiculoMembro key={m.id} id={m.id} />
+                : aba === "medalhas" ? <ConquistasMembro key={m.id} id={m.id} />
                 : aba === "regras" ? <RegrasDoAlvo key={m.id} escopo="motoboy" alvo={m.id} nome={m.nome || m.email} />
                 : (m.papeis.includes("dev") && !conta.dev) ? (
                 <p className="dica" style={{ margin: 0 }}><CodeXml size={14} style={{ verticalAlign: -2 }} /> Conta Dev: só o Dev altera esta conta.</p>
@@ -187,3 +202,10 @@ export function PainelEquipe() {
     </>
   );
 }
+
+const online = (m: Membro) => m.papeis.includes("motoboy") && m.status != null && m.status !== "offline";
+const FILTROS_EQUIPE: [string, string, (m: Membro) => boolean][] = [
+  ["todos", "Todos", () => true], ["motoboys", "Motoboys", (m) => m.papeis.includes("motoboy")], ["online", "Online", online],
+  ["offline", "Offline", (m) => m.papeis.includes("motoboy") && !online(m)], ["gestores", "Gestores", (m) => m.papeis.includes("gestor") || m.papeis.includes("dev")],
+  ["teste", "Teste", (m) => m.modo_teste], ["bloqueados", "Bloqueados", (m) => Boolean(m.bloqueado)],
+];

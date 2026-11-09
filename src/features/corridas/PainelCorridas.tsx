@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ArrowDownToLine, ArrowUpFromLine, Bike, Building2, CalendarClock, TriangleAlert, CheckSquare, Clock, FlaskConical, History, Megaphone, Plus, Route, Ruler, Sparkles, Trash2, Users, X, Zap } from "lucide-react";
+import { ArrowDownToLine, ArrowUpFromLine, Bike, Building2, CalendarClock, TriangleAlert, CheckSquare, Clock, FlaskConical, History, Megaphone, Plus, Route, Ruler, Search, Sparkles, Trash2, Users, X, Zap } from "lucide-react";
 import { ExcluirCorridas } from "./ExcluirCorridas";
 import { ApagarHistorico } from "./ApagarHistorico";
 import { CabecaPagina } from "@/features/ui/CabecaPagina";
+import { combina } from "@/features/ui/busca";
 import { moeda } from "@/features/precos/estrategias";
 import { MapaCorridas } from "./MapaCorridas";
 import { useConta } from "@/features/conta/conta";
@@ -34,6 +35,7 @@ export function PainelCorridas() {
   const conta = useConta();
   const [selecionando, setSelecionando] = useState(false);
   const [marcadas, setMarcadas] = useState<string[]>([]);
+  const [buscaRota, setBuscaRota] = useState("");
   const [limpando, setLimpando] = useState(false);
   const [excluindo, setExcluindo] = useState(false);
   const alternar = (id: string) => setMarcadas((m) => (m.includes(id) ? m.filter((x) => x !== id) : [...m, id]));
@@ -42,13 +44,15 @@ export function PainelCorridas() {
   const planejadas = corridas.filter((c) => PLANEJADAS.includes(c.status))
     .sort((a, b) => new Date(a.agendada_para ?? 0).getTime() - new Date(b.agendada_para ?? 0).getTime());
   const montadas = corridas.filter((c) => c.status === "montada" || (c.status === "sem_motoboy"));
-  const lista = filtro === "ativas" ? corridas.filter((c) => ATIVAS.includes(c.status))
+  const nome = (id: string | null) => equipe.find((m) => m.id === id)?.nome;
+  const listaBase = filtro === "ativas" ? corridas.filter((c) => ATIVAS.includes(c.status))
     : filtro === "montadas" ? montadas
     : filtro === "planejadas" ? planejadas
     : filtro === "concluidas" ? corridas.filter((c) => c.status === "concluida")
     : filtro === "canceladas" ? corridas.filter((c) => c.status === "cancelada")
     : corridas;
-  const nome = (id: string | null) => equipe.find((m) => m.id === id)?.nome;
+  const lista = listaBase.filter((c) => combina(buscaRota, numeroCorrida(c), c.numero, nome(c.motoboy_id), (c as { motoboy_nome_arquivado?: string | null }).motoboy_nome_arquivado,
+    c.cliente_nome, empresas.find((e) => e.id === c.empresa_id)?.nome, c.observacoes, c.paradas.map((p) => `${p.endereco} ${p.contato_nome ?? ""} ${p.recebedor_nome ?? ""}`).join(" ")));
 
   const pinosAtivos = useMemo(
     () => corridas.filter((c) => ATIVAS.includes(c.status)).flatMap((c) =>
@@ -91,6 +95,7 @@ export function PainelCorridas() {
             ))}
           </div>
         </div>
+        <label className="busca-mini"><Search size={14} aria-hidden /><input placeholder="Nº, motoboy, cliente, endereço…" value={buscaRota} onChange={(e) => setBuscaRota(e.target.value)} /></label>
         <div className="linha-botoes">
           <button className="botao-ouro" style={{ flex: 1 }} onClick={() => setVisao({ tipo: "nova" })}><Plus size={17} aria-hidden /> Corrida avulsa</button>
           {conta.modulo("excluir_corridas") && <button className="botao-texto" onClick={() => (selecionando ? sairSelecao() : setSelecionando(true))} title="Selecionar para apagar">

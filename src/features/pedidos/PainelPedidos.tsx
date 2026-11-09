@@ -1,12 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   Ban, CalendarClock, Check, CheckCircle2, CircleDollarSign, ClipboardList, FlaskConical, Package, PackagePlus, RefreshCw, Route, Search, Undo2, Wallet, X, Zap,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
-import { useEmpresas, useRecarregarAoMudar } from "@/features/corridas/dados";
+import { useEmpresas, useEquipe, useRecarregarAoMudar } from "@/features/corridas/dados";
 import { MapaCorridas, type PinoParada } from "@/features/corridas/MapaCorridas";
 import { formatarKm } from "@/features/corridas/tipos";
 import { useModoTeste } from "@/features/teste/modoTeste";
@@ -31,10 +31,13 @@ export function PainelPedidos() {
   const { teste } = useModoTeste();
   const { empresas } = useEmpresas();
   const [pedidos, setPedidos] = useState<Pedido[] | null>(null);
-  const [rotas, setRotas] = useState<{ pedido_id: string; corrida_id: string; numero: number; status: string }[]>([]);
+  const [rotas, setRotas] = useState<{ pedido_id: string; corrida_id: string; numero: number; status: string; motoboy?: string | null }[]>([]);
+  const equipe = useEquipe();
+  const equipeRef = useRef(equipe); equipeRef.current = equipe;
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [filtro, setFiltro] = useState<Filtro>("revisar");
   const [busca, setBusca] = useState("");
+  const [tipoF, setTipoF] = useState<"todos" | "agora" | "planejados" | "urgentes" | "pagamento">("todos");
   const [sel, setSel] = useState<string | null>(null);
   const [novo, setNovo] = useState(false);
 
@@ -51,9 +54,10 @@ export function PainelPedidos() {
     setCategorias((k.data ?? []) as Categoria[]);
     const ids = lista.filter((x) => ["roteirizado", "em_rota", "concluido"].includes(x.status)).map((x) => x.id).slice(0, 300);
     if (ids.length) {
-      const { data } = await sb.from("paradas").select("pedido_id, corrida_id, corridas(numero,status)").in("pedido_id", ids);
-      setRotas(((data ?? []) as unknown as { pedido_id: string; corrida_id: string; corridas: { numero: number; status: string } }[])
-        .map((r) => ({ pedido_id: r.pedido_id, corrida_id: r.corrida_id, numero: r.corridas?.numero, status: r.corridas?.status })));
+      const { data } = await sb.from("paradas").select("pedido_id, corrida_id, corridas(numero,status,motoboy_id,motoboy_nome_arquivado)").in("pedido_id", ids);
+      setRotas(((data ?? []) as unknown as { pedido_id: string; corrida_id: string; corridas: { numero: number; status: string; motoboy_id: string | null; motoboy_nome_arquivado: string | null } }[])
+        .map((r) => ({ pedido_id: r.pedido_id, corrida_id: r.corrida_id, numero: r.corridas?.numero, status: r.corridas?.status,
+          motoboy: equipeRef.current.find((m) => m.id === r.corridas?.motoboy_id)?.nome ?? r.corridas?.motoboy_nome_arquivado ?? null })));
     } else setRotas([]);
   }, `pedidos-${teste}`);
 
@@ -62,9 +66,14 @@ export function PainelPedidos() {
   const lista = useMemo(() => (pedidos ?? []).filter((p) => {
     const f = FILTROS.find((x) => x.k === filtro)!;
     if (f.st && !f.st.includes(p.status)) return false;
+    if (tipoF === "agora" && p.tipo === "planejado") return false;
+    if (tipoF === "planejados" && p.tipo !== "planejado") return false;
+    if (tipoF === "urgentes" && !p.urgente) return false;
+    if (tipoF === "pagamento" && !(p.cobranca === "pre_pago" && p.pagamento_status === "pendente")) return false;
     if (!termo) return true;
-    return sem(`${p.numero} ${cliente(p)} ${(p.pedido_pontos ?? []).map((x) => x.endereco).join(" ")}`).includes(termo);
-  }), [pedidos, filtro, termo]); // eslint-disable-line react-hooks/exhaustive-deps
+    const motoboys = rotas.filter((r) => r.pedido_id === p.id).map((r) => r.motoboy ?? "").join(" ");
+    return termo.split(/\s+/).every((w) => sem(`${p.numero} ${cliente(p)} ${(p.pedido_pontos ?? []).map((x) => `${x.endereco} ${x.contato_nome ?? ""}`).join(" ")} ${(p.pedido_itens ?? []).map((i) => i.descricao).join(" ")} ${p.observacoes ?? ""} ${motoboys}`).includes(w));
+  }), [pedidos, filtro, termo, tipoF, rotas]); // eslint-disable-line react-hooks/exhaustive-deps
   const contagem = (f: Filtro) => (pedidos ?? []).filter((p) => { const st = FILTROS.find((x) => x.k === f)!.st; return !st || st.includes(p.status); }).length;
   const atual = pedidos?.find((p) => p.id === sel) ?? null;
 
@@ -81,7 +90,11 @@ export function PainelPedidos() {
             toast(error ? traduzir(error.message) : data ? `${data} entrega(s) encaixadas em rotas.` : "Nada novo para montar.", error ? "erro" : "ok");
           }}><Route size={15} aria-hidden /> Montar rotas</button>
         </div>
-        <label className="busca-mini"><Search size={14} aria-hidden /><input placeholder="Número, cliente ou endereço" value={busca} onChange={(e) => setBusca(e.target.value)} /></label>
+        <label className="busca-mini"><Search size={14} aria-hidden /><input placeholder="Nº, cliente, endereço, item, motoboy…" value={busca} onChange={(e) => setBusca(e.target.value)} /></label>
+        <div className="fichas-filtro">
+          {([["todos", "Todos"], ["agora", "Agora"], ["planejados", "Planejados"], ["urgentes", "Urgentes"], ["pagamento", "Aguardando pagamento"]] as const).map(([k, r]) =>
+            <button key={k} type="button" className={tipoF === k ? "ativo" : ""} onClick={() => setTipoF(k)}>{r}</button>)}
+        </div>
         <div className="filtro filtro-rolavel">
           {FILTROS.map((f) => <button key={f.k} className={filtro === f.k ? "ativo" : ""} onClick={() => setFiltro(f.k)}>{f.rotulo}{f.k !== "todos" && contagem(f.k) > 0 && <span className="filtro-n">{contagem(f.k)}</span>}</button>)}
         </div>
