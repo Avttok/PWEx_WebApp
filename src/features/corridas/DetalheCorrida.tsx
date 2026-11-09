@@ -97,6 +97,7 @@ function Comprovante({ caminho, rotulo }: { caminho: string; rotulo: string }) {
 }
 
 export function DetalheCorrida({ corrida, oferta, onVoltar, onExcluida }: { corrida: Corrida; oferta?: Oferta; onVoltar: () => void; onExcluida?: () => void }) {
+  const [foco, setFoco] = useState<{ lat: number; lng: number; vez: number } | null>(null);
   const conta = useConta();
   const [excluindo, setExcluindo] = useState(false);
   const equipe = useEquipe();
@@ -224,9 +225,9 @@ export function DetalheCorrida({ corrida, oferta, onVoltar, onExcluida }: { corr
         )}
 
         <section className="bloco">
-          <span className="rotulo">Paradas</span>
+          <span className="rotulo">Paradas · clique para ver no mapa</span>
           {corrida.paradas.map((p) => (
-            <div key={p.id} className={`parada-detalhe ${p.status}`}>
+            <div key={p.id} className={`parada-detalhe clicavel ${p.status}`} title="Ver no mapa" onClick={() => setFoco({ lat: p.lat, lng: p.lng, vez: Date.now() })}>
               <span className={`pino-mini ${p.tipo}`}>{p.ordem + 1}</span>
               <div className="parada-texto">
                 <strong>{p.tipo === "coleta" ? "Coleta" : "Entrega"} · {ROTULO_PARADA[p.status]}{p.dist_rua_m != null && p.tipo === "entrega" ? <span className="dica"> · {formatarKm(p.dist_rua_m)} da coleta</span> : null}</strong>
@@ -297,6 +298,7 @@ export function DetalheCorrida({ corrida, oferta, onVoltar, onExcluida }: { corr
         motoboys={ativa && motoboy?.lat != null && motoboy.lng != null
           ? [{ id: motoboy.id, nome: motoboy.nome, lat: motoboy.lat, lng: motoboy.lng, status: motoboy.status, foto: motoboy.foto }] : []}
         enquadrar={corrida.id}
+        foco={foco}
       />
     </>
   );

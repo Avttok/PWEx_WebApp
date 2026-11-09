@@ -133,6 +133,7 @@ function DetalhePedido({ p, cliente, categorias, rotas, onFechar }: {
   const [valor, setValor] = useState(String(p.valor ?? "").replace(".", ","));
   const [motivo, setMotivo] = useState(p.ajuste_motivo ?? "");
   const [ocupado, setOcupado] = useState(false);
+  const [foco, setFoco] = useState<{ lat: number; lng: number; vez: number } | null>(null);
   const [regras, setRegras] = useState<Record<string, unknown>>((p as Pedido & { regras?: Record<string, unknown> }).regras ?? {});
   const pontos = [...(p.pedido_pontos ?? [])].sort((a, b) => a.ordem - b.ordem);
   const pinos: PinoParada[] = pontos.map((x, i) => ({ chave: x.id, lat: x.lat, lng: x.lng, tipo: x.tipo, rotulo: String(i + 1), concluida: x.status === "concluido" }));
@@ -177,12 +178,12 @@ function DetalhePedido({ p, cliente, categorias, rotas, onFechar }: {
           <button className="icone" aria-label="Fechar" onClick={onFechar}><X size={16} /></button>
         </div>
         {p.recusa_motivo && <p className="erro" style={{ margin: 0 }}>Recusado: {p.recusa_motivo}</p>}
-        <div className="pedido-mapa-p"><MapaCorridas paradas={pinos} enquadrar={p.id} /></div>
+        <div className="pedido-mapa-p"><MapaCorridas paradas={pinos} enquadrar={p.id} foco={foco} /></div>
         <ol className="pedido-pontos">
           {pontos.map((x, i) => {
             const itens = (p.pedido_itens ?? []).filter((it) => it.entrega_id === x.id || it.coleta_id === x.id);
             return (
-              <li key={x.id} className={x.status === "concluido" ? "feita" : ""}>
+              <li key={x.id} className={`clicavel${x.status === "concluido" ? " feita" : ""}`} title="Ver no mapa" onClick={() => setFoco({ lat: x.lat, lng: x.lng, vez: Date.now() })}>
                 <span className={`pino-mini ${x.tipo}`}>{i + 1}</span>
                 <div>
                   <strong>{x.tipo === "coleta" ? "Coleta" : "Entrega"}</strong> · {x.endereco}

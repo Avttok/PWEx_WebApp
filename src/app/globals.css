@@ -1229,3 +1229,6 @@ a.chip { text-decoration: none; }
 
 .mini-mapa { height: 180px; border-radius: 14px; overflow: hidden; position: relative; border: 1px solid var(--borda); }
 .mini-mapa > * { position: absolute; inset: 0; }
+
+.clicavel { cursor: pointer; border-radius: 10px; transition: background .15s; }
+.clicavel:hover { background: var(--vidro-sutil); }
