@@ -126,6 +126,11 @@ export const AJUDA: Partial<Record<Publico, Secao[]>> = {
           "Em Equipe, crie contas de motoboys e gestores, troque senhas, bloqueie ou exclua.",
           "No perfil de cada motoboy: registro, percursos, veículo, medalhas, regras próprias (como o repasse) e edição.",
         ] },
+        { id: "divisao", titulo: "Divisão da rota: motoboy, gestor e Dev", texto: [
+          "Em Configurações → Pagamento do motoboy, escolha o modelo. No Percentual, a Parte do motoboy na rota diz quanto ele leva (ex.: 40%) e o gestor fica com o resto.",
+          "Em De onde sai a parte do Dev, escolha: da parte do gestor (R$ 100: 40, 55 e 5), antes de dividir (Dev 5; 38 e 57) ou das duas partes (38, 57 e 5). Dá para mudar por cliente.",
+          "O motoboy nunca leva mais que a rota paga: o máximo é o valor da rota menos a parte do Dev. Vale no modelo por km, no percentual e com o ajuste da rota. Quando o teto corta, o cálculo mostra.",
+        ] },
         { id: "percursos", titulo: "Percursos e trajetos", texto: [
           "Os percursos ficam guardados: escolha Hoje, Ontem, Anteontem ou qualquer outro dia no calendário.",
           "O celular manda a posição de tempos em tempos. O sistema liga esses pontos pelas ruas, então o traçado segue o caminho que o motoboy fez, e não uma linha reta. Os pontinhos são as posições que chegaram.",

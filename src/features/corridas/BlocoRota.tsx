@@ -16,8 +16,18 @@ const REGRA: Record<string, string> = {
 };
 
 /** O cálculo do motoboy, linha a linha. */
+const ORIGEM_DEV: Record<string, string> = { gestor: "a parte do Dev sai da parte do gestor", total: "a parte do Dev sai antes de dividir", proporcional: "a parte do Dev sai das duas partes" };
+
 export function ContaMotoboy({ calc }: { calc: CalculoPagamento }) {
-  if (calc.modo === "percentual") return <p className="dica" style={{ margin: 0 }}>Percentual: {calc.pct}% do valor da rota = <strong>{moeda(calc.total)}</strong></p>;
+  const teto = calc.limitado && calc.teto != null && (
+    <p className="dica" style={{ margin: 0, color: "var(--ouro)" }}>Limitado a {moeda(calc.teto)}: o motoboy nunca leva mais que a rota paga (valor da rota menos a parte do Dev).</p>
+  );
+  if (calc.modo === "percentual") return (
+    <>
+      <p className="dica" style={{ margin: 0 }}>Percentual: {calc.pct}% do valor da rota{calc.dev_origem ? ` (${ORIGEM_DEV[calc.dev_origem]})` : ""} = <strong>{moeda(calc.total)}</strong></p>
+      {teto}
+    </>
+  );
   return (
     <div className="orcamento">
       <div className="orcamento-linha"><span>Km de referência<small>{REGRA[calc.regra ?? ""] ?? calc.regra}{calc.regra === "percentil" ? ` ${calc.percentil}%` : ""} · {calc.distancia === "acumulada" ? "acumulado na rota" : "coleta → entrega"} · {(calc.distancias_km ?? []).map((d) => d.toLocaleString("pt-BR")).join(", ")} km</small></span>
@@ -26,7 +36,9 @@ export function ContaMotoboy({ calc }: { calc: CalculoPagamento }) {
       {Number(calc.coletas_extras) > 0 && Number(calc.valor_coleta_extra) > 0 && <div className="orcamento-linha"><span>Coletas a mais</span><strong>{calc.coletas_extras} × {moeda(calc.valor_coleta_extra)}</strong></div>}
       {Number(calc.fixo) > 0 && <div className="orcamento-linha"><span>Fixo por rota</span><strong>{moeda(calc.fixo)}</strong></div>}
       {Number(calc.minimo) > 0 && <div className="orcamento-linha pct"><span>Mínimo</span><strong>{moeda(calc.minimo)}</strong></div>}
-      <div className="orcamento-linha total"><span>Calculado</span><strong>{moeda(calc.total)}</strong></div>
+      {calc.limitado && calc.calculado != null && <div className="orcamento-linha"><span>Pelo cálculo</span><strong>{moeda(calc.calculado)}</strong></div>}
+      <div className="orcamento-linha total"><span>{calc.limitado ? "Fica (teto da rota)" : "Calculado"}</span><strong>{moeda(calc.total)}</strong></div>
+      {teto}
     </div>
   );
 }

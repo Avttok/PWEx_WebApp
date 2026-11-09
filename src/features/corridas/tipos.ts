@@ -9,6 +9,8 @@ export interface CalculoPagamento {
   modo: "rota" | "percentual"; regra?: string; percentil?: number | null; distancia?: string; distancias_km?: number[]; km_referencia?: number;
   valor_km?: number; valor_km_total?: number; entregas?: number; entregas_extras?: number; valor_entrega_extra?: number;
   coletas?: number; coletas_extras?: number; valor_coleta_extra?: number; fixo?: number; minimo?: number; pct?: number; total: number;
+  /** Teto: o que a rota paga menos a parte do Dev. `limitado` = o cálculo passou dele e foi cortado. */
+  teto?: number; limitado?: boolean; calculado?: number; valor_rota?: number; dev_pct?: number; dev_origem?: "gestor" | "total" | "proporcional";
 }
 
 export interface Parada {

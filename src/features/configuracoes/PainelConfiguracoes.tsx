@@ -247,7 +247,18 @@ function ExemploPagamento({ cfg }: { cfg: Record<string, ValorParametro> }) {
   const vkm = Number(cfg.pag_valor_km) || 0, vext = Number(cfg.pag_entrega_extra) || 0, fixo = Number(cfg.pag_fixo_rota) || 0, min = Number(cfg.pag_minimo) || 0;
   const total = Math.max(min, fixo + ref * vkm + (n - 1) * vext);
   const m = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-  if (cfg.pag_modo === "percentual") return <div className="config-exemplo"><span className="rotulo">Exemplo</span><p>Modelo percentual: o motoboy recebe {String(cfg.repasse_motoboy_pct)}% do valor cobrado do cliente.</p></div>;
+  // divisão de uma rota de R$ 100 (o mesmo cálculo do banco)
+  const pct = Number(cfg.repasse_motoboy_pct ?? 67.5) || 0, dev = Number(cfg.dev_pct ?? 5) || 0, origem = String(cfg.dev_origem ?? "gestor");
+  const r2 = (v: number) => Math.round(v * 100) / 100;
+  const pDev = r2(100 * dev / 100), teto = r2(100 - pDev);
+  const pMoto = Math.min(teto, r2(origem === "total" ? (100 - pDev) * pct / 100 : origem === "proporcional" ? 100 * pct / 100 * (1 - dev / 100) : 100 * pct / 100));
+  if (cfg.pag_modo === "percentual") return (
+    <div className="config-exemplo"><span className="rotulo">Exemplo</span>
+      <p>Rota de <strong>R$ 100,00</strong>, motoboy {pct.toLocaleString("pt-BR")}%, Dev {dev.toLocaleString("pt-BR")}%:</p>
+      <p className="config-exemplo-conta">Motoboy <strong className="texto-grad">{m(pMoto)}</strong> · Gestor <strong>{m(r2(100 - pMoto - pDev))}</strong> · Dev <strong>{m(pDev)}</strong></p>
+      {100 * pct / 100 > teto && <p className="dica" style={{ margin: 0 }}>O motoboy nunca passa de {m(teto)} (a rota menos o Dev).</p>}
+    </div>
+  );
   return (
     <div className="config-exemplo">
       <span className="rotulo">Exemplo</span>
@@ -255,6 +266,7 @@ function ExemploPagamento({ cfg }: { cfg: Record<string, ValorParametro> }) {
       <p className="config-exemplo-conta">
         {fixo ? <>{m(fixo)} + </> : null}{ref.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} km × {m(vkm)} + 4 × {m(vext)} = <strong className="texto-grad">{m(total)}</strong>
       </p>
+      <p className="dica" style={{ margin: 0 }}>Nunca passa do que a rota paga: numa rota de {m(100)} com Dev {dev.toLocaleString("pt-BR")}%, o máximo é {m(teto)}{total > teto ? `, então esta pagaria ${m(teto)}` : ""}.</p>
     </div>
   );
 }
