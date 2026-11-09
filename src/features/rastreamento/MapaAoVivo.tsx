@@ -5,7 +5,7 @@ import { AlertTriangle, BatteryMedium, Bike, Crosshair, Flame, FlaskConical, Loc
 import { maplibregl } from "@/lib/mapa/maplibre";
 import { useMapa } from "@/lib/mapa/useMapa";
 import { useModoRuas, useRotulos, type ModoRuas, type Rotulos } from "@/lib/mapa/estabelecimentos";
-import { criarCamadasPercurso, desenharCalor, desenharPercursos, separarRegistros, type Registro } from "@/lib/mapa/percursos";
+import { aplicarAjustes, criarCamadasPercurso, desenharCalor, desenharPercursos, kmRegistro, separarRegistros, type Registro } from "@/lib/mapa/percursos";
 import { corOuro } from "@/lib/mapa/cores";
 import { CabecaPagina } from "@/features/ui/CabecaPagina";
 import { useModoTeste } from "@/features/teste/modoTeste";
@@ -53,7 +53,7 @@ function ha(agora: number, iso: string | null): string {
 const horaCurta = (iso: string) => new Date(iso).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
 
 export function MapaAoVivo() {
-  const { motoboys, nomes, fotos, trilhas: todasTrilhas, conectado, erro } = useRastreamento();
+  const { motoboys, nomes, fotos, trilhas: todasTrilhas, ajustes, conectado, erro } = useRastreamento();
   const conta = useConta();
   const { teste } = useModoTeste();
   const trilhas = useMemo(() => (conta.modulo("trilhas_mapa") ? todasTrilhas : {}), [conta, todasTrilhas]);
@@ -91,9 +91,9 @@ export function MapaAoVivo() {
   // registros: de quem está selecionado, todos do período (com pings); dos outros, só o trecho atual
   const registros = useMemo(() => {
     const porMotoboy: Record<string, Registro[]> = {};
-    for (const [id, lista] of Object.entries(trilhas)) porMotoboy[id] = separarRegistros(lista);
+    for (const [id, lista] of Object.entries(trilhas)) porMotoboy[id] = aplicarAjustes(separarRegistros(lista), id, ajustes);
     return porMotoboy;
-  }, [trilhas]);
+  }, [trilhas, ajustes]);
   useEffect(() => { setDestaque(null); }, [seguindo]);
   useEffect(() => {
     const m = mapa.current;
@@ -149,6 +149,8 @@ export function MapaAoVivo() {
       const queria = mb.modo_teste ? "frasco" : "moto";
       if (icone.dataset.icone !== queria) { icone.innerHTML = mb.modo_teste ? FRASCO : MOTO; icone.dataset.icone = queria; }
       el.classList.toggle("seguindo", seguindo === mb.id);
+      // disponível e em corrida sempre por cima dos offline (e quem está sendo seguido no topo)
+      el.style.zIndex = seguindo === mb.id ? "6" : mb.status === "offline" ? "1" : mb.status === "disponivel" || mb.status === "em_corrida" ? "4" : "2";
       el.classList.toggle("escondido", filtro !== "todos" && mb.status !== filtro);
       marcador.setLngLat([mb.lng, mb.lat]);
     }
@@ -248,7 +250,7 @@ export function MapaAoVivo() {
                     <button key={i} className={`registro ${destaque === i ? "ativo" : ""}`} onClick={() => setDestaque((d) => (d === i ? null : i))}>
                       {r.tipo === "corrida" ? <Bike size={13} aria-hidden /> : <Search size={13} aria-hidden />}
                       <span>{r.tipo === "corrida" ? "Corrida" : "Procurando corrida"}</span>
-                      <span className="dica">{horaCurta(r.inicio)}–{horaCurta(r.fim)} · {r.pontos.length} pings</span>
+                      <span className="dica">{horaCurta(r.inicio)}–{horaCurta(r.fim)} · {kmRegistro(r).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} km · {r.pontos.length} pings</span>
                     </button>
                   ))}
                 </div>

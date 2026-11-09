@@ -1,6 +1,7 @@
 "use client";
 
 import type { Map as Mapa, GeoJSONSource } from "maplibre-gl";
+import { supabase } from "@/lib/supabase/client";
 
 /** Um ping do motoboy (tabela localizacoes). */
 export interface Ping { lat: number; lng: number; status: string; corrida_id?: string | null; registrado_em: string }
@@ -9,7 +10,11 @@ export interface Ping { lat: number; lng: number; status: string; corrida_id?: s
  * Registro = um trecho contínuo do dia: "procurando" (disponível até aceitar) ou "corrida"
  * (a corrida inteira). Começa de novo ao mudar de status, de corrida, ou após 20 min sem ping.
  */
-export interface Registro { tipo: "procurando" | "corrida"; corridaId: string | null; pontos: Ping[]; inicio: string; fim: string }
+export interface Registro {
+  tipo: "procurando" | "corrida"; corridaId: string | null; pontos: Ping[]; inicio: string; fim: string;
+  /** Caminho pelas ruas (lat, lng), quando o servidor conseguiu casar os pings com o mapa. */
+  caminho?: [number, number][];
+}
 
 const LACUNA_MS = 20 * 60_000;
 
@@ -32,6 +37,60 @@ export function separarRegistros(pings: Ping[]): Registro[] {
     anterior = t;
   }
   return out;
+}
+
+// ---------------------------------------------------------------- traçado pelas ruas
+
+type PingBruto = [string, number, number, string, string | null, number, number];
+export interface Ajuste { ate: number; caminho: [number, number][] }
+export interface Percursos { pings: (Ping & { motoboy_id: string })[]; ajustes: Record<string, Ajuste>; linha: [number, number][]; parcial: boolean }
+
+/**
+ * Busca os percursos já traçados por cima das ruas (/api/percursos). Com `corrida`, a trilha inteira dela.
+ * Devolve null se o servidor não respondeu (aí a tela usa os pings direto).
+ */
+export async function buscarPercursos(p: { de?: Date; ate?: Date; motoboy?: string; teste?: boolean; corrida?: string; url?: string }): Promise<Percursos | null> {
+  try {
+    const { data } = await supabase().auth.getSession();
+    const token = data.session?.access_token;
+    if (!token) return null;
+    const r = await fetch(p.url ?? "/api/percursos", {
+      method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
+      body: JSON.stringify({ de: p.de?.toISOString(), ate: p.ate?.toISOString(), motoboy: p.motoboy, teste: p.teste, corrida: p.corrida }),
+    });
+    if (!r.ok) return null;
+    const j = (await r.json()) as { pings: PingBruto[]; ajustes: Record<string, Ajuste>; linha: [number, number][]; parcial: boolean };
+    return {
+      pings: j.pings.map((x) => ({ motoboy_id: x[0], lat: x[1], lng: x[2], status: x[3], corrida_id: x[4], registrado_em: new Date(x[5]).toISOString() })),
+      ajustes: j.ajustes ?? {}, linha: j.linha ?? [], parcial: Boolean(j.parcial),
+    };
+  } catch { return null; }
+}
+
+/** Põe o caminho pelas ruas em cada registro; os pings que chegaram depois entram no fim, crus. */
+export function aplicarAjustes(regs: Registro[], motoboy: string, ajustes: Record<string, Ajuste> | undefined): Registro[] {
+  if (!ajustes) return regs;
+  return regs.map((r) => {
+    const a = ajustes[`${motoboy}|${new Date(r.inicio).getTime()}`];
+    if (!a) return r;
+    const depois = r.pontos.filter((p) => new Date(p.registrado_em).getTime() > a.ate).map((p) => [p.lat, p.lng] as [number, number]);
+    return { ...r, caminho: [...a.caminho, ...depois] };
+  });
+}
+
+/** Linha desenhada do registro (lat, lng): pelas ruas, ou os pings. */
+export const linhaRegistro = (r: Registro): [number, number][] => r.caminho ?? r.pontos.map((p) => [p.lat, p.lng]);
+
+/** Km do registro (pelo caminho das ruas quando houver). */
+export function kmRegistro(r: Registro) {
+  const l = linhaRegistro(r), rad = Math.PI / 180;
+  let m = 0;
+  for (let i = 1; i < l.length; i++) {
+    const [la1, lo1] = l[i - 1], [la2, lo2] = l[i];
+    const h = Math.sin(((la2 - la1) * rad) / 2) ** 2 + Math.cos(la1 * rad) * Math.cos(la2 * rad) * Math.sin(((lo2 - lo1) * rad) / 2) ** 2;
+    m += 2 * 6371000 * Math.asin(Math.sqrt(h));
+  }
+  return m / 1000;
 }
 
 /**
@@ -73,10 +132,10 @@ export function criarCamadasPercurso(m: Mapa, teste: boolean) {
 /** Desenha os registros. `destaque` = índice do registro escolhido (os outros ficam apagados). */
 export function desenharPercursos(m: Mapa, registros: Registro[], teste: boolean, destaque: number | null = null, comPings = true) {
   const cores = coresPercurso(teste);
-  const linhas = registros.filter((r) => r.pontos.length >= 2).map((r) => {
+  const linhas = registros.filter((r) => linhaRegistro(r).length >= 2).map((r) => {
     const i = registros.indexOf(r);
     return { type: "Feature" as const, properties: { destaque: destaque === i, apagado: destaque != null && destaque !== i },
-      geometry: { type: "LineString" as const, coordinates: r.pontos.map((p) => [p.lng, p.lat]) } };
+      geometry: { type: "LineString" as const, coordinates: linhaRegistro(r).map(([la, lo]) => [lo, la]) } };
   });
   const pontos = comPings ? registros.flatMap((r, i) => r.pontos.map((p, k) => ({
     type: "Feature" as const,

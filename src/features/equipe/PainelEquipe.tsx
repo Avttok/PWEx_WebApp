@@ -55,7 +55,9 @@ export function PainelEquipe() {
 
   const m = lista.find((x) => x.id === sel);
   const fil = FILTROS_EQUIPE.find(([k]) => k === filtro)?.[2] ?? (() => true);
-  const visiveis = lista.filter((x) => fil(x) && combina(busca, x.nome, x.email));
+  // em corrida e disponíveis primeiro, offline por último
+  const pesoStatus = (m: Membro) => (m.status === "em_corrida" ? 0 : m.status === "disponivel" ? 1 : 2);
+  const visiveis = lista.filter((x) => fil(x) && combina(busca, x.nome, x.email)).sort((a, b) => pesoStatus(a) - pesoStatus(b));
   useEffect(() => {
     if (!m) return;
     setNome(m.nome); setGestor(m.papeis.includes("gestor")); setMotoboy(m.papeis.includes("motoboy")); setDevPapel(m.papeis.includes("dev"));

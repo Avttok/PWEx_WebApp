@@ -8,6 +8,7 @@ import {
 import { supabase } from "@/lib/supabase/client";
 import { useEmpresas, useEquipe, useRecarregarAoMudar } from "@/features/corridas/dados";
 import { MapaCorridas, type PinoParada } from "@/features/corridas/MapaCorridas";
+import { buscarPercursos } from "@/lib/mapa/percursos";
 import { formatarKm } from "@/features/corridas/tipos";
 import { useModoTeste } from "@/features/teste/modoTeste";
 import { CabecaPagina } from "@/features/ui/CabecaPagina";
@@ -32,7 +33,7 @@ export function PainelPedidos() {
   const { teste } = useModoTeste();
   const { empresas } = useEmpresas();
   const [pedidos, setPedidos] = useState<Pedido[] | null>(null);
-  const [rotas, setRotas] = useState<{ pedido_id: string; corrida_id: string; numero: number; status: string; motoboy?: string | null }[]>([]);
+  const [rotas, setRotas] = useState<{ pedido_id: string; corrida_id: string; numero: number; status: string; motoboy?: string | null; motoboy_id?: string | null }[]>([]);
   const equipe = useEquipe();
   const equipeRef = useRef(equipe); equipeRef.current = equipe;
   const [categorias, setCategorias] = useState<Categoria[]>([]);
@@ -58,6 +59,7 @@ export function PainelPedidos() {
       const { data } = await sb.from("paradas").select("pedido_id, corrida_id, corridas(numero,status,motoboy_id,motoboy_nome_arquivado)").in("pedido_id", ids);
       setRotas(((data ?? []) as unknown as { pedido_id: string; corrida_id: string; corridas: { numero: number; status: string; motoboy_id: string | null; motoboy_nome_arquivado: string | null } }[])
         .map((r) => ({ pedido_id: r.pedido_id, corrida_id: r.corrida_id, numero: r.corridas?.numero, status: r.corridas?.status,
+          motoboy_id: r.corridas?.motoboy_id ?? null,
           motoboy: equipeRef.current.find((m) => m.id === r.corridas?.motoboy_id)?.nome ?? r.corridas?.motoboy_nome_arquivado ?? null })));
     } else setRotas([]);
   }, `pedidos-${teste}`);
@@ -129,8 +131,9 @@ export function PainelPedidos() {
 }
 
 function DetalhePedido({ p, cliente, categorias, rotas, onFechar }: {
-  p: Pedido; cliente: string; categorias: Categoria[]; rotas: { corrida_id: string; numero: number; status: string }[]; onFechar: () => void;
+  p: Pedido; cliente: string; categorias: Categoria[]; rotas: { corrida_id: string; numero: number; status: string; motoboy_id?: string | null }[]; onFechar: () => void;
 }) {
+  const equipe = useEquipe();
   const [valor, setValor] = useState(String(p.valor ?? "").replace(".", ","));
   const [motivo, setMotivo] = useState(p.ajuste_motivo ?? "");
   const [ocupado, setOcupado] = useState(false);
@@ -139,6 +142,22 @@ function DetalhePedido({ p, cliente, categorias, rotas, onFechar }: {
   const pontos = [...(p.pedido_pontos ?? [])].sort((a, b) => a.ordem - b.ordem);
   const pinos: PinoParada[] = pontos.map((x, i) => ({ chave: x.id, lat: x.lat, lng: x.lng, tipo: x.tipo, rotulo: String(i + 1), concluida: x.status === "concluido" }));
   const unicas = [...new Map(rotas.map((r) => [r.corrida_id, r])).values()];
+  // feito (trilha pelas ruas de cada rota deste pedido) e a fazer (do motoboy até o que falta)
+  const [trilha, setTrilha] = useState<[number, number][]>([]);
+  const idsRotas = unicas.map((r) => r.corrida_id).join(",");
+  const emRota = unicas.find((r) => ["aceita", "em_andamento"].includes(r.status));
+  useEffect(() => {
+    if (!idsRotas) { setTrilha([]); return; }
+    let vivo = true;
+    async function carregar() {
+      const partes = await Promise.all(idsRotas.split(",").map((id) => buscarPercursos({ corrida: id })));
+      if (vivo) setTrilha(partes.flatMap((r) => (r?.linha ?? []).map(([la, lo]) => [lo, la] as [number, number])));
+    }
+    void carregar();
+    const t = emRota ? setInterval(() => void carregar(), 60_000) : undefined;
+    return () => { vivo = false; if (t) clearInterval(t); };
+  }, [idsRotas, Boolean(emRota)]); // eslint-disable-line react-hooks/exhaustive-deps
+  const motoEmRota = emRota?.motoboy_id ? equipe.find((m) => m.id === emRota.motoboy_id) : undefined;
   const valorNum = Number(valor.replace(",", "."));
   const mudouValor = Number.isFinite(valorNum) && valor.trim() !== "" && valorNum !== Number(p.valor);
 
@@ -179,7 +198,9 @@ function DetalhePedido({ p, cliente, categorias, rotas, onFechar }: {
           <button className="icone" aria-label="Fechar" onClick={onFechar}><X size={16} /></button>
         </div>
         {p.recusa_motivo && <p className="erro" style={{ margin: 0 }}>Recusado: {p.recusa_motivo}</p>}
-        <div className="pedido-mapa-p"><MapaCorridas paradas={pinos} enquadrar={p.id} foco={foco} /></div>
+        <div className="pedido-mapa-p"><MapaCorridas paradas={pinos} enquadrar={p.id} foco={foco} trilha={trilha}
+          motoboys={motoEmRota?.lat != null && motoEmRota.lng != null ? [{ id: motoEmRota.id, nome: motoEmRota.nome, lat: motoEmRota.lat, lng: motoEmRota.lng, status: "em_corrida", foto: motoEmRota.foto }] : []}
+          restanteDe={motoEmRota?.lat != null && motoEmRota.lng != null ? { lat: motoEmRota.lat, lng: motoEmRota.lng } : null} /></div>
         <ol className="pedido-pontos">
           {pontos.map((x, i) => {
             const itens = (p.pedido_itens ?? []).filter((it) => it.entrega_id === x.id || it.coleta_id === x.id);

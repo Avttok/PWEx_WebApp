@@ -6,6 +6,7 @@ import { ExcluirCorridas } from "./ExcluirCorridas";
 import { CabecaPagina } from "@/features/ui/CabecaPagina";
 import { supabase } from "@/lib/supabase/client";
 import { decodificarPolyline } from "@/lib/geo/polyline";
+import { buscarPercursos } from "@/lib/mapa/percursos";
 import { moeda } from "@/features/precos/estrategias";
 import { MapaCorridas } from "./MapaCorridas";
 import { nomeCliente, traduzirErro, useEmpresas, useEquipe } from "./dados";
@@ -60,15 +61,24 @@ function useEventos(corridaId: string) {
   return eventos;
 }
 
-/** Trilha real: polyline compactada ou pontos ao vivo. */
-function useTrilha(corrida: Corrida) {
+/** Trilha real (o feito), traçada pelas ruas pelo servidor; ao vivo, os pings novos entram no fim. */
+function useTrilha(corrida: Corrida, ativa: boolean) {
   const [pontos, setPontos] = useState<[number, number][]>([]);
   const compactada = corrida.trajeto;
   useEffect(() => {
-    if (compactada) { setPontos(decodificarPolyline(compactada)); return; }
     const sb = supabase();
-    sb.from("localizacoes").select("lat,lng,registrado_em").eq("corrida_id", corrida.id).order("registrado_em").limit(5000)
-      .then(({ data }) => data && setPontos(data.map((p) => [p.lng, p.lat] as [number, number])));
+    let vivo = true;
+    async function carregar() {
+      const r = await buscarPercursos({ corrida: corrida.id });
+      if (!vivo) return;
+      if (r && r.linha.length) { setPontos(r.linha.map(([la, lo]) => [lo, la] as [number, number])); return; }
+      if (compactada) { setPontos(decodificarPolyline(compactada)); return; }
+      const { data } = await sb.from("localizacoes").select("lat,lng,registrado_em").eq("corrida_id", corrida.id).order("registrado_em").limit(5000);
+      if (vivo && data) setPontos(data.map((p) => [p.lng, p.lat] as [number, number]));
+    }
+    void carregar();
+    // em andamento: retraça pelas ruas de tempos em tempos
+    const refazer = ativa ? setInterval(() => void carregar(), 90_000) : undefined;
     const canal = sb.channel(`trilha-${corrida.id}`)
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "localizacoes", filter: `corrida_id=eq.${corrida.id}` },
         (payload) => {
@@ -76,8 +86,8 @@ function useTrilha(corrida: Corrida) {
           setPontos((l) => [...l, [p.lng, p.lat]]);
         })
       .subscribe();
-    return () => { sb.removeChannel(canal); };
-  }, [corrida.id, compactada]);
+    return () => { vivo = false; if (refazer) clearInterval(refazer); sb.removeChannel(canal); };
+  }, [corrida.id, compactada, ativa]);
   return pontos;
 }
 
@@ -104,7 +114,6 @@ export function DetalheCorrida({ corrida, oferta, onVoltar, onExcluida }: { corr
   const { empresas } = useEmpresas();
   const cfg = useConfiguracoes();
   const eventos = useEventos(corrida.id);
-  const trilha = useTrilha(corrida);
   const [agora, setAgora] = useState(() => Date.now());
   const [erro, setErro] = useState<string | null>(null);
   const [motoboyRedespacho, setMotoboyRedespacho] = useState("");
@@ -117,6 +126,7 @@ export function DetalheCorrida({ corrida, oferta, onVoltar, onExcluida }: { corr
   const nome = (id: string | null | undefined) => equipe.find((m) => m.id === id)?.nome ?? "Motoboy";
   const motoboy = equipe.find((m) => m.id === corrida.motoboy_id);
   const ativa = ["aceita", "em_andamento"].includes(corrida.status);
+  const trilha = useTrilha(corrida, ativa);
 
   const pinos = useMemo(
     () => corrida.paradas.map((p) => ({
@@ -299,6 +309,7 @@ export function DetalheCorrida({ corrida, oferta, onVoltar, onExcluida }: { corr
           ? [{ id: motoboy.id, nome: motoboy.nome, lat: motoboy.lat, lng: motoboy.lng, status: motoboy.status, foto: motoboy.foto }] : []}
         enquadrar={corrida.id}
         foco={foco}
+        restanteDe={ativa && motoboy?.lat != null && motoboy.lng != null ? { lat: motoboy.lat, lng: motoboy.lng } : null}
       />
     </>
   );

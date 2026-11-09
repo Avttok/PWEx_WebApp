@@ -5,45 +5,56 @@ import { Copy, Package, Search } from "lucide-react";
 import type { LngLatBoundsLike } from "maplibre-gl";
 import { supabase } from "@/lib/supabase/client";
 import { useMapa } from "@/lib/mapa/useMapa";
-import { criarCamadasPercurso, desenharPercursos, separarRegistros, type Ping, type Registro } from "@/lib/mapa/percursos";
+import { aplicarAjustes, buscarPercursos, criarCamadasPercurso, desenharPercursos, kmRegistro, linhaRegistro, separarRegistros, type Ajuste, type Ping } from "@/lib/mapa/percursos";
 import { formatarPix } from "@/lib/pix/identificar";
 import { toast } from "@/features/ui/toast";
 
 const DIAS = ["Hoje", "Ontem", "Anteontem"];
 const hora = (iso: string) => new Date(iso).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
-function km(r: Registro) {
-  const rad = Math.PI / 180;
-  let m = 0;
-  for (let i = 1; i < r.pontos.length; i++) {
-    const a = r.pontos[i - 1], b = r.pontos[i];
-    const h = Math.sin(((b.lat - a.lat) * rad) / 2) ** 2 + Math.cos(a.lat * rad) * Math.cos(b.lat * rad) * Math.sin(((b.lng - a.lng) * rad) / 2) ** 2;
-    m += 2 * 6371000 * Math.asin(Math.sqrt(h));
-  }
-  return m / 1000;
-}
+const km = kmRegistro;
+const diaIso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
-/** Percursos de um motoboy por dia, separados em registros (procurando corrida / corrida), com a chave PIX. */
+/**
+ * Percursos de um motoboy por dia, separados em registros (procurando corrida / corrida), com a chave PIX.
+ * O traçado vem casado com as ruas (o servidor entende o caminho entre um ping e outro).
+ */
 export function PercursosMembro({ id, teste }: { id: string; teste: boolean }) {
   const caixa = useRef<HTMLDivElement>(null);
   const { mapa, pronto } = useMapa(caixa);
   const [dia, setDia] = useState(0);
+  const [outroDia, setOutroDia] = useState<string>("");
   const [pings, setPings] = useState<Ping[] | null>(null);
+  const [ajustes, setAjustes] = useState<Record<string, Ajuste>>({});
   const [destaque, setDestaque] = useState<number | null>(null);
   const [pix, setPix] = useState<{ tipo_chave: string; chave: string; titular: string } | null | undefined>(undefined);
   const [numeros, setNumeros] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    setPings(null); setDestaque(null);
-    const ini = new Date(); ini.setHours(0, 0, 0, 0); ini.setDate(ini.getDate() - dia);
+    setPings(null); setDestaque(null); setAjustes({});
+    const ini = outroDia ? new Date(`${outroDia}T00:00:00`) : new Date();
+    if (!outroDia) { ini.setHours(0, 0, 0, 0); ini.setDate(ini.getDate() - dia); }
     const fim = new Date(ini); fim.setDate(fim.getDate() + 1);
-    // percursos de teste e reais ficam separados: só os do modo atual
-    supabase().from("localizacoes").select("lat,lng,status,corrida_id,registrado_em").eq("motoboy_id", id).eq("teste", teste)
-      .gte("registrado_em", ini.toISOString()).lt("registrado_em", fim.toISOString()).order("registrado_em").limit(10000)
-      .then(({ data }) => setPings((data ?? []) as Ping[]));
-  }, [id, dia, teste]);
+    let vivo = true, tentativas = 0;
+    async function carregar() {
+      const r = await buscarPercursos({ de: ini, ate: fim, motoboy: id, teste });
+      if (!vivo) return;
+      if (r) {
+        setPings(r.pings); setAjustes(r.ajustes);
+        // o mapa demorou para casar algum trecho: tenta de novo (o que já foi feito fica guardado)
+        if (r.parcial && tentativas++ < 4) setTimeout(() => { if (vivo) void carregar(); }, 4000);
+        return;
+      }
+      // servidor fora: pings direto do banco (linha reta entre eles); percursos de teste e reais ficam separados
+      const { data } = await supabase().from("localizacoes").select("lat,lng,status,corrida_id,registrado_em").eq("motoboy_id", id).eq("teste", teste)
+        .gte("registrado_em", ini.toISOString()).lt("registrado_em", fim.toISOString()).order("registrado_em").limit(10000);
+      if (vivo) setPings((data ?? []) as Ping[]);
+    }
+    void carregar();
+    return () => { vivo = false; };
+  }, [id, dia, teste, outroDia]);
   useEffect(() => { supabase().from("chaves_pix").select("tipo_chave,chave,titular").eq("usuario_id", id).eq("principal", true).maybeSingle().then(({ data }) => setPix(data ?? null)); }, [id]);
 
-  const registros = useMemo(() => separarRegistros(pings ?? []), [pings]);
+  const registros = useMemo(() => aplicarAjustes(separarRegistros(pings ?? []), id, ajustes), [pings, ajustes, id]);
   useEffect(() => {
     const ids = [...new Set(registros.map((r) => r.corridaId).filter(Boolean))] as string[];
     if (!ids.length) return;
@@ -56,16 +67,21 @@ export function PercursosMembro({ id, teste }: { id: string; teste: boolean }) {
     if (!m || !pronto) return;
     criarCamadasPercurso(m, teste);
     desenharPercursos(m, registros, teste, destaque);
-    const pts = (destaque != null ? registros[destaque]?.pontos : registros.flatMap((r) => r.pontos)) ?? [];
+    const pts = (destaque != null ? (registros[destaque] ? linhaRegistro(registros[destaque]) : []) : registros.flatMap(linhaRegistro));
     if (pts.length) {
-      const lng = pts.map((p) => p.lng), lat = pts.map((p) => p.lat);
+      const lng = pts.map((p) => p[1]), lat = pts.map((p) => p[0]);
       m.fitBounds([[Math.min(...lng), Math.min(...lat)], [Math.max(...lng), Math.max(...lat)]] as LngLatBoundsLike, { padding: 40, maxZoom: 16, duration: 500 });
     }
   }, [mapa, pronto, registros, destaque, teste]);
 
   return (
     <>
-      <div className="filtro">{DIAS.map((d, i) => <button key={d} className={dia === i ? "ativo" : ""} onClick={() => setDia(i)}>{d}</button>)}</div>
+      <div className="filtro">
+        {DIAS.map((d, i) => <button key={d} className={!outroDia && dia === i ? "ativo" : ""} onClick={() => { setOutroDia(""); setDia(i); }}>{d}</button>)}
+        <label className={`filtro-data ${outroDia ? "ativo" : ""}`} title="Escolher outro dia">
+          <input type="date" max={diaIso(new Date())} value={outroDia} onChange={(e) => setOutroDia(e.target.value)} aria-label="Outro dia" />
+        </label>
+      </div>
       <div ref={caixa} style={{ height: 320, borderRadius: 16, overflow: "hidden", border: "1px solid var(--borda)" }} />
       <div className="legenda-percurso"><span>Início</span><span className={`degrade ${teste ? "teste" : ""}`} /><span>Fim</span></div>
       {pings == null ? <p className="dica">Carregando…</p> : registros.length === 0 ? <p className="vazio">Nenhum percurso neste dia.</p> : (

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
 import { useModoTeste } from "@/features/teste/modoTeste";
+import { buscarPercursos, type Ajuste } from "@/lib/mapa/percursos";
 import type { Motoboy, Ponto } from "./tipos";
 
 const HORAS_DE_TRILHA = 12;
@@ -15,6 +16,8 @@ export interface EstadoRastreamento {
   nomes: Record<string, string>;
   fotos: Record<string, string>;
   trilhas: Record<string, Ponto[]>;
+  /** Caminho pelas ruas de cada registro (chave "motoboy|inicioMs"). */
+  ajustes: Record<string, Ajuste>;
   conectado: boolean;
   erro: string | null;
 }
@@ -29,6 +32,7 @@ export function useRastreamento(): EstadoRastreamento {
   const [nomes, setNomes] = useState<Record<string, string>>({});
   const [fotos, setFotos] = useState<Record<string, string>>({});
   const [trilhas, setTrilhas] = useState<Record<string, Ponto[]>>({});
+  const [ajustes, setAjustes] = useState<Record<string, Ajuste>>({});
   const [conectado, setConectado] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
 
@@ -42,13 +46,20 @@ export function useRastreamento(): EstadoRastreamento {
         const q = sb.from("localizacoes").select(COLUNAS_PONTO);
         return (porModo ? q.eq("teste", teste) : q).gte("registrado_em", desde).order("registrado_em", { ascending: true }).limit(MAX_PONTOS);
       };
-      const [m, p, l1] = await Promise.all([
+      // percursos pelo servidor: todos os pings (sem o corte de 1000) e já traçados pelas ruas
+      const [m, p, viaApi] = await Promise.all([
         sb.from("motoboys").select(COLUNAS_MOTOBOY),
         sb.from("perfis").select("id,nome,foto_url"),
-        pontos(true),
+        buscarPercursos({ de: new Date(desde), ate: new Date(Date.now() + 10 * 60_000), teste }),
       ]);
-      // banco ainda sem a coluna "teste" (migração não rodada): mostra os pings sem separar, em vez de quebrar o mapa
-      const l = l1.error && /teste/.test(l1.error.message) ? await pontos(false) : l1;
+      let l: { data: Ponto[] | null; error: { message: string } | null };
+      if (viaApi) {
+        l = { data: viaApi.pings.map((x, i) => ({ id: -i - 1, sessao_id: null, precisao_m: null, velocidade_ms: null, bateria: null, ...x }) as Ponto), error: null };
+      } else {
+        const l1 = await pontos(true);
+        // banco ainda sem a coluna "teste" (migração não rodada): mostra os pings sem separar, em vez de quebrar o mapa
+        l = (l1.error && /teste/.test(l1.error.message) ? await pontos(false) : l1) as typeof l;
+      }
       if (!ativo) return;
       const falha = m.error ?? p.error ?? l.error;
       if (falha) {
@@ -60,8 +71,9 @@ export function useRastreamento(): EstadoRastreamento {
       setNomes(Object.fromEntries(perfis.map((x) => [x.id, x.nome])));
       setFotos(Object.fromEntries(perfis.filter((x) => x.foto_url).map((x) => [x.id, x.foto_url!])));
       const porMotoboy: Record<string, Ponto[]> = {};
-      for (const ponto of l.data as Ponto[]) (porMotoboy[ponto.motoboy_id] ??= []).push(ponto);
+      for (const ponto of (l.data ?? []) as Ponto[]) (porMotoboy[ponto.motoboy_id] ??= []).push(ponto);
       setTrilhas(porMotoboy);
+      setAjustes(viaApi?.ajustes ?? {});
     }
 
     const canal = sb
@@ -83,12 +95,15 @@ export function useRastreamento(): EstadoRastreamento {
       .subscribe((status) => setConectado(status === "SUBSCRIBED"));
 
     carregar();
+    // de tempos em tempos o servidor retraça pelas ruas o que chegou ao vivo
+    const refazer = setInterval(() => { if (document.visibilityState === "visible") void carregar(); }, 120_000);
 
     return () => {
       ativo = false;
+      clearInterval(refazer);
       sb.removeChannel(canal);
     };
   }, [teste]);
 
-  return { motoboys, nomes, fotos, trilhas, conectado, erro };
+  return { motoboys, nomes, fotos, trilhas, ajustes, conectado, erro };
 }

@@ -126,6 +126,12 @@ export const AJUDA: Partial<Record<Publico, Secao[]>> = {
           "Em Equipe, crie contas de motoboys e gestores, troque senhas, bloqueie ou exclua.",
           "No perfil de cada motoboy: registro, percursos, veículo, medalhas, regras próprias (como o repasse) e edição.",
         ] },
+        { id: "percursos", titulo: "Percursos e trajetos", texto: [
+          "Os percursos ficam guardados: escolha Hoje, Ontem, Anteontem ou qualquer outro dia no calendário.",
+          "O celular manda a posição de tempos em tempos. O sistema liga esses pontos pelas ruas, então o traçado segue o caminho que o motoboy fez, e não uma linha reta. Os pontinhos são as posições que chegaram.",
+          "Nos mapas das corridas e dos pedidos, a linha cheia é o que já foi feito e a tracejada é o que falta, saindo do motoboy até as próximas paradas.",
+          "Logo depois de uma corrida, o traçado pelas ruas pode levar alguns segundos para aparecer.",
+        ] },
         { id: "clientes", titulo: "Clientes e cadastros", texto: [
           "Em Clientes, cadastre empresas e pessoas, preço, cobrança, coleta padrão, zonas e regras próprias.",
           "Cadastros feitos pelo site aparecem em Cadastros esperando você, com o mapa do endereço, para aprovar ou recusar.",
