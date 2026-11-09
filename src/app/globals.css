@@ -1169,3 +1169,9 @@ a.chip { text-decoration: none; }
 .alerta-pagamento { display: flex; gap: 8px; align-items: flex-start; margin: 0; padding: 10px 12px; border-radius: 12px; font-size: 13px; line-height: 1.45;
   color: var(--texto); background: color-mix(in srgb, #38bdf8 12%, transparent); border: 1px solid color-mix(in srgb, #38bdf8 40%, transparent); }
 .alerta-pagamento svg { flex-shrink: 0; margin-top: 2px; color: #38bdf8; }
+
+.situacao-rota { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 12px; border-radius: 12px;
+  border: 1px solid rgba(212, 175, 55, .25); background: rgba(212, 175, 55, .06); font-size: .9rem; }
+.situacao-rota > span { flex: 1; min-width: 200px; }
+.situacao-rota.parada { border-color: rgba(251, 146, 60, .4); background: rgba(251, 146, 60, .08); }
+.situacao-rota .botao-texto { margin-left: auto; }

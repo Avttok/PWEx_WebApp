@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   Ban, CalendarClock, Check, CheckCircle2, CircleDollarSign, ClipboardList, FlaskConical, Package, PackagePlus, RefreshCw, Route, Search, Undo2, Wallet, X, Zap,
@@ -235,9 +235,39 @@ function DetalhePedido({ p, cliente, categorias, rotas, onFechar }: {
           {p.status === "recebido" && <button className="botao-perigo" disabled={ocupado} onClick={() => acao("recusar")}><Ban size={15} aria-hidden /> Recusar</button>}
           {!finalizado && p.status !== "recebido" && <button className="botao-perigo" onClick={cancelar}><X size={15} aria-hidden /> Cancelar</button>}
         </div>
+        {!finalizado && p.status !== "recebido" && <SituacaoRota pedidoId={p.id} chave={`${p.status}|${p.pagamento_status}|${JSON.stringify(regras)}|${rotas.length}`} />}
         <p className="dica" style={{ margin: 0 }}>{formatarKm(p.distancia_estimada_m)} estimados · {(p.pedido_pontos ?? []).filter((x) => x.tipo === "entrega").length} entrega(s)</p>
       </div>
       {!finalizado && <RegrasPedido pedidoId={p.id} valor={regras} onMudar={setRegras} aberto={Object.keys(regras).length > 0} />}
+    </div>
+  );
+}
+
+/** Diz por que o pedido ainda não virou rota (ou em que pé a rota está) e deixa montar na hora */
+function SituacaoRota({ pedidoId, chave }: { pedidoId: string; chave: string }) {
+  const [sit, setSit] = useState<{ codigo: string; motivo: string | null } | null>(null);
+  const [rodando, setRodando] = useState(false);
+  const carregar = useCallback(async () => {
+    const { data, error } = await supabase().rpc("situacao_rota", { p_pedido: pedidoId });
+    if (error) { setSit(error.message.includes("situacao_rota") ? { codigo: "sem_migracao", motivo: "Rode a migração 20261110000004_situacao_rota.sql para ver aqui por que o pedido ainda não virou rota." } : { codigo: "erro", motivo: traduzir(error.message) }); return; }
+    setSit(data as { codigo: string; motivo: string | null });
+  }, [pedidoId]);
+  useEffect(() => { void carregar(); const t = setInterval(carregar, 20000); return () => clearInterval(t); }, [carregar, chave]);
+  async function montar() {
+    setRodando(true);
+    const { data, error } = await supabase().rpc("roteirizar_pedido", { p_pedido: pedidoId });
+    setRodando(false);
+    if (error) { setSit({ codigo: "erro", motivo: "O roteirizador deu erro: " + error.message }); return toast(error.message, "erro"); }
+    setSit(data as { codigo: string; motivo: string | null });
+    toast((data as { codigo: string }).codigo.startsWith("rota_") ? "Rota montada." : "Ainda sem rota: veja o motivo no pedido.", (data as { codigo: string }).codigo.startsWith("rota_") ? "ok" : "aviso");
+  }
+  if (!sit?.motivo) return null;
+  const semRota = !sit.codigo.startsWith("rota_");
+  return (
+    <div className={`situacao-rota${semRota ? " parada" : ""}`}>
+      <Route size={15} aria-hidden />
+      <span>{sit.motivo}</span>
+      {semRota && sit.codigo !== "sem_migracao" && <button className="botao-texto" disabled={rodando} onClick={montar}><RefreshCw size={14} aria-hidden /> {rodando ? "Montando…" : "Montar rota agora"}</button>}
     </div>
   );
 }
