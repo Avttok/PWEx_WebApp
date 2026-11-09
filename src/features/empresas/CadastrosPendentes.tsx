@@ -5,11 +5,12 @@ import { Check, ChevronDown, Inbox, X } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
 import { useRecarregarAoMudar } from "@/features/corridas/dados";
 import { toast } from "@/features/ui/toast";
+import { MapaCorridas } from "@/features/corridas/MapaCorridas";
 import { traduzir } from "@/features/pedidos/tipos";
 
 interface Cadastro {
   id: string; email: string; nome: string; responsavel: string | null; tipo: "pj" | "pf"; documento: string | null; telefone: string | null;
-  endereco: string | null; observacoes: string | null; status: "pendente" | "aprovado" | "recusado"; criado_em: string;
+  endereco: string | null; lat?: number | null; lng?: number | null; observacoes: string | null; status: "pendente" | "aprovado" | "recusado"; criado_em: string;
 }
 const doc = (d: string | null, t: string) => !d ? "sem documento" : t === "pf"
   ? d.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, "$1.$2.$3-$4") : d.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5");
@@ -51,6 +52,9 @@ export function CadastrosPendentes({ onAprovado }: { onAprovado: (empresaId: str
             <div className="cadastro-corpo">
               <p className="dica" style={{ margin: 0 }}>{[c.responsavel, c.email, c.telefone].filter(Boolean).join(" · ")}</p>
               {c.endereco && <p className="dica" style={{ margin: 0 }}>{c.endereco}</p>}
+              {c.lat != null && c.lng != null && (
+                <div className="mini-mapa"><MapaCorridas paradas={[{ chave: c.id, lat: c.lat, lng: c.lng, tipo: "coleta", rotulo: "1" }]} enquadrar={c.id} /></div>
+              )}
               {c.observacoes && <p className="dica" style={{ margin: 0 }}>“{c.observacoes}”</p>}
               <label className="opcao"><span>Já pode pedir Express</span><input type="checkbox" role="switch" checked={express} onChange={(e) => setExpress(e.target.checked)} /></label>
               <label className="campo"><span>Cobrança</span>
