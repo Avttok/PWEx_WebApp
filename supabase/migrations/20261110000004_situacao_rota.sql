@@ -10,6 +10,8 @@ declare
   v_antes  interval := make_interval(mins => privado.cfg_num('rota_montar_antes_min', 1440)::int);
   v_espera interval := make_interval(mins => privado.cfg_num('express_agrupar_espera_min', 0)::int);
   v_cron   text;
+  v_job    text;
+  v_aviso  text;
   v_rotas  jsonb;
   k        record;
   v_modo   text;
@@ -24,6 +26,11 @@ begin
                 from cron.job_run_details d join cron.job j on j.jobid = d.jobid
                where j.jobname = 'pwex-rotas' order by d.start_time desc limit 1$q$ into v_cron;
   exception when others then v_cron := null;
+  end;
+  begin
+    execute $q$select case when not exists (select 1 from cron.job where jobname = 'pwex-rotas') then 'a tarefa automática “pwex-rotas” não existe no banco'
+                           when not exists (select 1 from cron.job where jobname = 'pwex-rotas' and active) then 'a tarefa automática “pwex-rotas” está desativada' end$q$ into v_job;
+  exception when others then v_job := 'o pg_cron não está disponível no banco';
   end;
 
   select coalesce(jsonb_agg(jsonb_build_object('id', c.id, 'status', c.status, 'modo', c.modo_despacho, 'motoboy', c.motoboy_id) order by c.criada_em), '[]')
@@ -78,12 +85,17 @@ begin
     return jsonb_build_object('codigo', 'cedo', 'motivo', 'Agendado: a rota é montada ' || privado.cfg_num('rota_montar_antes_min', 1440)::int || ' min antes do horário ('
              || to_char((p.quando - v_antes) at time zone 'America/Sao_Paulo', 'DD/MM HH24:MI') || ').', 'rotas', v_rotas, 'ciclo', v_cron);
   end if;
+  v_aviso := case when v_job is not null then ' Atenção: ' || v_job || ', então nada é montado sozinho.'
+                  when v_cron is not null and v_cron not like 'succeeded%' then ' Atenção, o último ciclo automático falhou: ' || v_cron
+                  else '' end;
   if p.tipo = 'express' and coalesce(p.aprovado_em, p.criado_em) > now() - v_espera then
-    return jsonb_build_object('codigo', 'espera', 'motivo', 'Express: esperando ' || privado.cfg_num('express_agrupar_espera_min', 0)::int || ' min para juntar com outros pedidos.', 'rotas', v_rotas, 'ciclo', v_cron);
+    return jsonb_build_object('codigo', 'espera', 'rotas', v_rotas, 'ciclo', v_cron, 'motivo',
+      'Express: esperando ' || privado.cfg_num('express_agrupar_espera_min', 0)::int || ' min para juntar com outros pedidos (monta às '
+      || to_char((coalesce(p.aprovado_em, p.criado_em) + v_espera) at time zone 'America/Sao_Paulo', 'HH24:MI')
+      || '). “Montar rota agora” monta já, juntando os pedidos que estão esperando.' || v_aviso);
   end if;
   return jsonb_build_object('codigo', 'sem_bloqueio', 'rotas', v_rotas, 'ciclo', v_cron,
-    'motivo', 'Nada impede a rota. Use “Montar rota agora”: se der erro, a mensagem aparece aqui.'
-              || case when v_cron is not null and v_cron not like 'succeeded%' then ' Último ciclo automático: ' || v_cron else '' end);
+    'motivo', 'Nada impede a rota. Use “Montar rota agora”: se der erro, a mensagem aparece aqui.' || v_aviso);
 end;
 $$;
 revoke all on function public.situacao_rota(uuid) from public, anon;
@@ -97,7 +109,9 @@ begin
   if not public.is_gestor() then raise exception 'apenas_gestor' using errcode = '42501'; end if;
   select teste into v_teste from public.pedidos where id = p_pedido;
   if not found then raise exception 'pedido_nao_encontrado' using errcode = '22023'; end if;
+  perform set_config('pwex.sem_espera', 'on', true);
   perform privado.roteirizar(v_teste);
+  perform set_config('pwex.sem_espera', 'off', true);
   return public.situacao_rota(p_pedido);
 end;
 $$;
@@ -119,7 +133,8 @@ declare
   v_id       uuid;
   v_janela   interval := make_interval(mins => privado.cfg_num('rota_janela_min', 30)::int);
   v_antes    interval := make_interval(mins => privado.cfg_num('rota_montar_antes_min', 1440)::int);
-  v_espera   interval := make_interval(mins => privado.cfg_num('express_agrupar_espera_min', 0)::int);
+  v_espera   interval := case when current_setting('pwex.sem_espera', true) = 'on' then interval '0'
+                              else make_interval(mins => privado.cfg_num('express_agrupar_espera_min', 0)::int) end;
   v_rc       double precision;
   v_re       double precision;
   v_maxe     int;
@@ -248,5 +263,18 @@ begin
     end if;
   end loop;
   return v_n;
+end;
+$$;
+
+-- Botão "Montar rotas": monta já, sem a espera de agrupamento do Express
+create or replace function public.roteirizar_agora(p_teste boolean default null)
+returns int language plpgsql security definer set search_path = '' as $$
+declare v int;
+begin
+  if not public.is_gestor() then raise exception 'apenas_gestor' using errcode = '42501'; end if;
+  perform set_config('pwex.sem_espera', 'on', true);
+  v := privado.roteirizar(coalesce(p_teste, (select modo_teste from public.perfis where id = auth.uid()), false));
+  perform set_config('pwex.sem_espera', 'off', true);
+  return v;
 end;
 $$;
