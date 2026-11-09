@@ -102,17 +102,18 @@ export function BlocoRota({ corrida, equipe }: { corrida: Corrida; equipe: Membr
           <span className="rotulo"><Megaphone size={12} aria-hidden /> {corrida.status === "montada" ? "Rota montada: solte para os motoboys" : "Despacho"}</span>
           {corrida.sugerido_motoboy_id && <p className="dica" style={{ margin: 0 }}><Sparkles size={12} aria-hidden /> Melhor agora: <strong>{nome(corrida.sugerido_motoboy_id) ?? "motoboy"}</strong></p>}
           {corrida.modo_despacho === "quadro" && corrida.status !== "montada" && <p className="dica" style={{ margin: 0 }}><Users size={12} aria-hidden /> No quadro desde {corrida.quadro_desde ? new Date(corrida.quadro_desde).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : "agora"}: todos veem, o 1º que pegar leva.</p>}
+          {corrida.agendada_para && <p className="dica" style={{ margin: 0, color: "#60a5fa" }}>Agendada para {new Date(corrida.agendada_para).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}: quem aceitar a oferta fica com a reserva (não começa agora).</p>}
           <div className="linha-botoes">
             <button className="botao-ouro" onClick={() => liberar("quadro")}><Users size={15} aria-hidden /> Quadro</button>
-            {!corrida.agendada_para && <button className="botao-texto" onClick={() => liberar("melhor_primeiro")}><Crown size={15} aria-hidden /> Melhor primeiro</button>}
-            {!corrida.agendada_para && <button className="botao-texto" onClick={() => liberar("cascata")}><Shuffle size={15} aria-hidden /> Cascata</button>}
+            <button className="botao-texto" onClick={() => liberar("melhor_primeiro")}><Crown size={15} aria-hidden /> Melhor primeiro</button>
+            <button className="botao-texto" onClick={() => liberar("cascata")}><Shuffle size={15} aria-hidden /> Cascata</button>
           </div>
           <div className="linha-botoes">
             <select value={motoboy} onChange={(e) => setMotoboy(e.target.value)} style={{ flex: 1 }}>
-              <option value="">Entregar direto para…</option>
+              <option value="">Oferecer direto para…</option>
               {equipe.filter((m) => m.modo_teste === corrida.teste).map((m) => <option key={m.id} value={m.id}>{m.id === corrida.sugerido_motoboy_id ? "★ " : ""}{m.nome}</option>)}
             </select>
-            <button className="botao-texto" disabled={!motoboy} onClick={() => liberar(null, motoboy)}><Send size={15} aria-hidden /> Enviar</button>
+            <button className="botao-texto" disabled={!motoboy} onClick={() => liberar(null, motoboy)}><Send size={15} aria-hidden /> Enviar oferta</button>
           </div>
         </section>
       )}
