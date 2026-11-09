@@ -6,6 +6,7 @@ import { ExcluirCorridas } from "./ExcluirCorridas";
 import { ApagarHistorico } from "./ApagarHistorico";
 import { CabecaPagina } from "@/features/ui/CabecaPagina";
 import { combina } from "@/features/ui/busca";
+import { geo } from "@/features/geo";
 import { moeda } from "@/features/precos/estrategias";
 import { MapaCorridas } from "./MapaCorridas";
 import { useConta } from "@/features/conta/conta";
@@ -36,6 +37,17 @@ export function PainelCorridas() {
   const [selecionando, setSelecionando] = useState(false);
   const [marcadas, setMarcadas] = useState<string[]>([]);
   const [buscaRota, setBuscaRota] = useState("");
+  // caminho de cada rota ativa: o planejado ou o calculado pelas paradas
+  const [caminhosAtivos, setCaminhosAtivos] = useState<string[]>([]);
+  const chaveAtivas = corridas.filter((c) => ATIVAS.includes(c.status)).map((c) => `${c.id}:${c.rota_planejada?.length ?? 0}`).join("|");
+  useEffect(() => {
+    let vivo = true;
+    const ativas = corridas.filter((c) => ATIVAS.includes(c.status));
+    Promise.all(ativas.map(async (c) => c.rota_planejada ?? (await geo.calcularRota(c.paradas.slice(0, 25).map((p) => ({ lat: p.lat, lng: p.lng }))).catch(() => null))?.polyline ?? null))
+      .then((l) => { if (vivo) setCaminhosAtivos(l.filter((x): x is string => Boolean(x))); });
+    return () => { vivo = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chaveAtivas]);
   const [limpando, setLimpando] = useState(false);
   const [excluindo, setExcluindo] = useState(false);
   const alternar = (id: string) => setMarcadas((m) => (m.includes(id) ? m.filter((x) => x !== id) : [...m, id]));
@@ -173,6 +185,8 @@ export function PainelCorridas() {
       </aside>
       <MapaCorridas
         paradas={pinosAtivos}
+        rotas={caminhosAtivos}
+        caminhoAuto={false}
         motoboys={equipe.filter((m) => m.status !== "offline" && m.lat != null && m.lng != null && m.modo_teste === teste)
           .map((m) => ({ id: m.id, nome: m.nome, lat: m.lat!, lng: m.lng!, status: m.status, foto: m.foto }))}
         enquadrar={String(pinosAtivos.length)}
