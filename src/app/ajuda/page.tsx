@@ -1,10 +1,26 @@
-import { redirect } from "next/navigation";
+import type { Metadata } from "next";
+import Link from "next/link";
+import { Logo } from "@/features/marca/Logo";
+import { CentralAjuda } from "@/features/ajuda/Ajuda";
+import "@/features/ajuda/ajuda.css";
 
-/** A central de ajuda fica no site do cliente (pública). O app e o painel abrem por aqui. */
-export default async function PaginaAjuda({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
-  const q = await searchParams;
-  const destino = (process.env.NEXT_PUBLIC_SITE_CLIENTE_URL ?? "").replace(/\/$/, "");
-  const busca = new URLSearchParams(Object.entries(q).filter(([, v]) => v != null) as [string, string][]).toString();
-  if (destino) redirect(`${destino}/ajuda${busca ? `?${busca}` : ""}`);
-  return <main className="tela-login"><p className="subtitulo">A central de ajuda fica no site do cliente.</p></main>;
+export const metadata: Metadata = { title: "Ajuda · PW Express", description: "Como usar o app do motoboy e o painel do gestor da PW Express." };
+
+/** Central de ajuda do motoboy e do gestor. A do cliente fica no site do cliente. */
+export default function PaginaAjuda() {
+  const topo = (
+    <header className="lp-topo">
+      <Link href="/" className="lp-marca" aria-label="PW Express, painel"><Logo /></Link>
+      <Link href="/" className="lp-entrar lp-voltar">Abrir o painel</Link>
+    </header>
+  );
+  const rodape = (
+    <footer className="lp-rodape">
+      <Logo />
+      <nav aria-label="Rodapé"><Link href="/">Painel do gestor</Link></nav>
+      <p>Um projeto de irmão para irmão.</p>
+    </footer>
+  );
+  return <CentralAjuda publicos={["motoboy", "gestor"]} topo={topo} rodape={rodape}
+    lead="Como usar o app do motoboy e o painel do gestor. Escolha para quem é a dúvida." />;
 }
