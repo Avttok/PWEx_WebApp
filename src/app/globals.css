@@ -1175,3 +1175,9 @@ a.chip { text-decoration: none; }
 .situacao-rota > span { flex: 1; min-width: 200px; }
 .situacao-rota.parada { border-color: rgba(251, 146, 60, .4); background: rgba(251, 146, 60, .08); }
 .situacao-rota .botao-texto { margin-left: auto; }
+
+.zerar-pedidos { margin-top: 16px; border-color: rgba(248, 113, 113, .4) !important; display: flex; flex-direction: column; gap: 10px; }
+.zerar-pedidos .abas-mini { display: flex; gap: 6px; flex-wrap: wrap; }
+.zerar-pedidos .abas-mini button { padding: 8px 14px; border-radius: 99px; border: 1px solid var(--borda, rgba(255,255,255,.12)); background: transparent; color: inherit; cursor: pointer; }
+.zerar-pedidos .abas-mini button.ativo { border-color: #f87171; color: #f87171; background: rgba(248, 113, 113, .1); }
+.zerar-pedidos input { flex: 1; min-width: 200px; }
