@@ -50,9 +50,15 @@ export function VersaoApp() {
     if (!cfg) return;
     const prox = { ...cfg, ...novo };
     setSalvando(true);
-    const { error } = await supabase().from("configuracoes").upsert([
-      { chave: "app_versao_exigida", valor: prox.exigida }, { chave: "app_forcar_versao", valor: prox.forcar }, { chave: "app_dev_livre", valor: prox.devLivre },
-    ]);
+    // update por chave (a tabela não aceita insert pelo site; as linhas vêm da migração)
+    const sb = supabase();
+    const pares: [string, unknown][] = [["app_versao_exigida", prox.exigida], ["app_forcar_versao", prox.forcar], ["app_dev_livre", prox.devLivre]];
+    let error: { message: string } | null = null;
+    for (const [chave, valor] of pares) {
+      const r = await sb.from("configuracoes").update({ valor }).eq("chave", chave).select("chave");
+      if (r.error) { error = r.error; break; }
+      if (!r.data?.length) { error = { message: `A configuração "${chave}" não existe no banco — rode a migração 20261110000001_refinamento.sql.` }; break; }
+    }
     setSalvando(false);
     if (error) return toast(error.message.includes("apenas_dev") ? "Só o Dev muda a versão do app." : error.message, "erro");
     setCfg(prox);
