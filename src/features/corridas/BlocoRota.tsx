@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Dica } from "@/features/ui/Tour";
 import Link from "next/link";
 import { Calculator, ClipboardList, Crown, Megaphone, RefreshCw, Send, Shuffle, Sparkles, Users } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
@@ -99,7 +100,7 @@ export function BlocoRota({ corrida, equipe }: { corrida: Corrida; equipe: Membr
 
       {aberta && (
         <section className="bloco alerta-bloco">
-          <span className="rotulo"><Megaphone size={12} aria-hidden /> {corrida.status === "montada" ? "Rota montada: solte para os motoboys" : "Despacho"}</span>
+          <span className="rotulo"><Megaphone size={12} aria-hidden /> {corrida.status === "montada" ? "Rota montada: solte para os motoboys" : "Despacho"}<Dica titulo="Como soltar a rota" texto="Quadro: todos veem e o primeiro que pegar leva. Melhor primeiro: só o mais indicado recebe a oferta; se não aceitar, vai para o quadro. Cascata: a oferta passa de um em um, do mais perto ao mais longe. Direto: o escolhido recebe a oferta." /></span>
           {corrida.sugerido_motoboy_id && <p className="dica" style={{ margin: 0 }}><Sparkles size={12} aria-hidden /> Melhor agora: <strong>{nome(corrida.sugerido_motoboy_id) ?? "motoboy"}</strong></p>}
           {corrida.modo_despacho === "quadro" && corrida.status !== "montada" && <p className="dica" style={{ margin: 0 }}><Users size={12} aria-hidden /> No quadro desde {corrida.quadro_desde ? new Date(corrida.quadro_desde).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : "agora"}: todos veem, o 1º que pegar leva.</p>}
           {corrida.agendada_para && <p className="dica" style={{ margin: 0, color: "#60a5fa" }}>Agendada para {new Date(corrida.agendada_para).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}: quem aceitar a oferta fica com a reserva (não começa agora).</p>}

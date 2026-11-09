@@ -14,6 +14,7 @@ import { CabecaPagina } from "@/features/ui/CabecaPagina";
 import { toast } from "@/features/ui/toast";
 import { FormPedido, OrcamentoDetalhe } from "./FormPedido";
 import { RegrasPedido } from "./RegrasPedido";
+import { Dica } from "@/features/ui/Tour";
 import { Icone } from "@/features/ui/icones";
 import { COR_PEDIDO, ROTULO_PEDIDO, moedaBr, quando, traduzir, type Categoria, type Pedido, type StatusPedido } from "./tipos";
 
@@ -88,7 +89,7 @@ export function PainelPedidos() {
           <button className="botao-texto" title="Roda o roteirizador agora" onClick={async () => {
             const { data, error } = await supabase().rpc("roteirizar_agora", { p_teste: teste });
             toast(error ? traduzir(error.message) : data ? `${data} entrega(s) encaixadas em rotas.` : "Nada novo para montar.", error ? "erro" : "ok");
-          }}><Route size={15} aria-hidden /> Montar rotas</button>
+          }}><Route size={15} aria-hidden /> Montar rotas</button><Dica titulo="Montar rotas" texto="O roteirizador já roda sozinho a cada minuto. Este botão monta na hora, sem esperar o tempo de juntar pedidos Express." />
         </div>
         <label className="busca-mini"><Search size={14} aria-hidden /><input placeholder="Nº, cliente, endereço, item, motoboy…" value={busca} onChange={(e) => setBusca(e.target.value)} /></label>
         <div className="fichas-filtro">
@@ -241,6 +242,7 @@ function DetalhePedido({ p, cliente, categorias, rotas, onFechar }: {
           {!finalizado && <button className="botao-texto" disabled={ocupado} onClick={() => acao("recalcular")}><RefreshCw size={15} aria-hidden /> Recalcular</button>}
           {["aprovado", "roteirizado", "em_rota"].includes(p.status) && !pontos.some((x) => x.status === "concluido") &&
             <button className="botao-texto" disabled={ocupado} onClick={() => acao("voltar_revisao")} title="Desfaz a rota enquanto nenhuma coleta/entrega foi feita"><Undo2 size={15} aria-hidden /> Voltar à revisão</button>}
+          {["aprovado", "roteirizado", "em_rota"].includes(p.status) && <Dica titulo="Voltar à revisão" texto="Tira o pedido das rotas (as que ficarem vazias são canceladas, e o motoboy é avisado) para você mudar valor ou regras e aprovar de novo. Só dá enquanto nenhuma coleta ou entrega foi feita." />}
           {p.cobranca === "pre_pago" && p.pagamento_status === "pendente" && !finalizado && <>
             <button className="botao-texto" onClick={() => pago("pix")}><Package size={15} aria-hidden /> PIX recebido</button>
             <button className="botao-texto" onClick={() => pago("cartao")}><Package size={15} aria-hidden /> Cartão recebido</button>

@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
+import { Dica } from "@/features/ui/Tour";
 import { ChevronLeft, ChevronRight, Copy, Lock, LockOpen, Plus, Trash2, Wallet, X } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
 import { useModoTeste } from "@/features/teste/modoTeste";
@@ -156,7 +157,7 @@ function DetalheHolerite({ l, ini, fim, teste, onMudou, onFechar }: { l: LinhaFo
           ))}</tbody>
         </table>
       </div>
-      <span className="rotulo">Ajustes do período</span>
+      <span className="rotulo">Ajustes do período<Dica titulo="Ajustes" texto="Bônus (valor positivo) ou desconto (valor negativo, com −). O motoboy não vê o motivo: o total do ajuste aparece repartido entre as rotas do holerite dele." /></span>
       {h.ajustes.length === 0 && <p className="dica" style={{ margin: 0 }}>Nenhum (bônus, vale, desconto…).</p>}
       {h.ajustes.map((a) => (
         <div key={a.id} className="orcamento-linha"><span>{a.descricao}</span><strong>{moedaBr(a.valor)}</strong>

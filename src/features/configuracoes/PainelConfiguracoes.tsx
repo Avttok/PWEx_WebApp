@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState, type ReactNode } from "react";
+import { Dica } from "@/features/ui/Tour";
 import {
   Bike, Boxes, Building2, CalendarClock, Check, CircleDot, Clock, FileText, Map as MapIcon, FlaskConical, Layers, Lock, MapPinned, Minus, Plus, Radar, Receipt, Route, Ruler, Search, Settings2,
   ShieldCheck, Tags, TriangleAlert, Wallet, X, type LucideIcon,
@@ -79,7 +80,7 @@ export function PainelConfiguracoes() {
               </button>
             );
           })}
-          <span className="rotulo" style={{ margin: "10px 4px 2px" }}>Peças do lego</span>
+          <span className="rotulo" style={{ margin: "10px 4px 2px" }}>Peças do lego<Dica titulo="Peças do lego" texto="Cada regra tem um valor geral e pode ter exceção por tipo de pedido, cliente, motoboy ou num pedido só. Vale a mais específica: pedido, motoboy, cliente, tipo e, por último, a geral." /></span>
           {PAGINAS_EXTRAS.map((x) => {
             const I = x.icone;
             return (

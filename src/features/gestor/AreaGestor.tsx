@@ -12,6 +12,7 @@ import { Logo } from "@/features/marca/Logo";
 import { useEstabelecimentos } from "@/lib/mapa/estabelecimentos";
 import { ProvedorTeste } from "@/features/teste/modoTeste";
 import { MenuPerfil } from "./MenuPerfil";
+import { Tour, type PassoTour } from "@/features/ui/Tour";
 import { ProvedorConta, type ContextoConta, type CorTema, type Papel } from "@/features/conta/conta";
 import { Toasts, toast } from "@/features/ui/toast";
 
@@ -193,11 +194,12 @@ export function AreaGestor({ children }: { children: ReactNode }) {
       <ProvedorConta valor={contextoConta}>
       <ProvedorTeste valor={contextoTeste}>
       <div className="painel">
+        <Tour id="gestor" passos={TOUR_GESTOR} />
         <header className="topo vidro">
           <Link href="/gestor/mapa" aria-label="PW Express, início"><Logo /></Link>
           <nav className="abas">
             {ABAS.filter((a) => a.href !== "/gestor/carteira" || contextoConta.modulo("carteira")).map(({ href, rotulo, icone: Icone }) => (
-              <Link key={href} href={href} className={caminho?.startsWith(href) ? "ativa" : ""}>
+              <Link key={href} href={href} data-tour={href.replace("/gestor/", "aba-")} className={caminho?.startsWith(href) ? "ativa" : ""}>
                 <Icone size={17} aria-hidden /> {rotulo}
                 {href === "/gestor/pedidos" && paraRevisar > 0 && <span className="aba-n" aria-label={`${paraRevisar} para revisar`}>{paraRevisar}</span>}
               </Link>
@@ -240,3 +242,16 @@ export function AreaGestor({ children }: { children: ReactNode }) {
     </ContextoSessao.Provider>
   );
 }
+
+/** Tour do painel: na primeira vez abre sozinho; depois, no menu da foto → Ver o tour. */
+const TOUR_GESTOR: PassoTour[] = [
+  { titulo: "Bem-vindo ao painel da PW Express", texto: "Um passeio rápido pelas partes do painel. Dá para rever quando quiser, no menu da sua foto." },
+  { alvo: '[data-tour="aba-mapa"]', titulo: "Mapa", texto: "Os motoboys ao vivo: quem está disponível, em corrida ou offline, com o percurso de cada um." },
+  { alvo: '[data-tour="aba-pedidos"]', titulo: "Pedidos", texto: "Os pedidos dos clientes chegam aqui para revisar. O número mostra quantos esperam você. Ao aprovar, eles viram rota." },
+  { alvo: '[data-tour="aba-corridas"]', titulo: "Rotas", texto: "As rotas montadas e as avulsas. Daqui você solta para os motoboys (quadro, melhor primeiro, cascata ou direto) e acompanha cada uma." },
+  { alvo: '[data-tour="aba-clientes"]', titulo: "Clientes", texto: "Cadastros, preço e regras de cada cliente, e os cadastros feitos pelo site esperando aprovação." },
+  { alvo: '[data-tour="aba-equipe"]', titulo: "Equipe", texto: "Contas dos motoboys e gestores: registro, percursos, veículo, medalhas e as regras de cada um." },
+  { alvo: '[data-tour="aba-carteira"]', titulo: "Carteira", texto: "Quanto entrou, faturas dos clientes, folha dos motoboys, extrato e chaves PIX." },
+  { alvo: '[data-tour="aba-configuracoes"]', titulo: "Configurações", texto: "As regras gerais do sistema. Cada uma pode ter exceção por tipo de pedido, cliente, motoboy ou pedido: são as peças do lego." },
+  { alvo: ".botao-avatar", titulo: "Seu menu", texto: "Perfil, tema e cores, modo teste para treinar sem mexer no real, a central de ajuda e este tour." },
+];

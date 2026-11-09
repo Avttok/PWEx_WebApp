@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Dica } from "@/features/ui/Tour";
 import { ChevronDown, Layers } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
 import { EditorRegras, fmtRegra } from "@/features/configuracoes/Excecoes";
@@ -41,7 +42,7 @@ export function RegrasPedido({ valor, onMudar, pedidoId, aberto: abertoInicial =
   return (
     <section className="formulario vidro regras-pedido">
       <button type="button" className="titulo-linha botao-limpo" onClick={() => setAberto(!aberto)} aria-expanded={aberto}>
-        <h3 className="display" style={{ margin: 0 }}><Layers size={18} aria-hidden /> Regras deste pedido</h3>
+        <h3 className="display" style={{ margin: 0 }}><Layers size={18} aria-hidden /> Regras deste pedido<Dica titulo="Regras deste pedido" texto="Mudam só este pedido e passam por cima das regras do cliente, do tipo e das gerais. O orçamento é refeito enquanto o pedido não saiu." /></h3>
         <span className="dica" style={{ marginLeft: "auto" }}>{n ? `${n} diferente${n === 1 ? "" : "s"}` : "padrão"}</span>
         <ChevronDown size={18} aria-hidden style={{ transform: aberto ? "rotate(180deg)" : undefined, transition: "transform .2s" }} />
       </button>

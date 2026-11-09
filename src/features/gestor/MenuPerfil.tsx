@@ -6,6 +6,8 @@ import Link from "next/link";
 import { Camera, CodeXml, FlaskConical, Heart, LogOut, Moon, Palette, Sun, Trash2, UserRoundPen, X } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
 import { ESTILOS, useTema } from "@/features/tema/tema";
+import { abrirTour } from "@/features/ui/Tour";
+import { Compass, LifeBuoy } from "lucide-react";
 import { useModoTeste } from "@/features/teste/modoTeste";
 import { useConta } from "@/features/conta/conta";
 import { SelosCargo } from "@/features/conta/Cargos";
@@ -117,6 +119,12 @@ export function MenuPerfil({ id, email, nome, foto, onSair, onPerfilSalvo }: Pro
             </Link>
           )}
 
+          <a href="/ajuda?p=gestor" target="_blank" rel="noopener" role="menuitem" className="menu-item" onClick={() => setAberto(false)}>
+            <LifeBuoy size={17} aria-hidden /> Central de ajuda
+          </a>
+          <button type="button" role="menuitem" className="menu-item" onClick={() => { setAberto(false); abrirTour("gestor"); }}>
+            <Compass size={17} aria-hidden /> Ver o tour
+          </button>
           <button type="button" role="menuitem" className="menu-item menu-sair" onClick={onSair}>
             <LogOut size={17} aria-hidden /> Sair
           </button>
