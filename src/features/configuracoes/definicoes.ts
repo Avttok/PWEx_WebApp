@@ -137,6 +137,7 @@ export const PARAMETROS: DefParametro[] = [
     opcoes: [{ valor: "maior", rotulo: "Vale a maior" }, { valor: "somar", rotulo: "Soma todas" }] },
 
   // ---------------------------------------------------------------- faturas
+  { chave: "rotear_sem_pagamento", grupo: "faturas", rotulo: "Montar rota sem esperar o pagamento", descricao: "Ligado: pedido pré-pago aprovado já vira rota (o pagamento é cobrado à parte).", descricaoDesligado: "Desligado: pedido pré-pago só vira rota depois do pagamento confirmado.", tipo: "booleano", padrao: false, escopos: ["tipo", "cliente"] },
   { chave: "cobranca_modo", grupo: "faturas", rotulo: "Como o cliente paga", descricao: "", tipo: "escolha", padrao: "credito", escopos: ["tipo", "cliente"],
     opcoes: [{ valor: "credito", rotulo: "Crédito (fatura)", dica: "Faz os pedidos e paga a fatura no fim do ciclo." }, { valor: "pre_pago", rotulo: "Antecipado", dica: "Cada pedido só sai depois de pago." }] },
   { chave: "fatura_ciclo", grupo: "faturas", rotulo: "Ciclo da fatura", descricao: "", tipo: "escolha", padrao: "semanal", escopos: ["cliente"],

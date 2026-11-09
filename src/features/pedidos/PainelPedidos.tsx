@@ -93,6 +93,7 @@ export function PainelPedidos() {
                 <div className="linha-pedido-topo">
                   <strong>{p.teste ? "T" : "#"}{p.numero}</strong>
                   <span className="selo" style={{ color: COR_PEDIDO[p.status] }}>{ROTULO_PEDIDO[p.status]}</span>
+                  {p.cobranca === "pre_pago" && p.pagamento_status === "pendente" && !["cancelado", "recusado", "concluido"].includes(p.status) && <span className="selo" style={{ color: "#38bdf8" }}>Aguardando pagamento</span>}
                   {p.tipo === "planejado" ? <CalendarClock size={13} aria-label="Planejado" /> : <Zap size={13} aria-label="Express" />}
                   {p.urgente && <span className="selo" style={{ color: "var(--vermelho)" }}>Urgente</span>}
                   {p.orcamento?.perigoso && <FlaskConical size={13} style={{ color: "var(--vermelho)" }} aria-label="Perigoso" />}
@@ -133,7 +134,8 @@ function DetalhePedido({ p, cliente, categorias, rotas, onFechar }: {
     const { error } = await supabase().rpc("revisar_pedido", { p_pedido: p.id, p_acao: a, p_valor: (a === "aprovar" || a === "ajustar") && mudouValor ? valorNum : null, p_motivo: motivo || null });
     setOcupado(false);
     if (error) return toast(traduzir(error.message), "erro");
-    toast(a === "aprovar" ? "Aprovado: o roteirizador já está montando a rota." : a === "recusar" ? "Pedido recusado." : a === "recalcular" ? "Orçamento refeito com as regras de agora."
+    const esperaPagamento = p.cobranca === "pre_pago" && p.pagamento_status === "pendente";
+    toast(a === "aprovar" ? (esperaPagamento ? "Aprovado. Cliente pré-pago: a rota sai assim que você confirmar o pagamento." : "Aprovado: o roteirizador já está montando a rota.") : a === "recusar" ? "Pedido recusado." : a === "recalcular" ? "Orçamento refeito com as regras de agora."
       : a === "voltar_revisao" ? "Pedido de volta à revisão: ajuste as regras e aprove de novo." : "Valor ajustado.", "ok");
   }
   async function cancelar() {
@@ -213,6 +215,12 @@ function DetalhePedido({ p, cliente, categorias, rotas, onFechar }: {
           Calculado {moedaBr(p.valor_calculado)}{p.valor_ajuste ? ` · ajuste ${p.valor_ajuste > 0 ? "+" : ""}${moedaBr(p.valor_ajuste)}` : ""} · Dev {moedaBr(p.valor_dev)} ·
           {p.cobranca === "credito" ? (p.fatura_id ? " já na fatura" : " entra na próxima fatura") : p.pagamento_status === "pago" ? ` pago (${p.pagamento_metodo ?? ""})` : " pagamento antecipado pendente"}
         </p>
+        {p.cobranca === "pre_pago" && p.pagamento_status === "pendente" && !finalizado && (
+          <p className="alerta-pagamento">
+            <Wallet size={15} aria-hidden /> Cliente pré-pago: {p.status === "recebido" ? "depois de aprovado, o pedido" : "o pedido"} só vira rota quando o pagamento for confirmado.
+            Confirme abaixo (PIX ou cartão) ou ligue “Montar rota sem esperar o pagamento” nas regras deste pedido ou do cliente.
+          </p>
+        )}
         <div className="linha-botoes">
           {p.status === "recebido" && <button className="botao-ouro" disabled={ocupado} onClick={() => acao("aprovar")}><Check size={16} aria-hidden /> Aprovar{mudouValor ? " com o valor novo" : ""}</button>}
           {p.status !== "recebido" && p.status !== "cancelado" && p.status !== "recusado" && mudouValor && <button className="botao-ouro" disabled={ocupado} onClick={() => acao("ajustar")}><CircleDollarSign size={16} aria-hidden /> Salvar valor</button>}
