@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, Boxes, CalendarClock, CheckCircle2, FlaskConical, MapPinned, PackagePlus, Plus, Receipt, Trash2, UserRound, X, Zap } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
-import { geo, type Referencia, type Rota } from "@/features/geo";
+import { geo, type Referencia, type Rota, distanciasColetaEntrega } from "@/features/geo";
 import { CampoEndereco } from "@/features/corridas/NovaCorrida";
 import { CampoReferencias } from "@/features/corridas/CampoReferencias";
 import { MapaCorridas, type PinoParada } from "@/features/corridas/MapaCorridas";
@@ -82,15 +82,26 @@ export function FormPedido({ onCriado, onVoltar }: { onCriado: (id: string) => v
     return () => clearTimeout(t);
   }, [chaveRota]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // distância pelas ruas da coleta até cada entrega (base do preço "soma das entregas")
+  const chaveDist = pontos.map((p) => `${p.tipo}${p.lat},${p.lng}`).join("|");
+  const [distEnt, setDistEnt] = useState<(number | null)[]>([]);
+  useEffect(() => {
+    if (pontos.some((p) => p.lat == null)) { setDistEnt([]); return; }
+    let vivo = true;
+    const t = setTimeout(() => distanciasColetaEntrega(pontos).then((d) => { if (vivo) setDistEnt(d); }).catch(() => {}), 500);
+    return () => { vivo = false; clearTimeout(t); };
+  }, [chaveDist]); // eslint-disable-line react-hooks/exhaustive-deps
+  const comDist = <T extends { tipo: string }>(p: T, i: number) => ({ ...p, dist_coleta_m: p.tipo === "entrega" ? distEnt[i] ?? null : null });
+
   const dadosItens = itensParaEnvio(itens, pontos.map((p) => p.chave));
   const quandoIso = agendar && horario ? new Date(horario).toISOString() : null;
-  const chaveOrc = JSON.stringify([cliente, tipoPedido, urgente, quandoIso, rota?.distanciaM, pontos.map((p) => [p.tipo, p.lat, p.lng]), dadosItens, regras]);
+  const chaveOrc = JSON.stringify([cliente, tipoPedido, urgente, quandoIso, rota?.distanciaM, pontos.map((p) => [p.tipo, p.lat, p.lng]), distEnt, dadosItens, regras]);
   useEffect(() => {
     if (pontos.some((p) => p.lat == null)) { setOrc(null); return; }
     const t = setTimeout(async () => {
       const { data } = await supabase().rpc("orcar_previa", { dados: {
         empresa_id: cliente || null, tipo: agendar ? "planejado" : "express", tipo_pedido: tipoPedido, quando: quandoIso, urgente,
-        distancia_m: rota?.distanciaM ?? null, pontos: pontos.map((p) => ({ tipo: p.tipo, lat: p.lat, lng: p.lng })), itens: dadosItens, regras } });
+        distancia_m: rota?.distanciaM ?? null, pontos: pontos.map((p, i) => comDist({ tipo: p.tipo, lat: p.lat, lng: p.lng }, i)), itens: dadosItens, regras } });
       setOrc((data as Orcamento) ?? null);
     }, 400);
     return () => clearTimeout(t);
@@ -104,7 +115,7 @@ export function FormPedido({ onCriado, onVoltar }: { onCriado: (id: string) => v
     const { data, error } = await supabase().rpc("criar_pedido", { dados: {
       empresa_id: cliente || null, cliente_nome: cliente ? null : avulso.trim() || null, quando: quandoIso, urgente, tipo_pedido: tipoPedido, teste,
       observacoes: obs.trim() || null, distancia_m: rota?.distanciaM ?? null,
-      pontos: pontos.map(({ chave, ...p }) => { void chave; return p; }), itens: dadosItens, regras } });
+      pontos: pontos.map(({ chave, ...p }, i) => { void chave; return comDist(p, i); }), itens: dadosItens, regras } });
     setEnviando(false);
     if (error) return toast(traduzir(error.message), "erro");
     toast("O roteirizador já está montando a rota.", "ok", { titulo: "Pedido criado" });
@@ -167,6 +178,12 @@ export function FormPedido({ onCriado, onVoltar }: { onCriado: (id: string) => v
                   <CampoReferencias valor={p.referencias} lat={p.lat} lng={p.lng} onMudar={(r) => atualizar(p.chave, { referencias: r })} />
                 </div>
               )}
+              {p.tipo === "entrega" && (
+                <div className="itens-ponto">
+                  <span className="rotulo"><Boxes size={12} aria-hidden /> O que vai para esta entrega{itens.some((x) => x.entrega === p.chave) && <span className="filtro-n">{itens.filter((x) => x.entrega === p.chave).length}</span>}</span>
+                  <ItensPedido itens={itens} onMudar={setItens} categorias={categorias} pontos={pontos} objetos={objetos} entregaFixa={p.chave} compacto />
+                </div>
+              )}
               <OpcoesPonto tipo={p.tipo} valor={p} onMudar={(d) => atualizar(p.chave, d)} liberadas={todasConf} padrao={padraoConf} comJanela />
             </div>
           )} />
@@ -185,7 +202,8 @@ export function FormPedido({ onCriado, onVoltar }: { onCriado: (id: string) => v
           <section className="formulario vidro">
             <h3 className="display" style={{ margin: 0 }}><Boxes size={18} aria-hidden /> Itens</h3>
             {itens.length === 0 && <p className="dica" style={{ margin: 0 }}>Toque no tipo do que vai ser levado. Sem itens, o pedido conta como 1 volume sem peso.</p>}
-            <ItensPedido itens={itens} onMudar={setItens} categorias={categorias} pontos={pontos} objetos={objetos} />
+            <p className="dica" style={{ margin: 0 }}>Cada pacote fica na entrega para onde vai (na lista de endereços). Aqui, os que vão para todas ou ainda sem endereço.</p>
+            <ItensPedido itens={itens} onMudar={setItens} categorias={categorias} pontos={pontos} objetos={objetos} soGerais />
             {perigoso && <p className="alerta-perigo"><FlaskConical size={14} aria-hidden /> Produto perigoso: vai com cuidado especial e, se a regra estiver ligada, em rota própria.</p>}
             <textarea placeholder="Observações para o motoboy" value={obs} onChange={(e) => setObs(e.target.value)} />
           </section>

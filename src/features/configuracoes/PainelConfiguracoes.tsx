@@ -4,79 +4,96 @@ import { useMemo, useRef, useState, type ReactNode } from "react";
 import { Dica } from "@/features/ui/Tour";
 import {
   Bike, Boxes, Building2, CalendarClock, Check, CircleDot, Clock, FileText, Map as MapIcon, FlaskConical, Layers, Lock, MapPinned, Minus, Plus, Radar, Receipt, Route, Ruler, Search, Settings2,
-  ShieldCheck, Tags, TriangleAlert, Wallet, X, type LucideIcon,
+  MessageCircle, RotateCcw, ShieldCheck, Tags, TriangleAlert, Wallet, X, type LucideIcon,
 } from "lucide-react";
 import { useConta } from "@/features/conta/conta";
 import { Excecoes } from "./Excecoes";
 import { CatalogoCategorias, CatalogoHorarios, CatalogoTipos, CatalogoZonas } from "./Catalogos";
 import { supabase } from "@/lib/supabase/client";
 import { CabecaPagina } from "@/features/ui/CabecaPagina";
-import { GRUPOS, PARAMETROS, type DefParametro, type GrupoParametro, type ValorParametro } from "./definicoes";
+import { AREAS, GRUPOS, PARAMETROS, type AreaParametro, type DefParametro, type GrupoParametro, type ValorParametro } from "./definicoes";
 import { useConfiguracoes } from "./useConfiguracoes";
 
-const ICONES: Record<GrupoParametro, LucideIcon> = {
-  cliente: Building2, mapa: MapIcon, pedidos: FileText, rotas: Route, pagamento: Bike, precocliente: Tags, faturas: Receipt,
-  despacho: Radar, planejadas: CalendarClock, local: MapPinned, preco: Wallet, distancia: Ruler, comprovantes: Receipt, rastreamento: ShieldCheck, teste: FlaskConical,
+const ICONES_AREA: Record<AreaParametro, LucideIcon> = {
+  clientes: Building2, preco: Tags, operacao: Route, motoboys: Bike, mapa: MapIcon, comunicacao: MessageCircle, sistema: FlaskConical,
 };
 
 type Estado = "salvando" | "salvo" | "erro" | undefined;
-type Pagina = GrupoParametro | "excecoes" | "zonas" | "horarios" | "categorias" | "tipos";
-const PAGINAS_EXTRAS: { chave: Pagina; titulo: string; descricao: string; icone: LucideIcon }[] = [
+type Extra = "excecoes" | "zonas" | "horarios" | "categorias" | "tipos";
+type Pagina = AreaParametro | Extra;
+/** Catálogos (peças do lego que são listas) e em que área eles aparecem. */
+const PAGINAS_EXTRAS: { chave: Extra; titulo: string; descricao: string; icone: LucideIcon; area?: AreaParametro }[] = [
   { chave: "excecoes", titulo: "Exceções", descricao: "Regras diferentes para um cliente, um motoboy ou um tipo de pedido.", icone: Layers },
-  { chave: "zonas", titulo: "Zonas de preço", descricao: "Raios no mapa com acréscimo (bairros, regiões, cidades).", icone: CircleDot },
-  { chave: "horarios", titulo: "Horários de pico", descricao: "Faixas de horário com acréscimo.", icone: Clock },
-  { chave: "categorias", titulo: "Categorias de produto", descricao: "Eletrônicos, químicos, frágeis… com taxas próprias.", icone: Boxes },
-  { chave: "tipos", titulo: "Tipos de pedido", descricao: "Os tipos que o cliente escolhe (e que podem ter regras próprias).", icone: Tags },
+  { chave: "zonas", titulo: "Zonas de preço", descricao: "Raios no mapa com acréscimo (bairros, regiões, cidades).", icone: CircleDot, area: "preco" },
+  { chave: "horarios", titulo: "Horários de pico", descricao: "Faixas de horário com acréscimo.", icone: Clock, area: "preco" },
+  { chave: "categorias", titulo: "Categorias de produto", descricao: "Eletrônicos, químicos, frágeis… com taxas próprias.", icone: Boxes, area: "preco" },
+  { chave: "tipos", titulo: "Tipos de pedido", descricao: "Os tipos que o cliente escolhe (e que podem ter regras próprias).", icone: Tags, area: "operacao" },
 ];
 
-const sem = (t: string) => t.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+const sem = (t: string) => t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 const casas = (passo = 1) => (String(passo).split(".")[1]?.length ?? 0);
 const formatar = (n: number, passo?: number) => n.toLocaleString("pt-BR", { maximumFractionDigits: Math.max(2, casas(passo)) });
+const mudou = (p: DefParametro, v: ValorParametro | undefined) => v !== undefined && String(v) !== String(p.padrao);
 
+/**
+ * Configurações em dois níveis: áreas (Clientes, Preço, Operação, Motoboys, Mapa e GPS, Comunicação, Sistema)
+ * e, dentro de cada uma, os grupos em seções. Busca em tudo, "só o que mudei" e voltar ao padrão em cada ajuste.
+ */
 export function PainelConfiguracoes() {
   const cfg = useConfiguracoes();
-  const [grupo, setGrupo] = useState<Pagina>("pedidos");
+  const [pagina, setPagina] = useState<Pagina>(() => {
+    try { return (localStorage.getItem("pwex-config-pagina") as Pagina) || "clientes"; } catch { return "clientes"; }
+  });
   const conta = useConta();
   const [busca, setBusca] = useState("");
+  const [soMudados, setSoMudados] = useState(false);
   const [estado, setEstado] = useState<Record<string, Estado>>({});
+  const ir = (p: Pagina) => { setPagina(p); setBusca(""); try { localStorage.setItem("pwex-config-pagina", p); } catch {} };
 
   async function salvar(p: DefParametro, valor: ValorParametro) {
     setEstado((e) => ({ ...e, [p.chave]: "salvando" }));
-    const { error } = await supabase().from("configuracoes").update({ valor }).eq("chave", p.chave);
-    setEstado((e) => ({ ...e, [p.chave]: error ? "erro" : "salvo" }));
-    if (!error) setTimeout(() => setEstado((e) => ({ ...e, [p.chave]: undefined })), 1800);
+    const { error } = await supabase().from("configuracoes").upsert({ chave: p.chave, valor }, { onConflict: "chave" });
+    const r = error ? await supabase().from("configuracoes").update({ valor }).eq("chave", p.chave) : { error: null };
+    setEstado((e) => ({ ...e, [p.chave]: r.error ? "erro" : "salvo" }));
+    if (!r.error) setTimeout(() => setEstado((e) => ({ ...e, [p.chave]: undefined })), 1800);
   }
 
-  const grupos = Object.keys(GRUPOS) as GrupoParametro[];
-  const paramDoGrupo = (g: Pagina) => PARAMETROS.filter((p) => p.grupo === g);
   const termo = sem(busca.trim());
-  const visiveis = useMemo(
-    () => (termo ? PARAMETROS.filter((p) => sem(`${p.rotulo} ${p.descricao} ${GRUPOS[p.grupo].titulo}`).includes(termo)) : paramDoGrupo(grupo)),
-    [termo, grupo],
+  const filtrar = (lista: DefParametro[]) => (soMudados ? lista.filter((p) => mudou(p, cfg[p.chave])) : lista);
+  const resultado = useMemo(
+    () => (termo ? filtrar(PARAMETROS.filter((p) => sem(`${p.rotulo} ${p.descricao} ${p.descricaoDesligado ?? ""} ${GRUPOS[p.grupo].titulo} ${p.chave}`).includes(termo))) : []),
+    [termo, soMudados, cfg], // eslint-disable-line react-hooks/exhaustive-deps
   );
-  const extra = PAGINAS_EXTRAS.find((x) => x.chave === grupo);
-  const Icone = extra?.icone ?? ICONES[grupo as GrupoParametro];
-  const titulo = extra?.titulo ?? GRUPOS[grupo as GrupoParametro]?.titulo;
-  const descricao = extra?.descricao ?? GRUPOS[grupo as GrupoParametro]?.descricao;
+  const extra = PAGINAS_EXTRAS.find((x) => x.chave === pagina);
+  const area = AREAS.find((a) => a.chave === pagina);
+  const gruposDaArea = area ? (Object.keys(GRUPOS) as GrupoParametro[]).filter((g) => GRUPOS[g].area === area.chave) : [];
+  const nMudados = (lista: DefParametro[]) => lista.filter((p) => mudou(p, cfg[p.chave])).length;
+
+  const linha = (p: DefParametro, comGrupo: boolean) => (
+    <Parametro key={p.chave} p={p} valor={cfg[p.chave] ?? p.padrao} estado={estado[p.chave]} mostrarGrupo={comGrupo} onSalvar={(v) => salvar(p, v)}
+      bloqueado={p.soDev && !conta.dev} onPadrao={mudou(p, cfg[p.chave]) && !(p.soDev && !conta.dev) ? () => salvar(p, p.padrao) : undefined} />
+  );
 
   return (
     <>
       <aside className="lateral config-lateral">
-        <CabecaPagina icone={Settings2} titulo="Configurações" subtitulo="Padrões do sistema · exceções por cliente, motoboy e tipo" />
+        <CabecaPagina icone={Settings2} titulo="Configurações" subtitulo="Padrões do sistema · exceções por tipo, cliente, motoboy e pedido" />
         <label className="config-busca">
           <Search size={16} aria-hidden />
-          <input placeholder="Buscar ajuste…" value={busca} onChange={(e) => setBusca(e.target.value)} />
+          <input placeholder="Buscar em todos os ajustes…" value={busca} onChange={(e) => setBusca(e.target.value)} />
           {busca && <button type="button" onClick={() => setBusca("")} aria-label="Limpar busca"><X size={15} /></button>}
         </label>
-        <nav className="config-grupos" aria-label="Grupos de configuração">
-          {grupos.map((g) => {
-            const I = ICONES[g];
-            const n = PARAMETROS.filter((p) => p.grupo === g).length;
+        <label className="config-so-mudados"><input type="checkbox" role="switch" checked={soMudados} onChange={(e) => setSoMudados(e.target.checked)} /> Só o que mudei do padrão</label>
+        <nav className="config-grupos" aria-label="Áreas das configurações">
+          {AREAS.map((a) => {
+            const I = ICONES_AREA[a.chave];
+            const params = PARAMETROS.filter((p) => GRUPOS[p.grupo].area === a.chave);
+            const nm = nMudados(params);
             return (
-              <button key={g} type="button" className={`config-grupo ${!termo && grupo === g ? "ativo" : ""}`} onClick={() => { setGrupo(g); setBusca(""); }}>
+              <button key={a.chave} type="button" className={`config-grupo ${!termo && pagina === a.chave ? "ativo" : ""}`} onClick={() => ir(a.chave)}>
                 <span className="config-grupo-icone"><I size={17} aria-hidden /></span>
-                <span className="config-grupo-texto"><strong>{GRUPOS[g].titulo}</strong><span>{GRUPOS[g].descricao}</span></span>
-                <span className="config-grupo-n">{n}</span>
+                <span className="config-grupo-texto"><strong>{a.titulo}</strong><span>{a.descricao}</span></span>
+                <span className="config-grupo-n" title={nm ? `${nm} mudado(s) do padrão` : `${params.length} ajustes`}>{nm ? <><b>{nm}</b>/{params.length}</> : params.length}</span>
               </button>
             );
           })}
@@ -84,7 +101,7 @@ export function PainelConfiguracoes() {
           {PAGINAS_EXTRAS.map((x) => {
             const I = x.icone;
             return (
-              <button key={x.chave} type="button" className={`config-grupo ${!termo && grupo === x.chave ? "ativo" : ""}`} onClick={() => { setGrupo(x.chave); setBusca(""); }}>
+              <button key={x.chave} type="button" className={`config-grupo compacto ${!termo && pagina === x.chave ? "ativo" : ""}`} onClick={() => ir(x.chave)}>
                 <span className="config-grupo-icone"><I size={17} aria-hidden /></span>
                 <span className="config-grupo-texto"><strong>{x.titulo}</strong><span>{x.descricao}</span></span>
               </button>
@@ -94,35 +111,55 @@ export function PainelConfiguracoes() {
       </aside>
 
       <main className="conteudo">
-        <div className={`config-pagina entrar ${!termo && grupo === "zonas" ? "larga" : ""}`} key={termo ? "busca" : grupo}>
-          <header className="config-titulo">
-            {termo ? (
-              <><span className="cabeca-icone grad-suave"><Search size={18} aria-hidden /></span>
-                <div><h2 className="display">Busca</h2><p className="dica">{visiveis.length} ajuste{visiveis.length === 1 ? "" : "s"} para “{busca.trim()}”</p></div></>
-            ) : (
-              <><span className="cabeca-icone grad-suave"><Icone size={18} aria-hidden /></span>
-                <div><h2 className="display">{titulo}</h2><p className="dica">{descricao}</p></div></>
-            )}
-          </header>
-
-          {grupo === "distancia" && !termo && <ExemploAcrescimo cfg={cfg} />}
-          {grupo === "pagamento" && !termo && <ExemploPagamento cfg={cfg} />}
-
-          {!termo && grupo === "excecoes" ? <Excecoes cfg={cfg} />
-            : !termo && grupo === "zonas" ? <CatalogoZonas />
-            : !termo && grupo === "horarios" ? <CatalogoHorarios />
-            : !termo && grupo === "categorias" ? <CatalogoCategorias />
-            : !termo && grupo === "tipos" ? <CatalogoTipos />
-            : (
+        <div className={`config-pagina entrar ${!termo && pagina === "zonas" ? "larga" : ""}`} key={termo ? "busca" : pagina}>
+          {termo ? (
+            <>
+              <header className="config-titulo">
+                <span className="cabeca-icone grad-suave"><Search size={18} aria-hidden /></span>
+                <div><h2 className="display">Busca</h2><p className="dica">{resultado.length} ajuste{resultado.length === 1 ? "" : "s"} para “{busca.trim()}”</p></div>
+              </header>
               <div className="config-lista">
-                {visiveis.map((p) => (
-                  <Parametro key={p.chave} p={p} valor={cfg[p.chave]} estado={estado[p.chave]} mostrarGrupo={Boolean(termo)} onSalvar={(v) => salvar(p, v)}
-                    bloqueado={p.soDev && !conta.dev} />
-                ))}
-                {visiveis.length === 0 && <p className="vazio">Nenhum ajuste encontrado.</p>}
+                {resultado.map((p) => linha(p, true))}
+                {resultado.length === 0 && <p className="vazio">Nenhum ajuste encontrado.</p>}
               </div>
-            )}
-          {!termo && grupo === "rastreamento" && <p className="dica">O app aplica estes ajustes na próxima sincronização.</p>}
+            </>
+          ) : extra ? (
+            <>
+              <header className="config-titulo">
+                <span className="cabeca-icone grad-suave"><extra.icone size={18} aria-hidden /></span>
+                <div><h2 className="display">{extra.titulo}</h2><p className="dica">{extra.descricao}</p></div>
+              </header>
+              {pagina === "excecoes" ? <Excecoes cfg={cfg} /> : pagina === "zonas" ? <CatalogoZonas /> : pagina === "horarios" ? <CatalogoHorarios />
+                : pagina === "categorias" ? <CatalogoCategorias /> : <CatalogoTipos />}
+            </>
+          ) : area ? (
+            <>
+              <header className="config-titulo">
+                <span className="cabeca-icone grad-suave">{(() => { const I = ICONES_AREA[area.chave]; return <I size={18} aria-hidden />; })()}</span>
+                <div><h2 className="display">{area.titulo}</h2><p className="dica">{area.descricao}</p></div>
+              </header>
+              <nav className="config-atalhos" aria-label="Seções">
+                {gruposDaArea.map((g) => <a key={g} href={`#cfg-${g}`} className="chip">{GRUPOS[g].titulo}</a>)}
+                {PAGINAS_EXTRAS.filter((x) => x.area === area.chave).map((x) => <button key={x.chave} type="button" className="chip" onClick={() => ir(x.chave)}><x.icone size={13} aria-hidden /> {x.titulo}</button>)}
+              </nav>
+              {gruposDaArea.map((g) => {
+                const lista = filtrar(PARAMETROS.filter((p) => p.grupo === g));
+                if (!lista.length && soMudados) return null;
+                return (
+                  <section key={g} id={`cfg-${g}`} className="config-secao">
+                    <h3><span>{GRUPOS[g].titulo}</span>{nMudados(PARAMETROS.filter((p) => p.grupo === g)) > 0 && <small>{nMudados(PARAMETROS.filter((p) => p.grupo === g))} mudado(s)</small>}</h3>
+                    <p className="dica">{GRUPOS[g].descricao}</p>
+                    {g === "distancia" && <ExemploAcrescimo cfg={cfg} />}
+                    {g === "pagamento" && <ExemploPagamento cfg={cfg} />}
+                    {g === "pag_zonas" && <ExemploZonas cfg={cfg} />}
+                    <div className="config-lista">{lista.map((p) => linha(p, false))}</div>
+                    {g === "rastreamento" && <p className="dica">O app aplica estes ajustes na próxima sincronização. Cada motoboy pode ter um ritmo próprio em Exceções.</p>}
+                  </section>
+                );
+              })}
+              {soMudados && nMudados(PARAMETROS.filter((p) => GRUPOS[p.grupo].area === area.chave)) === 0 && <p className="vazio">Tudo nesta área está no padrão.</p>}
+            </>
+          ) : null}
         </div>
       </main>
     </>
@@ -131,9 +168,11 @@ export function PainelConfiguracoes() {
 
 // ------------------------------------------------------------------ um ajuste
 
-export function Parametro({ p, valor, estado, mostrarGrupo, onSalvar, bloqueado, extra }: {
+export function Parametro({ p, valor, estado, mostrarGrupo, onSalvar, bloqueado, extra, onPadrao }: {
   p: DefParametro; valor: ValorParametro; estado: Estado; mostrarGrupo: boolean; onSalvar: (v: ValorParametro) => void;
   bloqueado?: boolean; extra?: ReactNode;
+  /** Mostra "voltar ao padrão" (quando o valor está diferente do padrão). */
+  onPadrao?: () => void;
 }) {
   const [rascunho, setRascunho] = useState<string | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -162,8 +201,31 @@ export function Parametro({ p, valor, estado, mostrarGrupo, onSalvar, bloqueado,
       {bloqueado && <span title="Só o Dev altera"><Lock size={13} aria-hidden /> Dev</span>}
       {estado === "salvo" && <><Check size={14} aria-hidden /> salvo</>}
       {estado === "erro" && <span className="erro"><TriangleAlert size={14} aria-hidden /> erro</span>}
+      {onPadrao && !estado && (
+        <button type="button" className="config-padrao" onClick={(e) => { e.preventDefault(); onPadrao(); }} title={`Voltar ao padrão (${typeof p.padrao === "boolean" ? (p.padrao ? "ligado" : "desligado") : p.opcoes?.find((o) => o.valor === p.padrao)?.rotulo ?? String(p.padrao || "vazio")})`}>
+          <RotateCcw size={12} aria-hidden /> padrão
+        </button>
+      )}
     </span>
   );
+
+  if (p.tipo === "texto") {
+    return (
+      <div className={`config-item ${bloqueado ? "bloqueado" : ""}`}>
+        <span className="config-item-texto">
+          {mostrarGrupo && <span className="rotulo">{GRUPOS[p.grupo].titulo}</span>}
+          <strong>{p.rotulo}</strong>
+          {p.descricao && <span className="dica">{p.descricao}</span>}
+          {extra}
+        </span>
+        <div className="config-controle">
+          {status}
+          <input className="config-texto" defaultValue={String(valor ?? "")} placeholder={p.exemplo} disabled={bloqueado} maxLength={60}
+            onBlur={(e) => { if (e.target.value !== String(valor ?? "")) onSalvar(e.target.value.trim()); }} aria-label={p.rotulo} />
+        </div>
+      </div>
+    );
+  }
 
   if (p.tipo === "escolha") {
     const atual = p.opcoes!.find((o) => o.valor === valor);
@@ -288,6 +350,30 @@ function ExemploAcrescimo({ cfg }: { cfg: Record<string, ValorParametro> }) {
           ? <>100 × (1 + {formatar(fc)} da coleta + {formatar(fe)} do percurso) = <strong className="texto-grad">{total.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</strong></>
           : <>Acréscimo desligado: fica <strong>R$ 100,00</strong>.</>}
       </p>
+    </div>
+  );
+}
+
+// ------------------------------------------------------------------ exemplo vivo do pagamento por zonas
+
+/** Duas rotas de R$ 100: entregas juntas (paga por km + fixo) e espalhadas (paga a porcentagem). */
+function ExemploZonas({ cfg }: { cfg: Record<string, ValorParametro> }) {
+  const m = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  const raio = Number(cfg.zona_entrega_raio_m ?? 1500), vkm = Number(cfg.zona_valor_km ?? 2), ext = Number(cfg.zona_entrega_extra ?? 10);
+  const fixo = Number(cfg.zona_fixo_rota ?? 0), min = Number(cfg.zona_minimo ?? 0), pct = Number(cfg.zona_fora_pct ?? 65), dev = Number(cfg.dev_pct ?? 5);
+  const regra = String(cfg.zona_km_regra ?? "mais_perto");
+  const ds = [4, 4.8, 5.5];
+  const ref = regra === "mais_longe" ? ds[2] : regra === "media" ? (ds[0] + ds[1] + ds[2]) / 3 : regra === "mediana" ? ds[1] : regra === "total_rota" ? 7.2 : ds[0];
+  const teto = 100 - dev;
+  const juntas = Math.min(teto, Math.max(min, fixo + ref * vkm + 2 * ext));
+  const espalhadas = Math.min(teto, (100 * pct) / 100);
+  return (
+    <div className="config-exemplo">
+      <span className="rotulo">Exemplo · raio de {raio.toLocaleString("pt-BR")} m em cada entrega</span>
+      <p><strong>3 entregas juntas</strong> (a {ds.map((d) => d.toLocaleString("pt-BR")).join(", ")} km da coleta):</p>
+      <p className="config-exemplo-conta">{fixo ? <>{m(fixo)} + </> : null}{ref.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} km × {m(vkm)} + 2 × {m(ext)} = <strong className="texto-grad">{m(juntas)}</strong></p>
+      <p><strong>Entregas espalhadas</strong> numa rota de {m(100)}: {pct.toLocaleString("pt-BR")}% = <strong className="texto-grad">{m(espalhadas)}</strong> · gestor e Dev dividem o resto.</p>
+      <p className="dica" style={{ margin: 0 }}>Nos dois casos o motoboy nunca passa de {m(teto)} (a rota menos o Dev).</p>
     </div>
   );
 }

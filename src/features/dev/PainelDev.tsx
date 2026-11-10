@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { BatteryMedium, Bike, CodeXml, FlaskConical, History, LayoutDashboard, Rocket, ShieldCheck, Smartphone, ToggleRight, UserRound } from "lucide-react";
+import { BatteryMedium, Bell, BellOff, Bike, CodeXml, Eraser, FlaskConical, History, LayoutDashboard, Rocket, ShieldCheck, Smartphone, Timer, ToggleRight, UserRound } from "lucide-react";
+import { ApagarTudo } from "./ApagarTudo";
 import { VersaoApp } from "./VersaoApp";
 import { supabase } from "@/lib/supabase/client";
 import { CabecaPagina } from "@/features/ui/CabecaPagina";
@@ -11,14 +12,18 @@ import { toast } from "@/features/ui/toast";
 interface ModuloLinha { chave: string; nome: string; descricao: string | null; grupo: string; ligado: boolean; papeis: Papel[] | null; ordem: number }
 interface Painel {
   contagens: Record<string, number>;
-  aparelhos: { id: string; nome: string; versao_app: string | null; status: string; posicao_em: string | null; bateria: number | null; precisao_m: number | null; modo_economia: boolean; modo_teste: boolean }[];
+  aparelhos: { id: string; nome: string; versao_app: string | null; status: string; posicao_em: string | null; bateria: number | null; precisao_m: number | null; modo_economia: boolean; modo_teste: boolean; pings_24h?: number; push?: boolean }[];
+  tarefas?: { nome: string; quando: string; ativa: boolean }[];
   exclusoes: { tipo: string; rotulo: string; motivo: string | null; por: string | null; quando: string }[];
 }
 
-const CONTAGENS: [string, string][] = [
-  ["contas", "Contas"], ["motoboys_online", "Motoboys online"], ["corridas_ativas", "Corridas ativas"], ["corridas_reais", "Corridas reais"],
-  ["corridas_teste", "Corridas de teste"], ["pings_24h", "Pings (24 h)"], ["pings_total", "Pings no banco"], ["corridas_apagadas", "Corridas apagadas"],
-  ["contas_excluidas", "Contas excluídas"],
+const CONTAGENS: { titulo: string; itens: [string, string, ("n" | "r$" | "mb")?][] }[] = [
+  { titulo: "Pessoas", itens: [["contas", "Contas"], ["motoboys", "Motoboys"], ["gestores", "Gestores"], ["clientes", "Clientes"], ["motoboys_online", "Online agora"], ["em_corrida", "Em corrida"]] },
+  { titulo: "Operação", itens: [["pedidos", "Pedidos"], ["pedidos_abertos", "Pedidos abertos"], ["corridas_reais", "Rotas reais"], ["corridas_teste", "Rotas de teste"],
+    ["corridas_ativas", "Rotas ativas"], ["no_quadro", "No quadro"], ["ofertas_pendentes", "Ofertas pendentes"]] },
+  { titulo: "Dinheiro (30 dias, real)", itens: [["faturado_30d", "Faturado", "r$"], ["motoboys_30d", "Motoboys", "r$"], ["dev_30d", "Dev", "r$"], ["faturas", "Faturas"], ["holerites", "Holerites"]] },
+  { titulo: "Dados", itens: [["pings_24h", "Pings (24 h)"], ["pings_total", "Pings no banco"], ["trechos_ruas", "Trechos pelas ruas"], ["mensagens_chat", "Mensagens no chat"],
+    ["excecoes", "Exceções"], ["configuracoes_mudadas", "Ajustes salvos"], ["corridas_apagadas", "Rotas apagadas"], ["contas_excluidas", "Contas excluídas"], ["tamanho_banco_mb", "Banco", "mb"]] },
 ];
 const PAPEIS_MODULO: { p: Papel; rotulo: string; icone: typeof Bike }[] = [
   { p: "gestor", rotulo: "Gestores", icone: ShieldCheck }, { p: "motoboy", rotulo: "Motoboys", icone: Bike }, { p: "cliente", rotulo: "Clientes", icone: UserRound },
@@ -33,7 +38,7 @@ function ha(iso: string | null) {
 /** Console do Dev: o sistema inteiro à vista, módulos liga/desliga e quem vê cada um. */
 export function PainelDev() {
   const conta = useConta();
-  const [aba, setAba] = useState<"modulos" | "versao" | "sistema" | "aparelhos" | "registro">("modulos");
+  const [aba, setAba] = useState<"sistema" | "modulos" | "versao" | "aparelhos" | "tarefas" | "registro" | "apagar">("sistema");
   const [modulos, setModulos] = useState<ModuloLinha[]>([]);
   const [painel, setPainel] = useState<Painel | null>(null);
   const [erro, setErro] = useState<string | null>(null);
@@ -65,12 +70,15 @@ export function PainelDev() {
       <aside className="lateral entrar">
         <CabecaPagina icone={CodeXml} titulo="Console Dev" subtitulo="O sistema inteiro, sem filtro" />
         <div className="filtro" style={{ alignSelf: "flex-start", flexWrap: "wrap" }}>
+          <button className={aba === "sistema" ? "ativo" : ""} onClick={() => setAba("sistema")}><LayoutDashboard size={14} aria-hidden /> Visão geral</button>
           <button className={aba === "modulos" ? "ativo" : ""} onClick={() => setAba("modulos")}><ToggleRight size={14} aria-hidden /> Módulos</button>
           <button className={aba === "versao" ? "ativo" : ""} onClick={() => setAba("versao")}><Rocket size={14} aria-hidden /> Versão do app</button>
-          <button className={aba === "sistema" ? "ativo" : ""} onClick={() => setAba("sistema")}><LayoutDashboard size={14} aria-hidden /> Sistema</button>
           <button className={aba === "aparelhos" ? "ativo" : ""} onClick={() => setAba("aparelhos")}><Smartphone size={14} aria-hidden /> Aparelhos</button>
+          <button className={aba === "tarefas" ? "ativo" : ""} onClick={() => setAba("tarefas")}><Timer size={14} aria-hidden /> Tarefas automáticas</button>
           <button className={aba === "registro" ? "ativo" : ""} onClick={() => setAba("registro")}><History size={14} aria-hidden /> Registro</button>
+          <button className={aba === "apagar" ? "ativo" : ""} onClick={() => setAba("apagar")}><Eraser size={14} aria-hidden /> Apagar</button>
         </div>
+        <button className="botao-texto" onClick={() => void carregar()}>Atualizar números</button>
         <p className="dica">Contas (inclusive gestores) você controla em Equipe: só o Dev mexe em contas Dev e dá o cargo Dev.</p>
         {erro && <p className="erro">{erro}</p>}
       </aside>
@@ -106,25 +114,43 @@ export function PainelDev() {
           ))}
           {aba === "versao" && <VersaoApp />}
           {aba === "sistema" && painel && (<>
-            <div className="dev-grade">
-              {CONTAGENS.map(([k, r]) => <div key={k} className="dev-num"><strong>{(painel.contagens[k] ?? 0).toLocaleString("pt-BR")}</strong><span>{r}</span></div>)}
-            </div>
+            {CONTAGENS.map((g) => (
+              <section key={g.titulo} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                <span className="rotulo">{g.titulo}</span>
+                <div className="dev-grade">
+                  {g.itens.map(([k, r, f]) => {
+                    const v = Number(painel.contagens[k] ?? 0);
+                    return <div key={k} className="dev-num"><strong>{f === "r$" ? v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : f === "mb" ? `${v.toLocaleString("pt-BR")} MB` : v.toLocaleString("pt-BR")}</strong><span>{r}</span></div>;
+                  })}
+                </div>
+              </section>
+            ))}
             <ZerarPedidos />
           </>)}
           {aba === "aparelhos" && painel && (
             <div className="dev-rolagem">
               <table className="dev-tabela">
-                <thead><tr><th>Motoboy</th><th>App</th><th>Status</th><th>Último ping</th><th>Bateria</th><th>Precisão</th><th>Modo</th></tr></thead>
+                <thead><tr><th>Motoboy</th><th>App</th><th>Status</th><th>Último ping</th><th>Pings 24 h</th><th>Bateria</th><th>Precisão</th><th>Push</th><th>Modo</th></tr></thead>
                 <tbody>{painel.aparelhos.map((a) => (
                   <tr key={a.id}>
-                    <td>{a.nome}</td><td>{a.versao_app ?? "—"}</td><td>{a.status}</td><td>{ha(a.posicao_em)}</td>
+                    <td>{a.nome}</td><td>{a.versao_app ?? "—"}</td><td>{a.status}</td><td>{ha(a.posicao_em)}</td><td>{(a.pings_24h ?? 0).toLocaleString("pt-BR")}</td>
                     <td>{a.bateria != null ? <><BatteryMedium size={12} aria-hidden /> {a.bateria}%</> : "—"}</td>
                     <td>{a.precisao_m != null ? `± ${Math.round(a.precisao_m)} m` : "—"}</td>
+                    <td title={a.push ? "Recebe notificações" : "Sem token de notificação"}>{a.push ? <Bell size={13} aria-hidden /> : <BellOff size={13} aria-hidden />}</td>
                     <td>{a.modo_teste ? <><FlaskConical size={12} aria-hidden /> teste</> : "real"}{a.modo_economia ? " · economia" : ""}</td>
                   </tr>
                 ))}</tbody>
               </table>
             </div>
+          )}
+          {aba === "apagar" && <ApagarTudo />}
+          {aba === "tarefas" && painel && (
+            (painel.tarefas ?? []).length === 0 ? <p className="vazio">Nenhuma tarefa automática encontrada (o pg_cron não está disponível).</p> : (
+              <table className="dev-tabela">
+                <thead><tr><th>Tarefa</th><th>Quando roda</th><th>Ativa</th></tr></thead>
+                <tbody>{painel.tarefas!.map((x) => <tr key={x.nome}><td>{x.nome}</td><td>{x.quando}</td><td>{x.ativa ? "sim" : "não"}</td></tr>)}</tbody>
+              </table>
+            )
           )}
           {aba === "registro" && painel && (
             painel.exclusoes.length === 0 ? <p className="vazio">Nada apagado até agora.</p> : (
@@ -136,7 +162,7 @@ export function PainelDev() {
               </table>
             )
           )}
-          {!painel && !erro && aba !== "versao" && <p className="dica">Carregando…</p>}
+          {!painel && !erro && aba !== "versao" && aba !== "apagar" && <p className="dica">Carregando…</p>}
         </div>
       </main>
     </>

@@ -1,5 +1,6 @@
 "use client";
 
+import { BotaoCompartilhar } from "@/features/chat/PaginaChat";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Bike, Building2, FlaskConical, History, Layers, Lock, PencilLine, Route, Save, Search, ShieldCheck, Trophy, UserPlus, UserRound, Users } from "lucide-react";
 import { ConquistasMembro } from "./Conquistas";
@@ -32,6 +33,7 @@ export function PainelEquipe() {
   const eu = useSessaoGestor()?.user.id;
   const [lista, setLista] = useState<Membro[]>([]);
   const [sel, setSel] = useState<string | null>(null);
+  useEffect(() => { const q = new URLSearchParams(window.location.search).get("m"); if (q) setSel(q); }, []);
   const [nome, setNome] = useState("");
   const [gestor, setGestor] = useState(false);
   const [motoboy, setMotoboy] = useState(false);
@@ -131,6 +133,7 @@ export function PainelEquipe() {
                 <div style={{ minWidth: 0 }}>
                   <h2 className="display">{m.nome || m.email}</h2>
                   <p className="dica" style={{ margin: "2px 0 6px" }}>{m.email}</p>
+                  <BotaoCompartilhar rotulo="Compartilhar" anexo={{ tipo: "pessoa", id: m.id, titulo: m.nome || m.email, sub: m.papeis.join(", ") }} />
                   <div className="selos">
                     <SelosCargo papeis={m.papeis} teste={m.modo_teste} />
                     {m.bloqueado && <span className="selo" style={{ color: "var(--vermelho)" }}><Lock size={11} /> Bloqueado</span>}

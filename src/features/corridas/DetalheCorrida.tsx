@@ -1,5 +1,6 @@
 "use client";
 
+import { BotaoCompartilhar } from "@/features/chat/PaginaChat";
 import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, CheckCircle2, FlaskConical, Landmark, MapPinned, Route, Trash2, XCircle } from "lucide-react";
 import { ExcluirCorridas } from "./ExcluirCorridas";
@@ -8,6 +9,7 @@ import { supabase } from "@/lib/supabase/client";
 import { decodificarPolyline } from "@/lib/geo/polyline";
 import { buscarPercursos } from "@/lib/mapa/percursos";
 import { SelosPonto, type OpcoesDoPonto } from "@/features/pedidos/OpcoesPonto";
+import { PacotesPonto, pacotesDoPonto, type Pacote } from "@/features/pedidos/Pacotes";
 import { moeda } from "@/features/precos/estrategias";
 import { MapaCorridas } from "./MapaCorridas";
 import { nomeCliente, traduzirErro, useEmpresas, useEquipe } from "./dados";
@@ -107,6 +109,23 @@ function Comprovante({ caminho, rotulo }: { caminho: string; rotulo: string }) {
   );
 }
 
+/** Pacotes dos pedidos da rota (com o tipo, para os ícones). */
+function usePacotes(pedidos: string[]): (Pacote & { pedido_id: string })[] {
+  const chave = [...new Set(pedidos)].sort().join(",");
+  const [itens, setItens] = useState<(Pacote & { pedido_id: string })[]>([]);
+  useEffect(() => {
+    if (!chave) { setItens([]); return; }
+    let vivo = true;
+    void supabase().from("pedido_itens").select("*, categorias_produto(nome, icone, perigoso, fragil)").in("pedido_id", chave.split(",")).then(({ data }) => {
+      if (!vivo) return;
+      setItens(((data ?? []) as (Pacote & { pedido_id: string; categorias_produto?: { nome: string; icone: string | null; perigoso: boolean; fragil: boolean } | null })[])
+        .map(({ categorias_produto: k, ...i }) => ({ ...i, categoria: k?.nome, icone: k?.icone, perigoso: k?.perigoso, fragil: k?.fragil })));
+    });
+    return () => { vivo = false; };
+  }, [chave]);
+  return itens;
+}
+
 export function DetalheCorrida({ corrida, oferta, onVoltar, onExcluida }: { corrida: Corrida; oferta?: Oferta; onVoltar: () => void; onExcluida?: () => void }) {
   const [foco, setFoco] = useState<{ lat: number; lng: number; vez: number } | null>(null);
   const conta = useConta();
@@ -128,6 +147,12 @@ export function DetalheCorrida({ corrida, oferta, onVoltar, onExcluida }: { corr
   const motoboy = equipe.find((m) => m.id === corrida.motoboy_id);
   const ativa = ["aceita", "em_andamento"].includes(corrida.status);
   const trilha = useTrilha(corrida, ativa);
+  const pacotes = usePacotes(corrida.paradas.map((p) => p.pedido_id).filter((x): x is string => Boolean(x)));
+  const pacotesDe = (p: (typeof corrida.paradas)[number]) => {
+    if (!p.pedido_ponto_id || !p.pedido_id) return [];
+    const doTipo = corrida.paradas.filter((y) => y.tipo === p.tipo && y.pedido_id === p.pedido_id).map((y) => y.pedido_ponto_id!).filter(Boolean);
+    return pacotesDoPonto(pacotes.filter((i) => i.pedido_id === p.pedido_id), { id: p.pedido_ponto_id, tipo: p.tipo }, doTipo);
+  };
 
   const pinos = useMemo(
     () => corrida.paradas.map((p) => ({
@@ -163,6 +188,7 @@ export function DetalheCorrida({ corrida, oferta, onVoltar, onExcluida }: { corr
           {corrida.teste && <span className="selo" style={{ color: "#a78bfa" }}><FlaskConical size={11} aria-hidden /> TESTE</span>}
         </div>
         <CabecaPagina icone={Route} titulo={`${corrida.origem === "roteirizador" ? "Rota" : "Corrida"} ${numeroCorrida(corrida)}`} subtitulo={`${nomeCliente(corrida, empresas)} · criada às ${hora(corrida.criada_em)}`} />
+        <BotaoCompartilhar anexo={{ tipo: "rota", id: corrida.id, titulo: `${corrida.origem === "roteirizador" ? "Rota" : "Corrida"} ${numeroCorrida(corrida)}`, sub: `${nomeCliente(corrida, empresas)} · ${corrida.paradas.filter((p) => p.tipo === "entrega").length} entrega(s)` }} />
 
         <section className="bloco">
           <div className="status-grande display" style={{ color: COR_CORRIDA[corrida.status] }}>{ROTULO_CORRIDA[corrida.status]}</div>
@@ -198,7 +224,7 @@ export function DetalheCorrida({ corrida, oferta, onVoltar, onExcluida }: { corr
           {corrida.valor_motoboy != null && (
             <div className="numeros">
               <div><span className="rotulo">Motoboy{corrida.pag_calculo?.modo === "percentual" ? ` (${Number(corrida.repasse_pct)}%)` : ""}</span><strong>{moeda(corrida.valor_motoboy)}</strong></div>
-              <div><span className="rotulo">Gestão</span><strong className="texto-grad">{moeda(corrida.valor_gestao)}</strong></div>
+              <div><span className="rotulo">Gestor</span><strong className="texto-grad">{moeda(Number(corrida.valor ?? 0) - Number(corrida.valor_motoboy ?? 0) - Number(corrida.valor_dev ?? 0))}</strong></div>
               {Number(corrida.valor_dev) > 0 && <div><span className="rotulo">Dev ({Number(corrida.dev_pct)}%)</span><strong>{moeda(corrida.valor_dev ?? 0)}</strong></div>}
             </div>
           )}
@@ -245,6 +271,7 @@ export function DetalheCorrida({ corrida, oferta, onVoltar, onExcluida }: { corr
                 <span>{p.endereco}</span>
                 {(p.contato_nome || p.contato_telefone) && <span className="dica">{p.contato_nome} {p.contato_telefone}</span>}
                 {p.instrucoes && <span className="dica">{p.instrucoes}</span>}
+                <PacotesPonto itens={pacotesDe(p)} />
                 {(() => {
                   // o que esta parada exige: o que o cliente pediu no ponto ou, vazio, o padrão da rota (só nas entregas)
                   const x = p as typeof p & OpcoesDoPonto & { codigo?: string | null };

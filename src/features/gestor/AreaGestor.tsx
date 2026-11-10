@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { Session } from "@supabase/supabase-js";
-import { Building2, ChevronDown, ClipboardList, Heart, List, Map, Route, Settings2, Store, Users, Wallet } from "lucide-react";
+import { Building2, ChevronDown, ClipboardList, Heart, List, Map, Route, Settings2, Store, Users, Wallet, MessagesSquare } from "lucide-react";
 import { sair as sairDaConta, supabase } from "@/lib/supabase/client";
 import { contas } from "@/lib/supabase/contas";
 import { LoginForm } from "@/features/auth/LoginForm";
@@ -15,6 +15,7 @@ import { MenuPerfil } from "./MenuPerfil";
 import { Tour, type PassoTour } from "@/features/ui/Tour";
 import { ProvedorConta, type ContextoConta, type CorTema, type Papel } from "@/features/conta/conta";
 import { Toasts, toast } from "@/features/ui/toast";
+import { definirPreferenciaRota } from "@/features/geo";
 
 type Acesso = "carregando" | "anonimo" | "negado" | "gestor";
 
@@ -28,6 +29,7 @@ const ABAS = [
   { href: "/gestor/clientes", rotulo: "Clientes", icone: Building2 },
   { href: "/gestor/equipe", rotulo: "Equipe", icone: Users },
   { href: "/gestor/carteira", rotulo: "Carteira", icone: Wallet },
+  { href: "/gestor/chat", rotulo: "Chat", icone: MessagesSquare },
   { href: "/gestor/configuracoes", rotulo: "Configurações", icone: Settings2 },
 ];
 
@@ -47,6 +49,15 @@ export function AreaGestor({ children }: { children: ReactNode }) {
   // celular: lista sobre o mapa, mostrando ou escondida
   const [gaveta, setGaveta] = useState<"mostrando" | "oculta">("mostrando");
   const telaDeMapa = caminho?.startsWith("/gestor/mapa") || caminho?.startsWith("/gestor/corridas");
+
+  // provedor/perfil das rotas (Ajustes → Navegação): vale para todos os mapas do site
+  useEffect(() => {
+    if (!sessao) return;
+    void supabase().from("configuracoes").select("chave,valor").in("chave", ["rota_provedor", "rota_perfil"]).then(({ data }) => {
+      const c = Object.fromEntries((data ?? []).map((r: { chave: string; valor: unknown }) => [r.chave, r.valor]));
+      definirPreferenciaRota(c.rota_provedor, c.rota_perfil);
+    });
+  }, [sessao]);
 
   useEffect(() => {
     const sb = supabase();
@@ -198,7 +209,7 @@ export function AreaGestor({ children }: { children: ReactNode }) {
         <header className="topo vidro">
           <Link href="/gestor/mapa" aria-label="PW Express, início"><Logo /></Link>
           <nav className="abas">
-            {ABAS.filter((a) => a.href !== "/gestor/carteira" || contextoConta.modulo("carteira")).map(({ href, rotulo, icone: Icone }) => (
+            {ABAS.filter((a) => (a.href !== "/gestor/carteira" || contextoConta.modulo("carteira")) && (a.href !== "/gestor/chat" || contextoConta.modulo("chat"))).map(({ href, rotulo, icone: Icone }) => (
               <Link key={href} href={href} data-tour={href.replace("/gestor/", "aba-")} className={caminho?.startsWith(href) ? "ativa" : ""}>
                 <Icone size={17} aria-hidden /> {rotulo}
                 {href === "/gestor/pedidos" && paraRevisar > 0 && <span className="aba-n" aria-label={`${paraRevisar} para revisar`}>{paraRevisar}</span>}

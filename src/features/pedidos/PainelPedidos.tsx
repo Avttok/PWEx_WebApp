@@ -1,5 +1,7 @@
 "use client";
 
+import { PacotesPonto, pacotesDoPonto } from "./Pacotes";
+import { BotaoCompartilhar } from "@/features/chat/PaginaChat";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
@@ -10,6 +12,7 @@ import { useEmpresas, useEquipe, useRecarregarAoMudar } from "@/features/corrida
 import { MapaCorridas, type PinoParada } from "@/features/corridas/MapaCorridas";
 import { buscarPercursos } from "@/lib/mapa/percursos";
 import { SelosPonto, type OpcoesDoPonto } from "./OpcoesPonto";
+import { EditarOrcamento } from "./EditarOrcamento";
 import { formatarKm } from "@/features/corridas/tipos";
 import { useModoTeste } from "@/features/teste/modoTeste";
 import { CabecaPagina } from "@/features/ui/CabecaPagina";
@@ -42,6 +45,8 @@ export function PainelPedidos() {
   const [busca, setBusca] = useState("");
   const [tipoF, setTipoF] = useState<"todos" | "agora" | "planejados" | "urgentes" | "pagamento">("todos");
   const [sel, setSel] = useState<string | null>(null);
+  // link direto (ex.: cartão do chat): /gestor/pedidos?p=<id>
+  useEffect(() => { const q = new URLSearchParams(window.location.search).get("p"); if (q) setSel(q); }, []);
   const [novo, setNovo] = useState(false);
 
   useRecarregarAoMudar(["pedidos", "pedido_pontos", "corridas"], async () => {
@@ -204,14 +209,15 @@ function DetalhePedido({ p, cliente, categorias, rotas, onFechar }: {
           restanteDe={motoEmRota?.lat != null && motoEmRota.lng != null ? { lat: motoEmRota.lat, lng: motoEmRota.lng } : null} /></div>
         <ol className="pedido-pontos">
           {pontos.map((x, i) => {
-            const itens = (p.pedido_itens ?? []).filter((it) => it.entrega_id === x.id || it.coleta_id === x.id);
+            const idsTipo = pontos.filter((y) => y.tipo === x.tipo).map((y) => y.id);
+            const itens = pacotesDoPonto((p.pedido_itens ?? []).map((it) => { const k = categorias.find((c) => c.id === it.categoria_id); return { ...it, categoria: k?.nome, icone: k?.icone, perigoso: k?.perigoso, fragil: (k as { fragil?: boolean } | undefined)?.fragil }; }), x, idsTipo);
             return (
               <li key={x.id} className={`clicavel${x.status === "concluido" ? " feita" : ""}`} title="Ver no mapa" onClick={() => setFoco({ lat: x.lat, lng: x.lng, vez: Date.now() })}>
                 <span className={`pino-mini ${x.tipo}`}>{i + 1}</span>
                 <div>
                   <strong>{x.tipo === "coleta" ? "Coleta" : "Entrega"}</strong> · {x.endereco}
                   <div className="dica">{[x.contato_nome, x.contato_telefone, x.instrucoes].filter(Boolean).join(" · ")}</div>
-                  {itens.length > 0 && <div className="dica">{itens.map((it) => `${it.quantidade}× ${it.descricao}`).join(" · ")}</div>}
+                  <PacotesPonto itens={itens} />
                   {x.concluido_em && <div className="dica"><CheckCircle2 size={12} aria-hidden /> {quando(x.concluido_em)}{x.recebedor_nome ? ` · ${x.recebedor_nome}` : ""}</div>}
                   <SelosPonto p={x as unknown as OpcoesDoPonto} />
                 </div>
@@ -237,13 +243,14 @@ function DetalhePedido({ p, cliente, categorias, rotas, onFechar }: {
           <div className="linha-botoes">
             <span className="rotulo">Rotas</span>
             {unicas.map((r) => <Link key={r.corrida_id} href={`/gestor/corridas?c=${r.corrida_id}`} className="chip"><Route size={13} aria-hidden /> Rota #{r.numero}</Link>)}
+            <BotaoCompartilhar anexo={{ tipo: "pedido", id: p.id, titulo: `Pedido ${p.teste ? "T" : "#"}${p.numero}`, sub: cliente }} />
           </div>
         )}
       </div>
 
       <div className="formulario vidro">
         <h3 className="display" style={{ margin: 0 }}><Wallet size={18} aria-hidden /> Cobrança</h3>
-        {p.orcamento ? <OrcamentoDetalhe orc={p.orcamento} /> : <p className="dica">Sem orçamento.</p>}
+        {p.orcamento ? <EditarOrcamento key={JSON.stringify(p.orcamento.linhas)} pedidoId={p.id} orc={p.orcamento} bloqueado={["cancelado", "recusado"].includes(p.status)} /> : <p className="dica">Sem orçamento.</p>}
         <div className="pedido-valor">
           <label className="campo"><span>Valor final</span>
             <span className="passo-campo"><span className="unidade">R$</span><input inputMode="decimal" value={valor} disabled={p.status === "cancelado" || p.status === "recusado"} onChange={(e) => setValor(e.target.value)} /></span></label>

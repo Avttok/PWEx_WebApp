@@ -14,6 +14,40 @@ async function json<T>(url: string): Promise<T | null> {
 }
 const coords = (ps: { lat: number; lng: number }[]) => ps.map((p) => `${p.lng},${p.lat}`).join(";");
 
+const VALHALLA = "https://valhalla1.openstreetmap.de";
+function dec6(s: string): [number, number][] {
+  const out: [number, number][] = [];
+  let i = 0, lat = 0, lng = 0;
+  while (i < s.length) {
+    for (const k of [0, 1]) {
+      let b, sh = 0, x = 0;
+      do { b = s.charCodeAt(i++) - 63; x |= (b & 0x1f) << sh; sh += 5; } while (b >= 0x20 && i < s.length);
+      const d = x & 1 ? ~(x >> 1) : x >> 1;
+      if (k === 0) lat += d; else lng += d;
+    }
+    out.push([lat / 1e6, lng / 1e6]);
+  }
+  return out;
+}
+function enc5(pts: [number, number][]): string {
+  let o = "", pl = 0, pg = 0;
+  const v = (x: number) => { x = x < 0 ? ~(x << 1) : x << 1; let t = ""; while (x >= 0x20) { t += String.fromCharCode((0x20 | (x & 0x1f)) + 63); x >>= 5; } return t + String.fromCharCode(x + 63); };
+  for (const [lat, lng] of pts) { const a = Math.round(lat * 1e5), g = Math.round(lng * 1e5); o += v(a - pl) + v(g - pg); pl = a; pg = g; }
+  return o;
+}
+async function rotaValhalla(seq: { lat: number; lng: number }[], perfil: string): Promise<{ distance: number; duration: number; geometry: string; legs: { distance: number }[] } | null> {
+  try {
+    const resp = await fetch(`${VALHALLA}/route`, { method: "POST", headers: { "content-type": "application/json", "User-Agent": "PWExpress-rotas" }, signal: AbortSignal.timeout(9000),
+      body: JSON.stringify({ locations: seq.map((p) => ({ lat: p.lat, lon: p.lng })), costing: ["motorcycle", "auto", "bicycle", "motor_scooter"].includes(perfil) ? perfil : "motorcycle",
+        directions_options: { units: "kilometers" }, directions_type: "none" }) });
+    if (!resp.ok) return null;
+    const j = (await resp.json()) as { trip?: { legs?: { shape: string; summary: { length: number } }[]; summary?: { length: number; time: number } } };
+    const legs = j.trip?.legs;
+    if (!legs || legs.length !== seq.length - 1 || !j.trip?.summary) return null;
+    return { distance: j.trip.summary.length * 1000, duration: j.trip.summary.time, geometry: enc5(legs.flatMap((l) => dec6(l.shape))), legs: legs.map((l) => ({ distance: l.summary.length * 1000 })) };
+  } catch { return null; }
+}
+
 /**
  * Otimiza uma rota pelas ruas: mantém as coletas primeiro (na ordem do roteirizador), acha a melhor
  * ordem das entregas (OSRM trip), calcula a distância por ruas da 1ª coleta até cada entrega (OSRM table)
@@ -37,9 +71,15 @@ export async function otimizarRota(sb: SupabaseClient, corridaId: string, parada
     }
   }
   const seq = [...coletas, ...entregas];
-  const rota = await json<{ routes: { distance: number; duration: number; geometry: string; legs: { distance: number }[] }[] }>(
-    `${OSRM}/route/v1/driving/${coords(seq)}?overview=full&geometries=polyline`);
-  const r = rota?.routes?.[0];
+  // traçado e distâncias: o provedor escolhido (Valhalla com perfil de moto evita caminhos onde moto não passa); senão OSRM
+  const { data: cfg } = await sb.from("configuracoes").select("chave,valor").in("chave", ["rota_provedor", "rota_perfil"]);
+  const conf = Object.fromEntries((cfg ?? []).map((x) => [x.chave, x.valor])) as Record<string, unknown>;
+  let r = conf.rota_provedor === "osrm" ? null : await rotaValhalla(seq, typeof conf.rota_perfil === "string" ? conf.rota_perfil : "motorcycle");
+  if (!r) {
+    const rota = await json<{ routes: { distance: number; duration: number; geometry: string; legs: { distance: number }[] }[] }>(
+      `${OSRM}/route/v1/driving/${coords(seq)}?overview=full&geometries=polyline`);
+    r = rota?.routes?.[0] ?? null;
+  }
   if (!r) return false;
   const tabela = await json<{ distances: (number | null)[][] }>(
     `${OSRM}/table/v1/driving/${coords([coletas[0], ...entregas])}?sources=0&annotations=distance`);

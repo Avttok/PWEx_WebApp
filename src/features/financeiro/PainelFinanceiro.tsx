@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Bike, CodeXml, Copy, Download, Landmark, Search, TrendingUp, Wallet } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, Bike, CodeXml, Copy, Download, Landmark, Search, TrendingUp, Wallet } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
 import { CabecaPagina } from "@/features/ui/CabecaPagina";
 import { moeda } from "@/features/precos/estrategias";
@@ -44,6 +44,24 @@ export function PainelFinanceiro() {
   const { empresas } = useEmpresas();
   const { teste } = useModoTeste();
 
+  // o que está pendente (não depende do período): faturas emitidas e não pagas, folhas fechadas e não pagas
+  const [pendente, setPendente] = useState<{ receber: number; nFat: number; pagar: number; nHol: number; aberto: number }>({ receber: 0, nFat: 0, pagar: 0, nHol: 0, aberto: 0 });
+  useEffect(() => {
+    const sb = supabase();
+    Promise.all([
+      sb.from("faturas").select("total").eq("teste", teste).eq("status", "emitida"),
+      sb.from("holerites").select("total,status").eq("teste", teste).in("status", ["fechado", "aberto"]),
+    ]).then(([f, h]) => {
+      const fat = (f.data ?? []) as { total: number | null }[];
+      const hol = (h.data ?? []) as { total: number | null; status: string }[];
+      setPendente({
+        receber: fat.reduce((s, x) => s + Number(x.total ?? 0), 0), nFat: fat.length,
+        pagar: hol.filter((x) => x.status === "fechado").reduce((s, x) => s + Number(x.total ?? 0), 0), nHol: hol.filter((x) => x.status === "fechado").length,
+        aberto: hol.filter((x) => x.status === "aberto").reduce((s, x) => s + Number(x.total ?? 0), 0),
+      });
+    });
+  }, [teste]);
+
   useEffect(() => {
     supabase().from("corridas").select("*")
       .eq("status", "concluida").eq("teste", teste).gte("concluida_em", inicio(periodo)).order("concluida_em", { ascending: false }).limit(3000)
@@ -51,9 +69,10 @@ export function PainelFinanceiro() {
   }, [periodo, teste]);
 
   const soma = (f: (l: Linha) => number | null, ls = linhas) => ls.reduce((s, l) => s + Number(f(l) ?? 0), 0);
-  const total = soma((l) => l.valor), motoboys = soma((l) => l.valor_motoboy), gestao = soma((l) => l.valor_gestao), dev = soma((l) => l.valor_dev);
-  // gestão = faturado − Dev; dela saem os motoboys; o que sobra é o lucro da operação
-  const lucro = gestao - motoboys;
+  // cada rota se divide em três partes que somam o valor dela: motoboy + gestor + Dev
+  const total = soma((l) => l.valor), motoboys = soma((l) => l.valor_motoboy), dev = soma((l) => l.valor_dev);
+  const gestor = total - motoboys - dev;
+  const pct = (v: number) => (total ? `${(Math.round((v / total) * 1000) / 10).toLocaleString("pt-BR")}%` : "0%");
   const km = soma((l) => l.distancia_real_m ?? l.distancia_planejada_m) / 1000;
 
   const agrupar = (chave: (l: Linha) => string | null) => {
@@ -75,10 +94,10 @@ export function PainelFinanceiro() {
   const extrato = linhas.filter((l) => !termo || `${l.numero} ${nomeM(l.motoboy_id)} ${clienteDe(l)}`.toLowerCase().includes(termo));
 
   function exportar() {
-    const cab = ["Corrida", "Concluída em", "Cliente", "Motoboy", "Valor", "Motoboy %", "Motoboy R$", "Gestão R$", "Dev %", "Dev R$", "Km", "Pagamento"];
+    const cab = ["Rota", "Concluída em", "Cliente", "Motoboy", "Valor", "Motoboy %", "Motoboy R$", "Gestor R$", "Dev %", "Dev R$", "Km", "Pagamento"];
     const linhasCsv = extrato.map((l) => [
       `${l.teste ? "T" : "#"}${l.numero}`, new Date(l.concluida_em).toLocaleString("pt-BR"), clienteDe(l), nomeM(l.motoboy_id),
-      l.valor, l.repasse_pct, l.valor_motoboy, l.valor_gestao, l.dev_pct, l.valor_dev,
+      l.valor, l.repasse_pct, l.valor_motoboy, Number(l.valor ?? 0) - Number(l.valor_motoboy ?? 0) - Number(l.valor_dev ?? 0), l.dev_pct, l.valor_dev,
       ((l.distancia_real_m ?? l.distancia_planejada_m ?? 0) / 1000).toFixed(1), l.pagamento_metodo ?? l.pagamento_status ?? "",
     ].map((v) => `"${String(v ?? "").replace(".", ",").replace(/"/g, '""')}"`).join(";"));
     const blob = new Blob(["﻿" + [cab.join(";"), ...linhasCsv].join("\n")], { type: "text/csv;charset=utf-8" });
@@ -98,17 +117,34 @@ export function PainelFinanceiro() {
             <button key={p} className={periodo === p ? "ativo" : ""} onClick={() => setPeriodo(p)}>{ROTULO[p]}</button>
           ))}
         </div>
-        <div className="bloco"><span className="rotulo"><TrendingUp size={12} /> Faturado</span><strong className="figura texto-grad" style={{ fontSize: 30 }}>{moeda(total)}</strong>
-          <span className="dica">{linhas.length} corrida{linhas.length === 1 ? "" : "s"} · {km.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} km{linhas.length ? ` · média ${moeda(total / linhas.length)}` : ""}</span></div>
-        <div className="grade-2 grade-igual">
-          <div className="bloco"><span className="rotulo"><Landmark size={12} /> Gestão</span><strong className="figura" style={{ fontSize: 20 }}>{moeda(gestao)}</strong><span className="dica">faturado − Dev</span></div>
-          <div className="bloco"><span className="rotulo" style={{ color: "var(--cor-dev)" }}><CodeXml size={12} /> Dev</span><strong className="figura" style={{ fontSize: 20 }}>{moeda(dev)}</strong></div>
+        <div className="bloco carteira-total">
+          <span className="rotulo"><TrendingUp size={12} /> Valor das rotas concluídas</span>
+          <strong className="figura texto-grad" style={{ fontSize: 30 }}>{moeda(total)}</strong>
+          <span className="dica">{linhas.length} rota{linhas.length === 1 ? "" : "s"} · {km.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} km{linhas.length ? ` · média ${moeda(total / linhas.length)}` : ""}</span>
+        </div>
+        <div className="carteira-divisao" aria-label="Para onde vai o valor">
+          <span className="rotulo">Para onde vai esse valor</span>
+          <div className="barra-divisao" aria-hidden>
+            <span style={{ flex: motoboys || 0.0001, background: "var(--texto-2)" }} />
+            <span style={{ flex: Math.max(gestor, 0) || 0.0001, background: "var(--ouro)" }} />
+            <span style={{ flex: dev || 0.0001, background: "var(--cor-dev)" }} />
+          </div>
+          <div className="carteira-parte"><i style={{ background: "var(--texto-2)" }} /><Bike size={14} aria-hidden /><span>Motoboys</span><strong>{moeda(motoboys)}</strong><small>{pct(motoboys)}</small></div>
+          <div className="carteira-parte"><i style={{ background: "var(--ouro)" }} /><Landmark size={14} aria-hidden /><span>Fica com o gestor</span><strong>{moeda(gestor)}</strong><small>{pct(gestor)}</small></div>
+          <div className="carteira-parte"><i style={{ background: "var(--cor-dev)" }} /><CodeXml size={14} aria-hidden /><span>Dev</span><strong>{moeda(dev)}</strong><small>{pct(dev)}</small></div>
+          <p className="dica" style={{ margin: 0 }}>As três partes somam o valor das rotas. A divisão de cada rota segue Configurações → Motoboys.</p>
         </div>
         <div className="grade-2 grade-igual">
-          <div className="bloco"><span className="rotulo"><Bike size={12} /> Folha</span><strong className="figura" style={{ fontSize: 20 }}>{moeda(motoboys)}</strong><span className="dica">pago aos motoboys</span></div>
-          <div className="bloco"><span className="rotulo"><TrendingUp size={12} /> Lucro</span><strong className="figura texto-grad" style={{ fontSize: 20 }}>{moeda(lucro)}</strong><span className="dica">gestão − folha</span></div>
+          <button type="button" className="bloco carteira-pendente" onClick={() => setAba("faturas")}>
+            <span className="rotulo"><ArrowDownLeft size={12} /> A receber</span><strong className="figura" style={{ fontSize: 20 }}>{moeda(pendente.receber)}</strong>
+            <span className="dica">{pendente.nFat} fatura{pendente.nFat === 1 ? "" : "s"} emitida{pendente.nFat === 1 ? "" : "s"}</span>
+          </button>
+          <button type="button" className="bloco carteira-pendente" onClick={() => setAba("folha")}>
+            <span className="rotulo"><ArrowUpRight size={12} /> A pagar</span><strong className="figura" style={{ fontSize: 20 }}>{moeda(pendente.pagar)}</strong>
+            <span className="dica">{pendente.nHol} folha{pendente.nHol === 1 ? "" : "s"} fechada{pendente.nHol === 1 ? "" : "s"}{pendente.aberto ? ` · ${moeda(pendente.aberto)} em aberto` : ""}</span>
+          </button>
         </div>
-        <p className="dica">Faturas (clientes no crédito) e a folha dos motoboys estão nas abas ao lado. O recebimento automático entra quando a intermediadora de pagamento for ligada.</p>
+        <p className="dica">A receber e a pagar valem para todo o tempo (não dependem do período). Os recebimentos automáticos entram quando a intermediadora de pagamento for ligada.</p>
       </aside>
       <main className="conteudo">
         <div className="formulario larga vidro entrar">
@@ -120,19 +156,9 @@ export function PainelFinanceiro() {
 
           {aba === "resumo" && (
             <>
-              <h3 className="display" style={{ margin: 0 }}>Divisão do período</h3>
-              <div className="barra-divisao" aria-hidden>
-                <span style={{ flex: motoboys || 0.0001, background: "var(--texto-2)" }} />
-                <span style={{ flex: Math.max(lucro, 0) || 0.0001, background: "var(--ouro)" }} />
-                <span style={{ flex: dev || 0.0001, background: "var(--cor-dev)" }} />
-              </div>
-              <div className="dev-grade">
-                <div className="dev-num"><strong>{moeda(motoboys)}</strong><span>Folha · {total ? Math.round((motoboys / total) * 1000) / 10 : 0}%</span></div>
-                <div className="dev-num"><strong>{moeda(lucro)}</strong><span>Lucro da gestão · {total ? Math.round((lucro / total) * 1000) / 10 : 0}%</span></div>
-                <div className="dev-num"><strong>{moeda(dev)}</strong><span>Dev · {total ? Math.round((dev / total) * 1000) / 10 : 0}%</span></div>
-              </div>
-              <h3 className="display" style={{ margin: "6px 0 0" }}>Por motoboy</h3>
-              <div className="dev-rolagem"><table className="tabela"><thead><tr><th>Motoboy</th><th>Rotas</th><th>Folha</th><th>Faturado</th><th>Chave PIX</th></tr></thead>
+              <h3 className="display" style={{ margin: 0 }}>Por motoboy</h3>
+              <p className="dica" style={{ margin: 0 }}>Quanto cada um recebeu das rotas que fez no período, e o valor dessas rotas.</p>
+              <div className="dev-rolagem"><table className="tabela"><thead><tr><th>Motoboy</th><th>Rotas</th><th>Recebe</th><th>Valor das rotas</th><th>Chave PIX</th></tr></thead>
                 <tbody>{porMotoboy.map(([id, a]) => {
                   const ch = chaves.find((c) => c.usuario_id === id && c.principal);
                   return (
@@ -147,8 +173,8 @@ export function PainelFinanceiro() {
           {aba === "folha" && <Folha />}
 
           {aba === "clientes" && (
-            <div className="dev-rolagem"><table className="tabela"><thead><tr><th>Cliente</th><th>Rotas</th><th>Faturado</th><th>Gestão</th><th>Dev</th></tr></thead>
-              <tbody>{porCliente.map(([id, a]) => <tr key={id}><td>{nomeC(id)}</td><td>{a.n}</td><td>{moeda(a.valor)}</td><td>{moeda(a.gestao)}</td><td>{moeda(a.dev)}</td></tr>)}</tbody></table></div>
+            <div className="dev-rolagem"><table className="tabela"><thead><tr><th>Cliente</th><th>Rotas</th><th>Valor</th><th>Motoboys</th><th>Gestor</th><th>Dev</th></tr></thead>
+              <tbody>{porCliente.map(([id, a]) => <tr key={id}><td>{nomeC(id)}</td><td>{a.n}</td><td>{moeda(a.valor)}</td><td>{moeda(a.motoboy)}</td><td>{moeda(a.valor - a.motoboy - a.dev)}</td><td>{moeda(a.dev)}</td></tr>)}</tbody></table></div>
           )}
 
           {aba === "extrato" && (
@@ -158,11 +184,11 @@ export function PainelFinanceiro() {
                 <button className="botao-texto" onClick={exportar} disabled={!extrato.length}><Download size={15} aria-hidden /> Planilha</button>
               </div>
               <div className="dev-rolagem">
-                <table className="tabela"><thead><tr><th>Corrida</th><th>Quando</th><th>Cliente</th><th>Motoboy</th><th>Valor</th><th>Motoboy</th><th>Gestão</th><th>Dev</th></tr></thead>
+                <table className="tabela"><thead><tr><th>Rota</th><th>Quando</th><th>Cliente</th><th>Motoboy</th><th>Valor</th><th>Motoboy recebe</th><th>Gestor</th><th>Dev</th></tr></thead>
                   <tbody>{extrato.map((l) => (
                     <tr key={l.id}><td>{l.teste ? "T" : "#"}{l.numero}</td><td>{new Date(l.concluida_em).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}</td>
                       <td>{clienteDe(l)}</td><td>{nomeM(l.motoboy_id)}</td><td>{moeda(Number(l.valor ?? 0))}</td>
-                      <td>{moeda(Number(l.valor_motoboy ?? 0))}</td><td>{moeda(Number(l.valor_gestao ?? 0))}</td><td>{moeda(Number(l.valor_dev ?? 0))}</td></tr>
+                      <td>{moeda(Number(l.valor_motoboy ?? 0))}</td><td>{moeda(Number(l.valor ?? 0) - Number(l.valor_motoboy ?? 0) - Number(l.valor_dev ?? 0))}</td><td>{moeda(Number(l.valor_dev ?? 0))}</td></tr>
                   ))}</tbody></table>
               </div>
             </>

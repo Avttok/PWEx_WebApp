@@ -1,5 +1,6 @@
 "use client";
 
+import { BotaoCompartilhar } from "@/features/chat/PaginaChat";
 import { useEffect, useState } from "react";
 import { AlertTriangle, Building2, CalendarClock, CheckCircle2, CircleDot, CreditCard, ExternalLink, FlaskConical, Inbox, KeyRound, Layers, MapPin, Plus, Save, Search, Star, Trash2, UserPlus, UserRound, Wallet, X } from "lucide-react";
 import { Icone, SeletorIcone } from "@/features/ui/icones";
@@ -133,6 +134,7 @@ export function PainelEmpresas() {
   const { empresas, favoritos, recarregar } = useEmpresas();
   const equipe = useEquipe();
   const [selecionada, setSelecionada] = useState<string | "nova" | null>(null);
+  useEffect(() => { const q = new URLSearchParams(window.location.search).get("e"); if (q) setSelecionada(q); }, []);
   const [form, setForm] = useState<Formulario>(vazio);
   const [salvando, setSalvando] = useState(false);
   const [consultando, setConsultando] = useState(false);
@@ -336,6 +338,7 @@ export function PainelEmpresas() {
               <SeletorIcone valor={form.icone} onMudar={(v) => set({ icone: v })} padrao={form.tipo === "pf" ? UserRound : Building2} rotulo="Ícone do cliente" />
               <h2 className="display" style={{ margin: 0, flex: 1 }}>{selecionada === "nova" ? "Novo cliente" : form.nome}</h2>
               {selecionada !== "nova" && <button className="botao-texto" onClick={abrirComoCliente} title="Abre o site do cliente como se fosse ele"><ExternalLink size={15} aria-hidden /> Ver como cliente</button>}
+              {selecionada && selecionada !== "nova" && <BotaoCompartilhar rotulo="Compartilhar" anexo={{ tipo: "cliente", id: selecionada, titulo: form.nome, sub: form.endereco ?? undefined }} />}
             </div>
             {selecionada !== "nova" && (
               <div className="segmentado segmentado-rolavel" style={{ maxWidth: 520 }}>

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Dica } from "@/features/ui/Tour";
 import Link from "next/link";
-import { Calculator, ClipboardList, Crown, Megaphone, RefreshCw, Send, Shuffle, Sparkles, Users } from "lucide-react";
+import { Calculator, ClipboardList, Crown, Megaphone, RefreshCw, Route, Send, Shuffle, Sparkles, Users } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
 import { moeda } from "@/features/precos/estrategias";
 import { toast } from "@/features/ui/toast";
@@ -19,17 +19,25 @@ const REGRA: Record<string, string> = {
 const ORIGEM_DEV: Record<string, string> = { gestor: "a parte do Dev sai da parte do gestor", total: "a parte do Dev sai antes de dividir", proporcional: "a parte do Dev sai das duas partes" };
 
 export function ContaMotoboy({ calc }: { calc: CalculoPagamento }) {
+  const z = (calc as CalculoPagamento & { zona?: { raio_m: number; agrupada: boolean; juntas: number; entregas: number } }).zona;
+  const zona = z && (
+    <p className="dica" style={{ margin: 0 }}>
+      Por zonas (raio de {Number(z.raio_m).toLocaleString("pt-BR")} m em cada entrega): {z.agrupada ? `entregas juntas (${z.juntas} de ${z.entregas}) → paga por km + fixo por entrega a mais` : `há entrega isolada (${z.juntas} de ${z.entregas} juntas) → paga a porcentagem da rota`}.
+    </p>
+  );
   const teto = calc.limitado && calc.teto != null && (
     <p className="dica" style={{ margin: 0, color: "var(--ouro)" }}>Limitado a {moeda(calc.teto)}: o motoboy nunca leva mais que a rota paga (valor da rota menos a parte do Dev).</p>
   );
   if (calc.modo === "percentual") return (
     <>
+      {zona}
       <p className="dica" style={{ margin: 0 }}>Percentual: {calc.pct}% do valor da rota{calc.dev_origem ? ` (${ORIGEM_DEV[calc.dev_origem]})` : ""} = <strong>{moeda(calc.total)}</strong></p>
       {teto}
     </>
   );
   return (
     <div className="orcamento">
+      {zona}
       <div className="orcamento-linha"><span>Km de referência<small>{REGRA[calc.regra ?? ""] ?? calc.regra}{calc.regra === "percentil" ? ` ${calc.percentil}%` : ""} · {calc.distancia === "acumulada" ? "acumulado na rota" : "coleta → entrega"} · {(calc.distancias_km ?? []).map((d) => d.toLocaleString("pt-BR")).join(", ")} km</small></span>
         <strong>{calc.km_referencia?.toLocaleString("pt-BR")} km × {moeda(calc.valor_km)} = {moeda(calc.valor_km_total)}</strong></div>
       {Number(calc.entregas_extras) > 0 && <div className="orcamento-linha"><span>Entregas a mais</span><strong>{calc.entregas_extras} × {moeda(calc.valor_entrega_extra)}</strong></div>}
@@ -74,6 +82,14 @@ export function BlocoRota({ corrida, equipe }: { corrida: Corrida; equipe: Membr
     const { error } = await supabase().rpc("mover_entrega", { p_parada: parada, p_destino: destino === "nova" ? null : destino });
     if (error) return toast(traduzir(error.message), "erro");
     toast(destino === "nova" ? "Entrega separada numa rota nova." : "Entrega movida.", "ok");
+  }
+  const [estender, setEstender] = useState("");
+  async function estenderRota(perguntar: boolean) {
+    if (!perguntar && !confirm("Juntar esta rota à que o motoboy está fazendo agora?")) return;
+    const { error } = await supabase().rpc("estender_rota", { p_nova: corrida.id, p_motoboy: estender, p_perguntar: perguntar });
+    if (error) return toast(error.message.includes("estender_rota") ? "Rode a migração 20261110000015_despacho_cliente.sql." : traduzir(error.message), "erro");
+    toast(perguntar ? "Oferta de extensão enviada." : "Rota estendida: as paradas entraram na rota em andamento.", "ok");
+    setEstender("");
   }
   async function salvarAjuste() {
     const v = Number(ajuste.replace(",", ".")) || 0;
@@ -128,6 +144,20 @@ export function BlocoRota({ corrida, equipe }: { corrida: Corrida; equipe: Membr
             </select>
             <button className="botao-texto" disabled={!motoboy} onClick={() => liberar(null, motoboy)}><Send size={15} aria-hidden /> Enviar oferta</button>
           </div>
+          {!corrida.agendada_para && equipe.some((m) => m.status === "em_corrida" && m.modo_teste === corrida.teste) && (
+            <>
+              <span className="rotulo" style={{ marginTop: 6 }}><Route size={12} aria-hidden /> Estender a rota de quem já está em corrida
+                <Dica titulo="Extensão de rota" texto="As paradas desta rota entram no fim da rota que o motoboy já está fazendo. Pedindo, ele recebe a oferta e decide; direto, a rota dele já aumenta. O ganho dele nunca diminui por isso (Configurações → Extensão de rota)." /></span>
+              <div className="linha-botoes">
+                <select value={estender} onChange={(e) => setEstender(e.target.value)} style={{ flex: 1 }}>
+                  <option value="">Motoboy em corrida…</option>
+                  {equipe.filter((m) => m.status === "em_corrida" && m.modo_teste === corrida.teste).map((m) => <option key={m.id} value={m.id}>{m.nome}</option>)}
+                </select>
+                <button className="botao-texto" disabled={!estender} onClick={() => estenderRota(true)}><Send size={15} aria-hidden /> Perguntar</button>
+                <button className="botao-texto" disabled={!estender} onClick={() => estenderRota(false)}><Route size={15} aria-hidden /> Estender direto</button>
+              </div>
+            </>
+          )}
         </section>
       )}
 

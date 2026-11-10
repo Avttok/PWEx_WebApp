@@ -9,7 +9,8 @@ export type CorTema = "ouro" | "vermelho";
 /** Módulos que o Dev liga/desliga (mesmas chaves da tabela public.modulos). */
 export type Modulo =
   | "corridas_planejadas" | "pontos_referencia" | "excluir_corridas" | "modo_teste" | "criar_contas"
-  | "carteira" | "trilhas_mapa" | "estabelecimentos" | "atualizacao_app";
+  | "carteira" | "trilhas_mapa" | "estabelecimentos" | "atualizacao_app"
+  | "chat" | "navegacao" | "extensao_rota" | "orcamento_editavel" | "objetos_cliente";
 
 export interface ContextoConta {
   id: string;

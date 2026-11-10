@@ -2,10 +2,20 @@ import type { Referencia } from "@/features/geo";
 
 export type StatusPedido = "recebido" | "aprovado" | "roteirizado" | "em_rota" | "concluido" | "cancelado" | "recusado";
 
-export interface LinhaOrcamento { rotulo: string; valor: number; detalhe?: string }
+export interface LinhaOrcamento {
+  rotulo: string; valor: number; detalhe?: string;
+  /** Linhas com quantidade × valor unitário (km, entregas, volumes, kg). */
+  qtd?: number; unit?: number; unidade?: string;
+  /** Entra depois dos percentuais (taxa fixa). */
+  fixo?: boolean; chave?: string;
+}
 export interface Orcamento {
   linhas: LinhaOrcamento[]; percentuais: { rotulo: string; pct: number }[]; subtotal: number; acrescimo_pct: number; minimo: number; total: number;
   km: number; distancia_m: number; coletas: number; entregas: number; volumes: number; peso_real_kg: number; peso_cubado_kg: number; peso_taxado_kg: number; perigoso: boolean;
+  /** soma_entregas | rota | fixo */
+  modo_distancia?: string;
+  /** O gestor mudou as linhas à mão. */
+  editado?: boolean; motivo?: string | null; original?: Orcamento;
 }
 
 export interface PontoPedido {
@@ -41,6 +51,22 @@ export const COR_PEDIDO: Record<StatusPedido, string> = {
 };
 
 const ERROS: Record<string, string> = {
+  cliente_sem_agendado: "Esta conta não faz pedidos agendados (libere em Ajustes → Clientes).",
+  agendamento_longe_demais: "Data longe demais: escolha um dia mais perto.",
+  cliente_sem_urgente: "Esta conta não pode marcar pedido urgente.",
+  entregas_demais: "Entregas demais para um pedido só. Divida em dois pedidos.",
+  coletas_demais: "Coletas demais para um pedido só.",
+  pedidos_abertos_demais: "Já há pedidos demais em aberto. Espere algum terminar ou fale com a PW Express.",
+  fora_do_horario: "Fora do horário de pedidos na hora. Agende para mais tarde.",
+  janela_invalida: "O horário de um ponto termina antes de começar.",
+  chat_desligado: "A conversa está desligada.",
+  fotos_desligadas: "O envio de fotos está desligado.",
+  conversa_invalida: "Conversa não encontrada.",
+  mensagem_vazia: "Escreva algo ou anexe uma foto.",
+  anexo_invalido: "Esse anexo não pôde ser enviado.",
+  orcamento_invalido: "O cálculo tem um valor inválido. Confira as linhas.",
+  motoboy_sem_rota_em_andamento: "Esse motoboy não está em corrida agora.",
+  rota_nao_esta_em_andamento: "Essa rota não está mais em andamento.",
   apenas_gestor_ou_cliente: "Só gestores e clientes fazem pedidos.",
   cliente_so_agendado: "Este cliente ainda pede só agendado (libere o Express no cadastro ou nas regras).",
   horario_muito_proximo: "Horário perto demais: agende com mais antecedência.",
