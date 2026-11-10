@@ -11,7 +11,8 @@ import { Excecoes } from "./Excecoes";
 import { CatalogoCategorias, CatalogoHorarios, CatalogoTipos, CatalogoZonas } from "./Catalogos";
 import { supabase } from "@/lib/supabase/client";
 import { CabecaPagina } from "@/features/ui/CabecaPagina";
-import { AREAS, GRUPOS, PARAMETROS, type AreaParametro, type DefParametro, type GrupoParametro, type ValorParametro } from "./definicoes";
+import { CampoRaio } from "@/features/ui/CampoRaio";
+import { AREAS, GRUPOS, PARAMETROS, ehRaio, igualPadrao, type AreaParametro, type DefParametro, type GrupoParametro, type ValorParametro } from "./definicoes";
 import { useConfiguracoes } from "./useConfiguracoes";
 
 const ICONES_AREA: Record<AreaParametro, LucideIcon> = {
@@ -33,7 +34,7 @@ const PAGINAS_EXTRAS: { chave: Extra; titulo: string; descricao: string; icone: 
 const sem = (t: string) => t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 const casas = (passo = 1) => (String(passo).split(".")[1]?.length ?? 0);
 const formatar = (n: number, passo?: number) => n.toLocaleString("pt-BR", { maximumFractionDigits: Math.max(2, casas(passo)) });
-const mudou = (p: DefParametro, v: ValorParametro | undefined) => v !== undefined && String(v) !== String(p.padrao);
+const mudou = (p: DefParametro, v: ValorParametro | undefined) => !igualPadrao(p, v);
 
 /**
  * Configurações em dois níveis: áreas (Clientes, Preço, Operação, Motoboys, Mapa e GPS, Comunicação, Sistema)
@@ -223,6 +224,52 @@ export function Parametro({ p, valor, estado, mostrarGrupo, onSalvar, bloqueado,
           <input className="config-texto" defaultValue={String(valor ?? "")} placeholder={p.exemplo} disabled={bloqueado} maxLength={60}
             onBlur={(e) => { if (e.target.value !== String(valor ?? "")) onSalvar(e.target.value.trim()); }} aria-label={p.rotulo} />
         </div>
+      </div>
+    );
+  }
+
+  if (p.tipo === "multi") {
+    const lista = Array.isArray(valor) ? valor : [];
+    const alternar = (k: string) => onSalvar(lista.includes(k) ? lista.filter((x) => x !== k) : [...lista, k]);
+    return (
+      <div className={`config-item config-item-escolha ${bloqueado ? "bloqueado" : ""}`}>
+        <span className="config-item-texto">
+          {mostrarGrupo && <span className="rotulo">{GRUPOS[p.grupo].titulo}</span>}
+          <strong>{p.rotulo}</strong>
+          {p.descricao && <span className="dica">{p.descricao}</span>}
+          {extra}
+        </span>
+        <div className="config-controle">
+          {status}
+          <div className="escolhas multi" role="group" aria-label={p.rotulo}>
+            {p.opcoes!.map((o) => {
+              const on = lista.includes(String(o.valor));
+              return (
+                <button key={String(o.valor)} type="button" role="checkbox" aria-checked={on} disabled={bloqueado}
+                  className={on ? "ativo" : ""} onClick={() => alternar(String(o.valor))} title={o.dica}>
+                  {on ? <Check size={13} aria-hidden /> : <Plus size={13} aria-hidden />} {o.rotulo}
+                </button>
+              );
+            })}
+          </div>
+          <span className="dica" style={{ textAlign: "right" }}>{lista.length === 0 ? "Nenhum marcado" : `${lista.length} marcado${lista.length > 1 ? "s" : ""}`}</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (ehRaio(p)) {
+    return (
+      <div className={`config-item config-item-raio ${bloqueado ? "bloqueado" : ""}`}>
+        <span className="config-item-texto">
+          {mostrarGrupo && <span className="rotulo">{GRUPOS[p.grupo].titulo}</span>}
+          <strong>{p.rotulo}</strong>
+          {p.descricao && <span className="dica">{p.descricao}</span>}
+          {extra}
+        </span>
+        <div className="config-controle">{status}</div>
+        <CampoRaio valor={Number(valor)} unidade={p.unidade as "m" | "km"} min={p.min ?? 0} max={p.max ?? (p.unidade === "km" ? 50 : 5000)} passo={p.passo ?? 1}
+          desabilitado={bloqueado} onMudar={(n) => onSalvar(n)} exemplo={/entrega/.test(p.chave) ? "dupla" : /chegada|percurso/.test(p.chave) ? "endereco" : "coleta"} />
       </div>
     );
   }

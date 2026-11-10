@@ -13,6 +13,8 @@ import { MapaCorridas, type PinoParada } from "@/features/corridas/MapaCorridas"
 import { buscarPercursos } from "@/lib/mapa/percursos";
 import { SelosPonto, type OpcoesDoPonto } from "./OpcoesPonto";
 import { EditarOrcamento } from "./EditarOrcamento";
+import { RotasDoPedido } from "./RotasDoPedido";
+import { useConfiguracoes } from "@/features/configuracoes/useConfiguracoes";
 import { formatarKm } from "@/features/corridas/tipos";
 import { useModoTeste } from "@/features/teste/modoTeste";
 import { CabecaPagina } from "@/features/ui/CabecaPagina";
@@ -140,6 +142,7 @@ function DetalhePedido({ p, cliente, categorias, rotas, onFechar }: {
   p: Pedido; cliente: string; categorias: Categoria[]; rotas: { corrida_id: string; numero: number; status: string; motoboy_id?: string | null }[]; onFechar: () => void;
 }) {
   const equipe = useEquipe();
+  const cfg = useConfiguracoes();
   const [valor, setValor] = useState(String(p.valor ?? "").replace(".", ","));
   const [motivo, setMotivo] = useState(p.ajuste_motivo ?? "");
   const [ocupado, setOcupado] = useState(false);
@@ -284,6 +287,11 @@ function DetalhePedido({ p, cliente, categorias, rotas, onFechar }: {
         {!finalizado && p.status !== "recebido" && <SituacaoRota pedidoId={p.id} chave={`${p.status}|${p.pagamento_status}|${JSON.stringify(regras)}|${rotas.length}`} />}
         <p className="dica" style={{ margin: 0 }}>{formatarKm(p.distancia_estimada_m)} estimados · {(p.pedido_pontos ?? []).filter((x) => x.tipo === "entrega").length} entrega(s)</p>
       </div>
+      {!["cancelado", "recusado"].includes(p.status) && (p.status !== "recebido" || cfg.revisao_previa_rotas !== false) && (
+        <div className="formulario vidro">
+          <RotasDoPedido pedidoId={p.id} status={p.status} chave={`${p.status}|${p.valor}|${JSON.stringify(regras)}|${rotas.map((r) => r.corrida_id + r.status).join()}`} />
+        </div>
+      )}
       {!finalizado && <RegrasPedido pedidoId={p.id} valor={regras} onMudar={setRegras} aberto={Object.keys(regras).length > 0} />}
     </div>
   );

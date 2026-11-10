@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { BatteryMedium, Bell, BellOff, Bike, CodeXml, Eraser, FlaskConical, History, LayoutDashboard, Rocket, ShieldCheck, Smartphone, Timer, ToggleRight, UserRound } from "lucide-react";
 import { ApagarTudo } from "./ApagarTudo";
+import { AparelhosDev, ModulosDev, TarefasDev, type Aparelho, type Tarefa } from "./DevExtras";
 import { VersaoApp } from "./VersaoApp";
 import { supabase } from "@/lib/supabase/client";
 import { CabecaPagina } from "@/features/ui/CabecaPagina";
@@ -13,7 +14,7 @@ interface ModuloLinha { chave: string; nome: string; descricao: string | null; g
 interface Painel {
   contagens: Record<string, number>;
   aparelhos: { id: string; nome: string; versao_app: string | null; status: string; posicao_em: string | null; bateria: number | null; precisao_m: number | null; modo_economia: boolean; modo_teste: boolean; pings_24h?: number; push?: boolean }[];
-  tarefas?: { nome: string; quando: string; ativa: boolean }[];
+  tarefas?: Tarefa[];
   exclusoes: { tipo: string; rotulo: string; motivo: string | null; por: string | null; quando: string }[];
 }
 
@@ -64,7 +65,6 @@ export function PainelDev() {
     return <main className="conteudo"><div className="formulario vidro"><p className="erro">Esta área é só do Dev.</p></div></main>;
   }
 
-  const grupos = [...new Set(modulos.map((m) => m.grupo))];
   return (
     <>
       <aside className="lateral entrar">
@@ -84,34 +84,7 @@ export function PainelDev() {
       </aside>
       <main className="conteudo">
         <div className="formulario vidro entrar">
-          {aba === "modulos" && grupos.map((g) => (
-            <section key={g} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              <span className="rotulo">{g}</span>
-              {modulos.filter((m) => m.grupo === g).map((m) => (
-                <div key={m.chave} className={`dev-modulo ${m.ligado ? "" : "desligado"}`}>
-                  <div className="dev-modulo-topo">
-                    <div><strong>{m.nome}</strong><span>{m.descricao}</span></div>
-                    <input type="checkbox" role="switch" checked={m.ligado} onChange={(e) => salvar(m, e.target.checked, m.papeis)} aria-label={m.nome} />
-                  </div>
-                  {m.ligado && (
-                    <div className="dev-papeis" aria-label="Quem usa">
-                      <span className="dica" style={{ alignSelf: "center" }}>Quem usa:</span>
-                      <button className={!m.papeis?.length ? "ativo" : ""} onClick={() => salvar(m, true, null)}>Todos</button>
-                      {PAPEIS_MODULO.map(({ p, rotulo, icone: Icone }) => {
-                        const ativo = Boolean(m.papeis?.includes(p));
-                        return (
-                          <button key={p} className={ativo ? "ativo" : ""} onClick={() => {
-                            const atual = m.papeis ?? [];
-                            salvar(m, true, ativo ? atual.filter((x) => x !== p) : [...atual, p]);
-                          }}><Icone size={12} aria-hidden /> {rotulo}</button>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </section>
-          ))}
+          {aba === "modulos" && <ModulosDev modulos={modulos} onSalvar={salvar} />}
           {aba === "versao" && <VersaoApp />}
           {aba === "sistema" && painel && (<>
             {CONTAGENS.map((g) => (
@@ -125,33 +98,10 @@ export function PainelDev() {
                 </div>
               </section>
             ))}
-            <ZerarPedidos />
           </>)}
-          {aba === "aparelhos" && painel && (
-            <div className="dev-rolagem">
-              <table className="dev-tabela">
-                <thead><tr><th>Motoboy</th><th>App</th><th>Status</th><th>Último ping</th><th>Pings 24 h</th><th>Bateria</th><th>Precisão</th><th>Push</th><th>Modo</th></tr></thead>
-                <tbody>{painel.aparelhos.map((a) => (
-                  <tr key={a.id}>
-                    <td>{a.nome}</td><td>{a.versao_app ?? "—"}</td><td>{a.status}</td><td>{ha(a.posicao_em)}</td><td>{(a.pings_24h ?? 0).toLocaleString("pt-BR")}</td>
-                    <td>{a.bateria != null ? <><BatteryMedium size={12} aria-hidden /> {a.bateria}%</> : "—"}</td>
-                    <td>{a.precisao_m != null ? `± ${Math.round(a.precisao_m)} m` : "—"}</td>
-                    <td title={a.push ? "Recebe notificações" : "Sem token de notificação"}>{a.push ? <Bell size={13} aria-hidden /> : <BellOff size={13} aria-hidden />}</td>
-                    <td>{a.modo_teste ? <><FlaskConical size={12} aria-hidden /> teste</> : "real"}{a.modo_economia ? " · economia" : ""}</td>
-                  </tr>
-                ))}</tbody>
-              </table>
-            </div>
-          )}
+          {aba === "aparelhos" && painel && <AparelhosDev aparelhos={painel.aparelhos as Aparelho[]} />}
           {aba === "apagar" && <ApagarTudo />}
-          {aba === "tarefas" && painel && (
-            (painel.tarefas ?? []).length === 0 ? <p className="vazio">Nenhuma tarefa automática encontrada (o pg_cron não está disponível).</p> : (
-              <table className="dev-tabela">
-                <thead><tr><th>Tarefa</th><th>Quando roda</th><th>Ativa</th></tr></thead>
-                <tbody>{painel.tarefas!.map((x) => <tr key={x.nome}><td>{x.nome}</td><td>{x.quando}</td><td>{x.ativa ? "sim" : "não"}</td></tr>)}</tbody>
-              </table>
-            )
-          )}
+          {aba === "tarefas" && painel && <TarefasDev tarefas={(painel.tarefas ?? []) as Tarefa[]} onMudou={() => void carregar()} />}
           {aba === "registro" && painel && (
             painel.exclusoes.length === 0 ? <p className="vazio">Nada apagado até agora.</p> : (
               <table className="dev-tabela">
@@ -169,33 +119,3 @@ export function PainelDev() {
   );
 }
 
-/** Zera os pedidos (teste, reais ou ambos): a numeração volta ao 1. */
-function ZerarPedidos() {
-  const [alvo, setAlvo] = useState<"teste" | "reais" | "ambos">("teste");
-  const [conf, setConf] = useState("");
-  const [rodando, setRodando] = useState(false);
-  const rot = { teste: "Só teste", reais: "Só reais", ambos: "Ambos" } as const;
-  async function zerar() {
-    if (conf !== "ZERAR") return toast("Digite ZERAR para confirmar.", "aviso");
-    setRodando(true);
-    const { data, error } = await supabase().rpc("resetar_pedidos", { p_alvo: alvo, p_confirmar: "ZERAR" });
-    setRodando(false);
-    if (error) return toast(error.message.includes("resetar_pedidos") ? "Rode a migração 20261110000005_reset_pedidos.sql." : error.message, "erro");
-    const r = data as { pedidos: number; rotas: number; faturas: number };
-    setConf("");
-    toast(`${r.pedidos} pedidos, ${r.rotas} rotas e ${r.faturas} faturas apagados. O próximo pedido é o nº 1.`, "ok", { titulo: "Pedidos zerados" });
-  }
-  return (
-    <section className="bloco zerar-pedidos">
-      <span className="rotulo">Zerar pedidos</span>
-      <p className="dica">Apaga os pedidos escolhidos, as rotas deles e as faturas que ficarem vazias. A numeração volta ao 1. As rotas apagadas ficam copiadas no registro de exclusões. Não dá para desfazer.</p>
-      <div className="abas-mini">
-        {(Object.keys(rot) as (keyof typeof rot)[]).map((k) => <button key={k} className={alvo === k ? "ativo" : ""} onClick={() => setAlvo(k)}>{rot[k]}</button>)}
-      </div>
-      <div className="linha-botoes">
-        <input placeholder="Digite ZERAR para confirmar" value={conf} onChange={(e) => setConf(e.target.value.toUpperCase())} />
-        <button className="botao-perigo" disabled={rodando || conf !== "ZERAR"} onClick={zerar}>{rodando ? "Zerando…" : `Zerar ${rot[alvo].toLowerCase()}`}</button>
-      </div>
-    </section>
-  );
-}

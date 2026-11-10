@@ -2,7 +2,7 @@
  * Catálogo dos parâmetros do sistema. A tela de Configurações é gerada a partir daqui:
  * para criar um parâmetro novo, adicione-o aqui e na migração (tabela configuracoes).
  */
-export type TipoParametro = "numero" | "booleano" | "opcoes" | "escolha" | "texto";
+export type TipoParametro = "numero" | "booleano" | "opcoes" | "escolha" | "texto" | "multi";
 
 /** Onde a regra pode ter exceção (além do padrão global). Vence: motoboy > cliente > tipo de pedido > global. */
 export type Escopo = "tipo" | "cliente" | "motoboy";
@@ -16,7 +16,7 @@ export interface DefParametro {
   /** Para interruptores: texto quando desligado (o `descricao` vale para ligado). */
   descricaoDesligado?: string;
   tipo: TipoParametro;
-  padrao: number | boolean | string;
+  padrao: number | boolean | string | string[];
   unidade?: string;
   min?: number;
   max?: number;
@@ -45,26 +45,30 @@ export const AREAS: { chave: AreaParametro; titulo: string; descricao: string; i
 export type GrupoParametro =
   | "cli_cadastro" | "cli_pode" | "cli_ve" | "faturas"
   | "precocliente" | "preco" | "distancia"
-  | "pedidos" | "rotas" | "despacho" | "extensao" | "quadro" | "planejadas"
-  | "pagamento" | "pag_zonas" | "pag_km" | "mb_ve" | "local" | "comprovantes" | "veiculo"
+  | "pedidos" | "aprender" | "rotas" | "despacho" | "extensao" | "quadro" | "planejadas"
+  | "pagamento" | "pag_combinar" | "pag_zonas" | "pag_km" | "pag_entrega" | "pag_fixo" | "mb_ve" | "local" | "comprovantes" | "veiculo"
   | "rastreamento" | "percurso" | "navegacao" | "mapa"
   | "chat" | "teste";
 
 export const GRUPOS: Record<GrupoParametro, { titulo: string; descricao: string; area: AreaParametro }> = {
   cli_cadastro: { area: "clientes", titulo: "Cadastro pelo site", descricao: "Como empresas e pessoas criam conta no site do cliente." },
   cli_pode: { area: "clientes", titulo: "O que o cliente pode fazer", descricao: "Pedir para agora, agendar, urgente, limites, confirmações, modelos e objetos." },
-  cli_ve: { area: "clientes", titulo: "O que o cliente vê", descricao: "Preço, motoboy, código e faturas." },
+  cli_ve: { area: "clientes", titulo: "O que o cliente vê", descricao: "Preço, motoboy, código, faturas e o que aparece da rota no mapa." },
   faturas: { area: "clientes", titulo: "Cobrança e faturas", descricao: "Crédito com fatura por ciclo ou pagamento antecipado." },
   precocliente: { area: "preco", titulo: "Orçamento do pedido", descricao: "Distância, pontos, volumes, peso, perigoso, Express, urgente e zonas." },
   preco: { area: "preco", titulo: "Avulsas, mínimo e arredondamento", descricao: "Corridas lançadas à mão pelo gestor, valor mínimo e arredondamento." },
   distancia: { area: "preco", titulo: "Acréscimo por distância (avulsas)", descricao: "Corridas avulsas longas ficam mais caras, por faixas de distância." },
   pedidos: { area: "operacao", titulo: "Pedidos", descricao: "O que acontece quando um pedido chega: revisão e volta à revisão." },
+  aprender: { area: "operacao", titulo: "Revisão e aprendizado", descricao: "Prévia das rotas na revisão e o sistema repetindo o que você sempre faz." },
   rotas: { area: "operacao", titulo: "Montagem das rotas", descricao: "Como o sistema junta e separa pedidos em rotas." },
   despacho: { area: "operacao", titulo: "Despacho", descricao: "Como a rota é oferecida aos motoboys e o que acontece se ninguém pega." },
   extensao: { area: "operacao", titulo: "Extensão de rota", descricao: "Oferecer rota nova a quem já está em corrida perto da coleta." },
   quadro: { area: "operacao", titulo: "Quadro de rotas", descricao: "O que o quadro mostra e quem é avisado quando chega rota." },
   planejadas: { area: "operacao", titulo: "Rotas planejadas", descricao: "Rotas com hora marcada: reserva, lembretes e abertura perto do horário." },
   pagamento: { area: "motoboys", titulo: "Modelo e divisão da rota", descricao: "Por zonas, por km ou percentual; parte do motoboy, do gestor e do Dev." },
+  pag_combinar: { area: "motoboys", titulo: "Vários cálculos juntos", descricao: "Use mais de um modelo ao mesmo tempo (ex.: zonas + por entrega + fixo) e escolha como combinar." },
+  pag_entrega: { area: "motoboys", titulo: "Pagamento por entrega", descricao: "Cada entrega paga o km dela (coleta → entrega) mais um fixo." },
+  pag_fixo: { area: "motoboys", titulo: "Pagamento fixo", descricao: "Um valor por rota, por entrega e por coleta." },
   pag_zonas: { area: "motoboys", titulo: "Pagamento por zonas", descricao: "Raio das entregas e o que paga quando estão juntas ou espalhadas." },
   pag_km: { area: "motoboys", titulo: "Pagamento por km", descricao: "Valores do modelo \u201cPor km\u201d." },
   mb_ve: { area: "motoboys", titulo: "O que o motoboy vê e holerite", descricao: "Valores, aba Holerite e período da folha." },
@@ -141,11 +145,34 @@ export const PARAMETROS: DefParametro[] = [
   // ---------------------------------------------------------------- pagamento do motoboy
   { chave: "pag_modo", grupo: "pagamento", rotulo: "Modelo de pagamento", descricao: "", tipo: "escolha", padrao: "zonas", escopos: ["tipo", "cliente", "motoboy"],
     opcoes: [{ valor: "zonas", rotulo: "Por zonas", dica: "Entregas juntas (raios que se encostam): km da entrega de referência + fixo por entrega a mais. Entregas espalhadas: porcentagem da rota." },
-             { valor: "rota", rotulo: "Por km", dica: "Km da entrega de referência × valor do km + valor por entrega extra. Nunca passa do que a rota paga." }, { valor: "percentual", rotulo: "Percentual", dica: "Uma parte do valor da rota (ex.: 40%); o gestor fica com o resto." }] },
+             { valor: "rota", rotulo: "Por km", dica: "Km da entrega de referência × valor do km + valor por entrega extra. Nunca passa do que a rota paga." }, { valor: "percentual", rotulo: "Percentual", dica: "Uma parte do valor da rota (ex.: 65%); o gestor fica com o resto." },
+             { valor: "por_entrega", rotulo: "Por entrega", dica: "Cada entrega paga o km dela (da coleta até ela) + um fixo por entrega." },
+             { valor: "fixo", rotulo: "Fixo", dica: "Um valor fixo por rota, por entrega e por coleta." }] },
+  // ---------------------------------------------------------------- vários cálculos
+  { chave: "pag_modos", grupo: "pag_combinar", rotulo: "Usar estes cálculos juntos", descricao: "Nenhum marcado = só o modelo de pagamento acima. Marcando dois ou mais, todos entram e se combinam como escolhido abaixo.", tipo: "multi", padrao: [],
+    escopos: ["tipo", "cliente", "motoboy"],
+    opcoes: [{ valor: "zonas", rotulo: "Zonas" }, { valor: "rota", rotulo: "Por km" }, { valor: "percentual", rotulo: "Percentual" }, { valor: "por_entrega", rotulo: "Por entrega" }, { valor: "fixo", rotulo: "Fixo" }] },
+  { chave: "pag_combinar", grupo: "pag_combinar", rotulo: "Como combinar", descricao: "", tipo: "escolha", padrao: "soma", escopos: ["tipo", "cliente", "motoboy"],
+    opcoes: [{ valor: "soma", rotulo: "Somar", dica: "Soma todos os cálculos marcados (ex.: km da zona + fixo por rota)." },
+             { valor: "maior", rotulo: "O maior", dica: "Calcula todos e paga o que der mais." },
+             { valor: "menor", rotulo: "O menor", dica: "Calcula todos e paga o que der menos." },
+             { valor: "media", rotulo: "A média", dica: "A média dos cálculos marcados." }] },
+  { chave: "pag_acrescimo_pct", grupo: "pag_combinar", rotulo: "Acréscimo sobre o resultado", descricao: "Porcentagem somada depois de combinar (ex.: 10 = +10%). Negativo desconta.", tipo: "numero", padrao: 0, unidade: "%", min: -90, max: 300, passo: 1, escopos: ["tipo", "cliente", "motoboy"] },
+  { chave: "pag_acrescimo_rota", grupo: "pag_combinar", rotulo: "Valor somado no fim", descricao: "R$ somado depois de combinar (vale também com um cálculo só).", tipo: "numero", padrao: 0, unidade: "R$", min: -500, max: 500, passo: 0.5, escopos: ["tipo", "cliente", "motoboy"] },
+  { chave: "pe_valor_km", grupo: "pag_entrega", rotulo: "Valor do km de cada entrega", descricao: "Km da coleta até a entrega × este valor, para cada entrega.", tipo: "numero", padrao: 2, unidade: "R$", min: 0, max: 50, passo: 0.1, escopos: ["tipo", "cliente", "motoboy"] },
+  { chave: "pe_fixo_entrega", grupo: "pag_entrega", rotulo: "Fixo por entrega", descricao: "Somado em cada entrega.", tipo: "numero", padrao: 0, unidade: "R$", min: 0, max: 500, passo: 0.5, escopos: ["tipo", "cliente", "motoboy"] },
+  { chave: "pe_minimo", grupo: "pag_entrega", rotulo: "Mínimo por rota", descricao: "0 = sem mínimo.", tipo: "numero", padrao: 0, unidade: "R$", min: 0, max: 500, passo: 0.5, escopos: ["tipo", "cliente", "motoboy"] },
+  { chave: "fx_valor_rota", grupo: "pag_fixo", rotulo: "Por rota", descricao: "Valor fixo de cada rota.", tipo: "numero", padrao: 0, unidade: "R$", min: 0, max: 1000, passo: 0.5, escopos: ["tipo", "cliente", "motoboy"] },
+  { chave: "fx_valor_entrega", grupo: "pag_fixo", rotulo: "Por entrega", descricao: "Somado para cada entrega.", tipo: "numero", padrao: 0, unidade: "R$", min: 0, max: 500, passo: 0.5, escopos: ["tipo", "cliente", "motoboy"] },
+  { chave: "fx_valor_coleta", grupo: "pag_fixo", rotulo: "Por coleta", descricao: "Somado para cada coleta.", tipo: "numero", padrao: 0, unidade: "R$", min: 0, max: 500, passo: 0.5, escopos: ["tipo", "cliente", "motoboy"] },
+  // ---------------------------------------------------------------- revisão e aprendizado
+  { chave: "revisao_previa_rotas", grupo: "aprender", rotulo: "Prévia das rotas na revisão", descricao: "Ligado: ao abrir um pedido para revisar, as rotas que ele vai formar (e o que cada motoboy recebe) aparecem antes de aprovar.", tipo: "booleano", padrao: true },
+  { chave: "aprender_regras_rota", grupo: "aprender", rotulo: "Repetir o que você sempre faz", descricao: "Ligado: se você põe as mesmas regras de pagamento nas rotas de um cliente várias vezes, as rotas novas dele já nascem com elas.", descricaoDesligado: "Desligado: só sugere na revisão; nada muda sozinho.", tipo: "booleano", padrao: false, escopos: ["tipo", "cliente"] },
+  { chave: "aprender_minimo", grupo: "aprender", rotulo: "Quantas vezes iguais para repetir", descricao: "Nas últimas rotas do cliente.", tipo: "numero", padrao: 3, unidade: "vezes", min: 1, max: 20, passo: 1, escopos: ["tipo", "cliente"] },
   { chave: "dev_origem", grupo: "pagamento", rotulo: "De onde sai a parte do Dev", descricao: "Como a parte do Dev entra na divisão da rota entre motoboy e gestor.", tipo: "escolha", padrao: "gestor", escopos: ["cliente"],
-    opcoes: [{ valor: "gestor", rotulo: "Da parte do gestor", dica: "R$ 100, motoboy 40%, Dev 5%: motoboy 40, gestor 55, Dev 5." },
-             { valor: "total", rotulo: "Antes de dividir", dica: "R$ 100: sai o Dev (5); dos 95, motoboy 38 e gestor 57." },
-             { valor: "proporcional", rotulo: "Das duas partes", dica: "Motoboy e gestor cedem cada um 5% da sua parte: 38, 57 e 5." }] },
+    opcoes: [{ valor: "gestor", rotulo: "Da parte do gestor", dica: "R$ 100, motoboy 65%, Dev 5%: motoboy 65, gestor 30, Dev 5 (o padrão)." },
+             { valor: "total", rotulo: "Antes de dividir", dica: "R$ 100: sai o Dev (5); dos 95, motoboy 61,75 e gestor 33,25." },
+             { valor: "proporcional", rotulo: "Das duas partes", dica: "Motoboy e gestor cedem cada um 5% da sua parte: 61,75, 33,25 e 5." }] },
   { chave: "pag_valor_km", grupo: "pag_km", rotulo: "Valor do km", descricao: "Multiplica o km da entrega de referência.", tipo: "numero", padrao: 2, unidade: "R$", min: 0, max: 50, passo: 0.1, escopos: ["tipo", "motoboy"] },
   { chave: "pag_entrega_extra", grupo: "pag_km", rotulo: "Por entrega a mais", descricao: "Somado para cada entrega além da primeira.", tipo: "numero", padrao: 10, unidade: "R$", min: 0, max: 500, passo: 0.5, escopos: ["tipo", "motoboy"] },
   { chave: "pag_coleta_extra", grupo: "pag_km", rotulo: "Por coleta a mais", descricao: "Somado para cada coleta além da primeira.", tipo: "numero", padrao: 0, unidade: "R$", min: 0, max: 500, passo: 0.5, escopos: ["tipo", "motoboy"] },
@@ -217,7 +244,7 @@ export const PARAMETROS: DefParametro[] = [
   { chave: "precisao_max_m", grupo: "local", rotulo: "Tolerância ao erro do GPS", descricao: "Quanto da imprecisão informada pelo celular é descontada da distância.", tipo: "numero", padrao: 80, unidade: "m", min: 0, max: 500, passo: 10 },
   { chave: "posicao_valida_s", grupo: "local", rotulo: "Validade da posição", descricao: "Se o app não mandar a posição na hora, usa a última se for mais recente que isso.", tipo: "numero", padrao: 180, unidade: "s", min: 30, max: 900 },
 
-  { chave: "repasse_motoboy_pct", grupo: "pagamento", rotulo: "Parte do motoboy na rota", descricao: "No modelo \u201cPercentual\u201d: ex. 40 = o motoboy leva 40% da rota e o gestor o resto (menos a parte do Dev, como escolhido acima). Ajustável por motoboy (Regras dele), por cliente e por corrida.", tipo: "numero", padrao: 67.5, unidade: "%", min: 0, max: 100, escopos: ["motoboy"] },
+  { chave: "repasse_motoboy_pct", grupo: "pagamento", rotulo: "Parte do motoboy na rota", descricao: "No modelo \u201cPercentual\u201d: ex. 65 = o motoboy leva 65% da rota e o gestor o resto (menos a parte do Dev, como escolhido acima). Ajustável por motoboy (Regras dele), por cliente e por corrida.", tipo: "numero", padrao: 65, unidade: "%", min: 0, max: 100, escopos: ["motoboy"] },
   { chave: "dev_pct", grupo: "pagamento", rotulo: "Parte do Dev", descricao: "Parte do valor de cada rota que vai para o Dev. De onde ela sai (gestor, antes de dividir ou das duas partes) fica em Pagamento do motoboy. Só o Dev altera.", tipo: "numero", padrao: 5, unidade: "%", min: 0, max: 100, passo: 0.5, escopos: ["cliente"], soDev: true },
   { chave: "valor_km_padrao", grupo: "preco", rotulo: "Valor do km (avulso)", descricao: "Usado para clientes avulsos e empresas sem valor próprio.", tipo: "numero", padrao: 2, unidade: "R$", min: 0, max: 100, passo: 0.1 },
   { chave: "valor_minimo", grupo: "preco", rotulo: "Valor mínimo", descricao: "Nenhum pedido ou corrida calculada fica abaixo disso. 0 = sem mínimo.", tipo: "numero", padrao: 0, unidade: "R$", min: 0, max: 1000, passo: 0.5, escopos: ["tipo", "cliente"] },
@@ -255,6 +282,11 @@ export const PARAMETROS: DefParametro[] = [
   { chave: "cliente_coleta_fixa", grupo: "cli_pode", rotulo: "Coleta sempre no endereço do cadastro", descricao: "Ligado: a primeira coleta é o endereço do cadastro e o cliente não troca.", descricaoDesligado: "Desligado: o cliente escolhe onde coletar.", tipo: "booleano", padrao: false, escopos: ["cliente"] },
   { chave: "cliente_pode_observacoes", grupo: "cli_pode", rotulo: "Cliente escreve observações", descricao: "Ligado: campo de observações no pedido.", tipo: "booleano", padrao: true, escopos: ["cliente"] },
   { chave: "cliente_pode_chat", grupo: "cli_pode", rotulo: "Cliente fala com você pelo chat", descricao: "Ligado: o cliente manda mensagem para os gestores pelo site.", tipo: "booleano", padrao: true, escopos: ["cliente"] },
+  { chave: "cliente_ve_rota", grupo: "cli_ve", rotulo: "O que o cliente vê da rota no mapa", descricao: "Marque o que aparece para o cliente acompanhar o pedido.", tipo: "multi", padrao: ["feito", "motoboy"], escopos: ["cliente"],
+    opcoes: [{ valor: "motoboy", rotulo: "Motoboy ao vivo", dica: "A posição do motoboy." }, { valor: "feito", rotulo: "Caminho feito", dica: "O traçado que o motoboy já percorreu." },
+             { valor: "restante", rotulo: "O que falta", dica: "A linha do motoboy até os endereços dele que faltam." },
+             { valor: "planejada", rotulo: "Rota planejada inteira", dica: "A rota completa do motoboy, com as outras paradas." },
+             { valor: "outras_paradas", rotulo: "Paradas de outros clientes", dica: "Pontos (sem endereço) das outras paradas da rota." }] },
   { chave: "cliente_ve_faturas", grupo: "cli_ve", rotulo: "Cliente vê a aba Faturas", descricao: "Ligado: faturas e pagamentos aparecem no site dele.", tipo: "booleano", padrao: true, escopos: ["cliente"] },
   // ---------------------------------------------------------------- preço: soma das entregas
   { chave: "preco_distancia_modo", grupo: "precocliente", rotulo: "Como a distância entra no preço", descricao: "", tipo: "escolha", padrao: "soma_entregas", escopos: ["tipo", "cliente"],
@@ -317,7 +349,19 @@ export const PARAMETROS: DefParametro[] = [
   { chave: "chat_apagar_min", grupo: "chat", rotulo: "Apagar a própria mensagem até", descricao: "Depois disso só o gestor apaga.", tipo: "numero", padrao: 30, unidade: "min", min: 0, max: 10080, passo: 5 },
 ];
 
-export type ValorParametro = number | boolean | string;
+export type ValorParametro = number | boolean | string | string[];
+
+/** Parâmetros que são um raio (mostram a barra com bolinha e o círculo no mapa). */
+export const ehRaio = (p: DefParametro) => p.tipo === "numero" && /raio/.test(p.chave) && (p.unidade === "m" || p.unidade === "km");
+/** Igual ao padrão? (listas comparam o conteúdo, sem ordem) */
+export function igualPadrao(p: DefParametro, v: ValorParametro | undefined): boolean {
+  if (v === undefined) return true;
+  if (Array.isArray(p.padrao) || Array.isArray(v)) {
+    const a = [...(Array.isArray(v) ? v : [])].sort().join("|"), b = [...(Array.isArray(p.padrao) ? p.padrao : [])].sort().join("|");
+    return a === b;
+  }
+  return String(v) === String(p.padrao);
+}
 export type Configuracoes = Record<string, ValorParametro>;
 
 export const PADROES: Configuracoes = Object.fromEntries(PARAMETROS.map((p) => [p.chave, p.padrao]));

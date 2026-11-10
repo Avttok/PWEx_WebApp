@@ -6,7 +6,11 @@ export type StatusParada = "pendente" | "a_caminho" | "chegou" | "concluida";
 
 /** Como o pagamento do motoboy foi calculado (privado.calcular_pagamento). */
 export interface CalculoPagamento {
-  modo: "rota" | "percentual"; regra?: string; percentil?: number | null; distancia?: string; distancias_km?: number[]; km_referencia?: number;
+  modo: "rota" | "percentual" | "por_entrega" | "fixo" | "combinado";
+  /** por entrega */ linhas?: { parada: string; ordem: number; km: number; valor: number }[]; fixo_entrega?: number;
+  /** fixo */ valor_rota_fixo?: number; por_entrega?: number; por_coleta?: number;
+  /** combinado */ combinar?: "soma" | "maior" | "menor" | "media"; partes?: (CalculoPagamento & { parte?: string })[]; acrescimo?: number; acrescimo_pct?: number;
+  regras_rota?: Record<string, unknown>; parte?: string; regra?: string; percentil?: number | null; distancia?: string; distancias_km?: number[]; km_referencia?: number;
   valor_km?: number; valor_km_total?: number; entregas?: number; entregas_extras?: number; valor_entrega_extra?: number;
   coletas?: number; coletas_extras?: number; valor_coleta_extra?: number; fixo?: number; minimo?: number; pct?: number; total: number;
   /** Teto: o que a rota paga menos a parte do Dev. `limitado` = o cálculo passou dele e foi cortado. */

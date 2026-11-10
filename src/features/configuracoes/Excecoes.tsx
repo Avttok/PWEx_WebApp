@@ -7,7 +7,7 @@ import { supabase } from "@/lib/supabase/client";
 import { useEmpresas, useEquipe } from "@/features/corridas/dados";
 import { useConta } from "@/features/conta/conta";
 import { toast } from "@/features/ui/toast";
-import { GRUPOS, PARAMETROS, ROTULO_ESCOPO, type Configuracoes, type Escopo, type ValorParametro } from "./definicoes";
+import { AREAS, GRUPOS, PARAMETROS, ROTULO_ESCOPO, type AreaParametro, type Configuracoes, type Escopo, type ValorParametro } from "./definicoes";
 import { Parametro } from "./PainelConfiguracoes";
 
 interface Politica { escopo: Escopo; alvo: string; chave: string; valor: ValorParametro }
@@ -18,13 +18,17 @@ const ICONE = { cliente: Building2, motoboy: Bike, tipo: Tags };
 export const fmtRegra = (v: ValorParametro, chave: string) => {
   const p = PARAMETROS.find((x) => x.chave === chave);
   if (typeof v === "boolean") return v ? "ligado" : "desligado";
+  if (Array.isArray(v)) return v.length ? v.map((x) => p?.opcoes?.find((o) => o.valor === x)?.rotulo ?? x).join(", ") : "nenhum";
   const op = p?.opcoes?.find((o) => o.valor === v);
   if (op) return op.rotulo;
   return `${p?.unidade === "R$" ? "R$ " : ""}${String(v).replace(".", ",")}${p?.unidade && p.unidade !== "R$" ? ` ${p.unidade}` : ""}`;
 };
 const fmt = fmtRegra;
 
-/** Lista de regras com o valor da exceção (ou o padrão), por grupo. Serve para cliente, motoboy, tipo e pedido. */
+/**
+ * Lista de regras com o valor da exceção (ou o padrão), organizada como os Ajustes: áreas, seções,
+ * busca e "só as exceções". Serve para cliente, motoboy, tipo e pedido.
+ */
 export function EditorRegras({ params, valores, cfg, estado, onDefinir, filtro }: {
   params: typeof PARAMETROS;
   valores: Record<string, ValorParametro>;
@@ -34,16 +38,53 @@ export function EditorRegras({ params, valores, cfg, estado, onDefinir, filtro }
   filtro?: string;
 }) {
   const conta = useConta();
-  const termo = (filtro ?? "").trim().toLowerCase();
-  const lista = termo ? params.filter((p) => `${p.rotulo} ${p.descricao}`.toLowerCase().includes(termo)) : params;
+  const [area, setArea] = useState<AreaParametro | "todas">("todas");
+  const [secao, setSecao] = useState<string | null>(null);
+  const [soExc, setSoExc] = useState(false);
+  const termo = sem((filtro ?? "").trim());
+  const areas = AREAS.filter((a) => params.some((p) => GRUPOS[p.grupo].area === a.chave));
+  const conta_ = (lista: typeof PARAMETROS) => lista.filter((p) => p.chave in valores).length;
+  let lista = params;
+  if (termo) lista = lista.filter((p) => sem(`${p.rotulo} ${p.descricao} ${GRUPOS[p.grupo].titulo}`).includes(termo));
+  else {
+    if (area !== "todas") lista = lista.filter((p) => GRUPOS[p.grupo].area === area);
+    if (secao) lista = lista.filter((p) => p.grupo === secao);
+  }
+  if (soExc) lista = lista.filter((p) => p.chave in valores);
+  const secoes = area === "todas" ? [] : (Object.keys(GRUPOS) as (keyof typeof GRUPOS)[]).filter((g) => GRUPOS[g].area === area && params.some((p) => p.grupo === g));
   return (
     <div className="config-lista">
-      {Object.keys(GRUPOS).map((g) => {
+      {!termo && (
+        <div className="regras-areas">
+          <button type="button" className={`chip${area === "todas" ? " ativo" : ""}`} onClick={() => { setArea("todas"); setSecao(null); }}>
+            Tudo{conta_(params) ? <span className="filtro-n">{conta_(params)}</span> : null}
+          </button>
+          {areas.map((a) => {
+            const n = conta_(params.filter((p) => GRUPOS[p.grupo].area === a.chave));
+            return (
+              <button key={a.chave} type="button" className={`chip${area === a.chave ? " ativo" : ""}`} onClick={() => { setArea(a.chave); setSecao(null); }} title={a.descricao}>
+                {a.titulo}{n ? <span className="filtro-n">{n}</span> : null}
+              </button>
+            );
+          })}
+        </div>
+      )}
+      {secoes.length > 1 && !termo && (
+        <div className="regras-secoes">
+          {secoes.map((g) => (
+            <button key={g} type="button" className={`chip mini${secao === g ? " ativo" : ""}`} onClick={() => setSecao(secao === g ? null : g)}>{GRUPOS[g].titulo}</button>
+          ))}
+        </div>
+      )}
+      <label className="config-so-mudados"><input type="checkbox" role="switch" checked={soExc} onChange={(e) => setSoExc(e.target.checked)} /> Só as exceções ({conta_(params)})</label>
+      {lista.length === 0 && <p className="dica">{soExc ? "Nenhuma exceção aqui: tudo usa o padrão." : "Nenhuma regra encontrada."}</p>}
+      {(Object.keys(GRUPOS) as (keyof typeof GRUPOS)[]).map((g) => {
         const doGrupo = lista.filter((p) => p.grupo === g);
         if (!doGrupo.length) return null;
         return (
           <section key={g} className="excecoes-grupo">
-            <h3 className="rotulo">{GRUPOS[g as keyof typeof GRUPOS].titulo}</h3>
+            <h3 className="rotulo">{(area === "todas" || termo) ? `${AREAS.find((a) => a.chave === GRUPOS[g].area)?.titulo} · ` : ""}{GRUPOS[g].titulo}</h3>
+            <p className="dica" style={{ margin: "0 0 6px" }}>{GRUPOS[g].descricao}</p>
             {doGrupo.map((p) => {
               const tem = p.chave in valores;
               const bloqueado = p.soDev && !conta.dev;
@@ -64,6 +105,8 @@ export function EditorRegras({ params, valores, cfg, estado, onDefinir, filtro }
     </div>
   );
 }
+
+const sem = (t: string) => t.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
 
 /** Peças do lego de um cliente ou motoboy, direto no perfil dele. */
 export function RegrasDoAlvo({ escopo, alvo, nome }: { escopo: Escopo; alvo: string; nome: string }) {

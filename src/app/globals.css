@@ -1061,7 +1061,7 @@ a.chip { text-decoration: none; }
 .pedido-detalhe, .pedido-form-corpo { display: flex; flex-direction: column; gap: 14px; width: 100%; max-width: 980px; }
 .pedido-mapa { height: 340px; border-radius: 20px; overflow: hidden; position: relative; }
 .pedido-mapa-p { height: 260px; border-radius: 16px; overflow: hidden; position: relative; border: 1px solid var(--borda); }
-.pedido-mapa > *, .pedido-mapa-p > * { position: absolute; inset: 0; }
+.pedido-mapa > *, .pedido-mapa-p > *, .rota-previa-mapa > * { position: absolute; inset: 0; }
 .pedido-pontos { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
 .pedido-pontos li { display: flex; gap: 10px; align-items: flex-start; }
 .pedido-pontos li.feita { opacity: 0.6; }
@@ -1392,3 +1392,79 @@ a.chat-cartao:hover { border-color: var(--ouro); }
 .pacote-detalhe { margin: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 6px 12px; padding: 8px 10px; border-radius: 10px; background: var(--vidro-sutil); border: 1px solid var(--borda); }
 .pacote-detalhe dt { font-size: 11px; color: var(--texto-3); }
 .pacote-detalhe dd { margin: 0; font-size: 13px; font-weight: 600; }
+/* raio com barra e bolinha + mapa do exemplo */
+.config-item-raio { flex-wrap: wrap; }
+.config-item-raio .campo-raio { flex-basis: 100%; }
+.campo-raio { display: flex; flex-direction: column; gap: 10px; width: 100%; }
+.campo-raio-linha { display: flex; align-items: center; gap: 12px; }
+.campo-raio-valor { min-width: 84px; text-align: right; font-variant-numeric: tabular-nums; }
+.barra-raio { -webkit-appearance: none; appearance: none; flex: 1; height: 8px; border-radius: 99px; outline: none; cursor: pointer;
+  background: linear-gradient(90deg, var(--ouro) 0 var(--pct, 0%), var(--vidro-forte, rgb(255 255 255 / 0.12)) var(--pct, 0%) 100%); }
+.barra-raio::-webkit-slider-thumb { -webkit-appearance: none; width: 24px; height: 24px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fff3c4, var(--ouro) 55%, #8a6a12);
+  border: 3px solid var(--fundo, #0a0a0a); box-shadow: 0 0 0 2px var(--ouro), 0 4px 10px rgb(0 0 0 / 0.4); }
+.barra-raio::-moz-range-thumb { width: 22px; height: 22px; border-radius: 50%; background: var(--ouro); border: 3px solid var(--fundo, #0a0a0a); box-shadow: 0 0 0 2px var(--ouro); }
+.barra-raio:focus-visible { box-shadow: 0 0 0 3px rgb(212 175 55 / 0.35); }
+.barra-raio:disabled { opacity: 0.5; cursor: not-allowed; }
+.campo-raio-mapa { display: flex; flex-direction: column; gap: 6px; }
+.campo-raio-mapa-caixa { position: relative; height: 220px; border-radius: 14px; overflow: hidden; border: 1px solid var(--borda); }
+.escolhas.multi button { display: inline-flex; align-items: center; gap: 5px; }
+.regras-areas, .regras-secoes { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 4px; }
+.chip.mini { padding: 4px 10px; font-size: 12px; }
+.config-so-mudados { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--texto-2); margin: 4px 0 8px; }
+.pag-parte summary { cursor: pointer; list-style: none; } .pag-parte[open] { padding: 6px 10px; border-radius: 12px; background: var(--vidro-sutil); }
+/* rotas do pedido (revisão) */
+.rotas-pedido { display: flex; flex-direction: column; gap: 12px; }
+.rotas-pedido-topo { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.rotas-sugestao { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border-radius: 14px; background: color-mix(in srgb, var(--ouro) 10%, transparent); border: 1px solid color-mix(in srgb, var(--ouro) 40%, transparent); font-size: 13.5px; }
+.rotas-sugestao svg { color: var(--ouro); flex: none; margin-top: 2px; }
+.rota-previa { display: flex; flex-direction: column; gap: 12px; padding: 14px; border-radius: 18px; border: 1px solid var(--borda); background: var(--vidro-sutil); }
+.rota-previa-cabeca { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.rota-previa-grade { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 12px; }
+.rota-previa-mapa { position: relative; height: 260px; border-radius: 14px; overflow: hidden; }
+.rota-previa-paradas { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; max-height: 260px; overflow: auto; }
+.rota-previa-paradas li { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 12px; background: var(--vidro); }
+.rota-previa-paradas li.outro { opacity: 0.7; border: 1px dashed var(--borda); }
+.rota-previa-end { flex: 1; min-width: 0; font-size: 13px; }
+.rota-previa-end small { color: var(--texto-3); }
+.rota-previa-acoes { display: flex; gap: 4px; align-items: center; }
+.rota-previa-acoes select { max-width: 130px; padding: 4px 6px; font-size: 12px; }
+.rota-previa-dinheiro { display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr); gap: 12px; }
+.rota-previa-valor, .rota-previa-pag { display: flex; flex-direction: column; gap: 6px; padding: 12px; border-radius: 14px; background: var(--vidro); }
+.rota-previa-regras { display: flex; flex-direction: column; gap: 8px; }
+@media (max-width: 860px) { .rota-previa-grade, .rota-previa-dinheiro { grid-template-columns: 1fr; } }
+/* Dev: módulos, tarefas, aparelhos */
+.modulos-dev, .tarefas-dev, .aparelhos-dev { display: flex; flex-direction: column; gap: 12px; }
+.modulos-explica { padding: 12px 14px; border-radius: 14px; background: var(--vidro-sutil); border: 1px solid var(--borda); font-size: 13.5px; line-height: 1.5; }
+.modulos-barra { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.modulos-grupo { display: flex; flex-direction: column; gap: 8px; }
+.modulo-cartao { display: flex; gap: 14px; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; padding: 12px 14px; border-radius: 16px; border: 1px solid var(--borda); background: var(--vidro-sutil); }
+.modulo-cartao.off { opacity: 0.72; }
+.modulo-cartao.alguns { border-color: color-mix(in srgb, var(--ouro) 45%, transparent); }
+.modulo-texto { display: flex; flex-direction: column; gap: 3px; flex: 1 1 260px; min-width: 0; }
+.modulo-status { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; color: var(--verde); }
+.modulo-status.off { color: var(--texto-3); }
+.modulo-status.alguns { color: var(--ouro); }
+.modulo-controles { display: flex; flex-direction: column; gap: 8px; flex: 0 1 320px; }
+.modulo-papeis { display: flex; gap: 6px; flex-wrap: wrap; }
+.modulo-papeis input { display: none; }
+.modulo-papeis .chip { cursor: pointer; }
+.tarefa { border: 1px solid var(--borda); border-radius: 16px; background: var(--vidro-sutil); }
+.tarefa.parada { opacity: 0.75; }
+.tarefa-topo { display: flex; align-items: center; gap: 12px; padding: 12px 14px; }
+.tarefa-topo > svg { color: var(--ouro); flex: none; }
+.tarefa-texto { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; font-size: 13.5px; }
+.tarefa-corpo { display: flex; flex-direction: column; gap: 10px; padding: 0 14px 14px; }
+.tarefa-cmd { white-space: pre-wrap; font-size: 12px; background: var(--vidro); padding: 10px; border-radius: 10px; max-height: 200px; overflow: auto; }
+.aparelho { border: 1px solid var(--borda); border-radius: 16px; background: var(--vidro-sutil); overflow: hidden; }
+.aparelho-topo { display: flex; align-items: center; gap: 10px; width: 100%; padding: 12px 14px; background: none; border: 0; color: inherit; text-align: left; cursor: pointer; }
+.aparelho-topo > svg:first-child { color: var(--ouro); flex: none; }
+.aparelho-texto { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+.aparelho-resumo { display: flex; flex-wrap: wrap; gap: 6px 14px; padding: 0 14px 12px; font-size: 12.5px; color: var(--texto-2); }
+.aparelho-resumo span { display: inline-flex; align-items: center; gap: 4px; }
+.aparelho-detalhe { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px 16px; margin: 0; padding: 12px 14px 14px; border-top: 1px solid var(--borda); }
+.aparelho-detalhe .largo { grid-column: 1 / -1; }
+.aparelho-detalhe dt { font-size: 11.5px; color: var(--texto-3); }
+.aparelho-detalhe dd { margin: 0; font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; }
+.chat-selos { display: inline-flex; gap: 4px; margin-left: 6px; vertical-align: middle; }
+.chat-selo { font-size: 10px; font-weight: 800; letter-spacing: 0.02em; padding: 1px 6px; border-radius: 99px; line-height: 1.5; border: 1px solid currentColor; }
+.chat-selo.dev { color: #ef4444; } .chat-selo.gestor { color: var(--ouro); } .chat-selo.motoboy { color: #22c55e; } .chat-selo.cliente { color: #38bdf8; }

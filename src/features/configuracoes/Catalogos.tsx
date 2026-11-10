@@ -114,7 +114,7 @@ export function CatalogoZonas({ clienteId }: { clienteId?: string } = {}) {
               <div className="linha-icone"><SeletorIcone valor={ed.icone} onMudar={(v) => setEd({ ...ed, icone: v })} padrao={CircleDot} />
                 <label className="campo" style={{ flex: 1 }}><span>Nome</span><input value={ed.nome} onChange={(e) => setEd({ ...ed, nome: e.target.value })} /></label></div>
               <label className="campo"><span>Raio: {(ed.raio_m / 1000).toLocaleString("pt-BR")} km</span>
-                <input type="range" min={100} max={30000} step={100} value={ed.raio_m} onChange={(e) => setEd({ ...ed, raio_m: Number(e.target.value) })} /></label>
+                <input type="range" className="barra-raio" style={{ ["--pct" as string]: `${((ed.raio_m - 100) / 29900) * 100}%` }} min={100} max={30000} step={100} value={ed.raio_m} onChange={(e) => setEd({ ...ed, raio_m: Number(e.target.value) })} /></label>
               <div className="grade-campos">
                 <label className="campo"><span>Acréscimo %</span><input inputMode="decimal" value={tx(ed.fator_pct)} onChange={(e) => setEd({ ...ed, fator_pct: num(e.target.value) })} /></label>
                 <label className="campo"><span>Taxa fixa R$</span><input inputMode="decimal" value={tx(ed.adicional)} onChange={(e) => setEd({ ...ed, adicional: num(e.target.value) })} /></label>

@@ -28,8 +28,54 @@ export function ContaMotoboy({ calc }: { calc: CalculoPagamento }) {
   const teto = calc.limitado && calc.teto != null && (
     <p className="dica" style={{ margin: 0, color: "var(--ouro)" }}>Limitado a {moeda(calc.teto)}: o motoboy nunca leva mais que a rota paga (valor da rota menos a parte do Dev).</p>
   );
+  const regrasRota = calc.regras_rota && Object.keys(calc.regras_rota).length > 0 && (
+    <p className="dica" style={{ margin: 0, color: "var(--ouro)" }}>Esta rota tem regras de pagamento próprias ({Object.keys(calc.regras_rota).length}).</p>
+  );
+  if (calc.modo === "combinado") {
+    const nome: Record<string, string> = { zonas: "Zonas", rota: "Por km", percentual: "Percentual", por_entrega: "Por entrega", fixo: "Fixo" };
+    const comb: Record<string, string> = { soma: "somados", maior: "vale o maior", menor: "vale o menor", media: "a média" };
+    return (
+      <div className="orcamento">
+        {regrasRota}
+        <p className="dica" style={{ margin: 0 }}>{calc.partes?.length} cálculos juntos · {comb[calc.combinar ?? "soma"]}</p>
+        {calc.partes?.map((x, i) => (
+          <details key={i} className="pag-parte">
+            <summary className="orcamento-linha"><span>{nome[x.parte ?? x.modo] ?? x.modo}</span><strong>{moeda(x.calculado ?? x.total)}</strong></summary>
+            <ContaMotoboy calc={x} />
+          </details>
+        ))}
+        {Number(calc.acrescimo_pct) !== 0 && <div className="orcamento-linha pct"><span>Acréscimo</span><strong>{calc.acrescimo_pct}%</strong></div>}
+        {Number(calc.acrescimo) !== 0 && <div className="orcamento-linha"><span>Valor somado no fim</span><strong>{moeda(calc.acrescimo)}</strong></div>}
+        {calc.limitado && calc.calculado != null && <div className="orcamento-linha"><span>Pelo cálculo</span><strong>{moeda(calc.calculado)}</strong></div>}
+        <div className="orcamento-linha total"><span>{calc.limitado ? "Fica (teto da rota)" : "O motoboy recebe"}</span><strong>{moeda(calc.total)}</strong></div>
+        {teto}
+      </div>
+    );
+  }
+  if (calc.modo === "por_entrega") return (
+    <div className="orcamento">
+      {regrasRota}
+      {(calc.linhas ?? []).map((l) => (
+        <div key={l.parada} className="orcamento-linha"><span>Entrega {l.ordem + 1}<small>{l.km.toLocaleString("pt-BR")} km × {moeda(calc.valor_km)}{Number(calc.fixo_entrega) > 0 ? ` + ${moeda(calc.fixo_entrega)}` : ""}</small></span><strong>{moeda(l.valor)}</strong></div>
+      ))}
+      {Number(calc.minimo) > 0 && <div className="orcamento-linha pct"><span>Mínimo</span><strong>{moeda(calc.minimo)}</strong></div>}
+      <div className="orcamento-linha total"><span>{calc.limitado ? "Fica (teto da rota)" : "Calculado"}</span><strong>{moeda(calc.total)}</strong></div>
+      {teto}
+    </div>
+  );
+  if (calc.modo === "fixo") return (
+    <div className="orcamento">
+      {regrasRota}
+      {Number(calc.valor_rota_fixo) > 0 && <div className="orcamento-linha"><span>Por rota</span><strong>{moeda(calc.valor_rota_fixo)}</strong></div>}
+      {Number(calc.por_entrega) > 0 && <div className="orcamento-linha"><span>Por entrega</span><strong>{calc.entregas} × {moeda(calc.por_entrega)}</strong></div>}
+      {Number(calc.por_coleta) > 0 && <div className="orcamento-linha"><span>Por coleta</span><strong>{calc.coletas} × {moeda(calc.por_coleta)}</strong></div>}
+      <div className="orcamento-linha total"><span>{calc.limitado ? "Fica (teto da rota)" : "Calculado"}</span><strong>{moeda(calc.total)}</strong></div>
+      {teto}
+    </div>
+  );
   if (calc.modo === "percentual") return (
     <>
+      {regrasRota}
       {zona}
       <p className="dica" style={{ margin: 0 }}>Percentual: {calc.pct}% do valor da rota{calc.dev_origem ? ` (${ORIGEM_DEV[calc.dev_origem]})` : ""} = <strong>{moeda(calc.total)}</strong></p>
       {teto}

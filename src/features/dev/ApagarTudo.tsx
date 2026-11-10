@@ -62,6 +62,7 @@ export function ApagarTudo() {
     <section className="apagar-tudo">
       {!cat ? (
         <>
+          <ZerarPedidos />
           <p className="dica" style={{ margin: 0 }}>Escolha uma categoria para ver e apagar registro por registro, ou apague a categoria inteira. Nada disso dá para desfazer.</p>
           <div className="apagar-grade">
             {(cats ?? []).map((c) => (
@@ -129,6 +130,37 @@ export function ApagarTudo() {
           </div>
         </div>
       )}
+    </section>
+  );
+}
+
+/** Zera os pedidos (teste, reais ou ambos): a numeração volta ao 1. */
+function ZerarPedidos() {
+  const [alvo, setAlvo] = useState<"teste" | "reais" | "ambos">("teste");
+  const [conf, setConf] = useState("");
+  const [rodando, setRodando] = useState(false);
+  const rot = { teste: "Só teste", reais: "Só reais", ambos: "Ambos" } as const;
+  async function zerar() {
+    if (conf !== "ZERAR") return toast("Digite ZERAR para confirmar.", "aviso");
+    setRodando(true);
+    const { data, error } = await supabase().rpc("resetar_pedidos", { p_alvo: alvo, p_confirmar: "ZERAR" });
+    setRodando(false);
+    if (error) return toast(error.message.includes("resetar_pedidos") ? "Rode a migração 20261110000005_reset_pedidos.sql." : error.message, "erro");
+    const r = data as { pedidos: number; rotas: number; faturas: number };
+    setConf("");
+    toast(`${r.pedidos} pedidos, ${r.rotas} rotas e ${r.faturas} faturas apagados. O próximo pedido é o nº 1.`, "ok", { titulo: "Pedidos zerados" });
+  }
+  return (
+    <section className="bloco zerar-pedidos">
+      <span className="rotulo">Zerar pedidos</span>
+      <p className="dica">Apaga os pedidos escolhidos, as rotas deles e as faturas que ficarem vazias. A numeração volta ao 1. As rotas apagadas ficam copiadas no registro de exclusões. Não dá para desfazer.</p>
+      <div className="abas-mini">
+        {(Object.keys(rot) as (keyof typeof rot)[]).map((k) => <button key={k} className={alvo === k ? "ativo" : ""} onClick={() => setAlvo(k)}>{rot[k]}</button>)}
+      </div>
+      <div className="linha-botoes">
+        <input placeholder="Digite ZERAR para confirmar" value={conf} onChange={(e) => setConf(e.target.value.toUpperCase())} />
+        <button className="botao-perigo" disabled={rodando || conf !== "ZERAR"} onClick={zerar}>{rodando ? "Zerando…" : `Zerar ${rot[alvo].toLowerCase()}`}</button>
+      </div>
     </section>
   );
 }
